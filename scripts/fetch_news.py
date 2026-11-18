@@ -3,7 +3,7 @@
 Only headlines, links, times, sources and thumbnail URLs are kept, which is what RSS feeds are published for.
 """
 import json, re, sys, time, html
-import urllib.request
+import urllib.request, urllib.parse
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
@@ -166,6 +166,53 @@ def markets():
     return out
 
 
+# ---------- Podcasts: Apple's public top chart + each show's own RSS feed ----------
+PODCAST_CHARTS = [("Top Shows", "https://rss.applemarketingtools.com/api/v2/us/podcasts/top/30/podcasts.json")]
+PODCAST_SEARCHES = [("Music & DJ", "dj mix"), ("Hip Hop", "hip hop podcast")]
+
+
+def podcast_episodes(feed_url, show, art):
+    root = ET.fromstring(fetch(feed_url))
+    eps = []
+    for it in root.findall(".//item")[:3]:
+        enc = it.find("enclosure")
+        if enc is None or not (enc.get("url") or "").startswith("http"):
+            continue
+        eps.append({"title": clean(it.findtext("title"))[:160], "audio": enc.get("url"), "ts": when(it.findtext("pubDate")),
+                    "show": show, "art": art, "blurb": clean(it.findtext("description"))[:240]})
+    return eps
+
+
+def podcasts():
+    shows = []   # (section, name, art, itunes id or feed url)
+    for section, url in PODCAST_CHARTS:
+        try:
+            for r in json.loads(fetch(url))["feed"]["results"]:
+                shows.append((section, r["name"], r.get("artworkUrl100"), r["id"], None))
+        except Exception as e:
+            print("podcast chart error", type(e).__name__)
+    for section, term in PODCAST_SEARCHES:
+        try:
+            q = urllib.parse.quote(term)
+            for r in json.loads(fetch(f"https://itunes.apple.com/search?media=podcast&limit=8&term={q}"))["results"]:
+                shows.append((section, r["collectionName"], r.get("artworkUrl100"), None, r.get("feedUrl")))
+        except Exception as e:
+            print("podcast search error", type(e).__name__)
+    out = {}
+    for section, name, art, pid, feed in shows:
+        try:
+            if not feed and pid:
+                feed = json.loads(fetch(f"https://itunes.apple.com/lookup?id={pid}"))["results"][0].get("feedUrl")
+            if not feed:
+                continue
+            eps = podcast_episodes(feed, name, art)
+            if eps:
+                out.setdefault(section, []).append({"show": name, "art": art, "episodes": eps})
+        except Exception:
+            continue
+    return out
+
+
 def main():
     now = time.time() * 1000
     result = {"updated": int(now), "sources": {}}
@@ -191,6 +238,7 @@ def main():
         result[cat] = stories[:40]
     result["sports"] = espn_sports()
     result["markets"] = markets()
+    result["podcasts"] = podcasts()
     for k, v in sorted(result["sources"].items()):
         print(f"{k:28} {v}")
     with open(sys.argv[1] if len(sys.argv) > 1 else "news.json", "w") as f:
