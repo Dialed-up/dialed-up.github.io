@@ -547,7 +547,7 @@ body.dim .start { background: linear-gradient(180deg, #6fd06a, #2f9a2a); color: 
 body.dim .start img { background: #fff; border-radius: 50%; padding: 1px; }
 body.dim #clock { color: #fff; font-weight: bold; white-space: nowrap; }
 .switch-tab { white-space: nowrap; }
-body.dim #signon { background: center bottom / cover no-repeat url(../img/dim-backdrop.jpg), #3d8fe6; }
+body.dim #signon { background: center bottom / cover no-repeat url(../img/dim-backdrop-2.jpg), #3d8fe6; }
 .dim-logo { display: flex; align-items: center; gap: 10px; justify-content: center; }
 .dim-logo img { width: 64px; }
 .dim-logo b { display: block; font: italic 900 38px/1 "Trebuchet MS", Verdana, sans-serif; color: #1e5fc8; letter-spacing: -1px; }

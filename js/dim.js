@@ -22,7 +22,7 @@ document.addEventListener("touchend", (e) => {
 }, { passive: false });
 
 // ---------- Backdrop ----------
-const BACKDROP = "img/dim-backdrop.jpg";
+const BACKDROP = "img/dim-backdrop-2.jpg";
 function applyBackdrop() {
   let mine = null;
   try { mine = localStorage.getItem("dim.backdrop"); } catch {}
