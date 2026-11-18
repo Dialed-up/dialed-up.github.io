@@ -830,3 +830,13 @@ ol.lb li.me { background: #fff6c8; font-weight: bold; }
 @media (max-width: 420px) { .dim-logo b { font-size: 25px; } .dim-logo img { width: 60px; } }
 .story-bubble.mine .bicon { outline: 3px solid transparent; box-shadow: 0 0 0 2px #fff, 0 0 0 5px #ff5ec4, 0 0 0 7px #8a4dff; }
 .my-story .bicon { border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #ff5ec4, 0 0 0 6px #8a4dff; cursor: pointer; }
+
+/* Rows inside windows wrap onto extra lines instead of hiding buttons off the edge */
+.ptabs, .mb-tabs, .emoji-tabs { flex-wrap: wrap; overflow-x: visible; }
+.ptabs button { border-radius: 8px; }
+.fmt { flex-wrap: wrap !important; overflow-x: visible !important; }
+/* Rows that stay on one line get a thin scroll bar on computers (phones swipe) */
+@media (pointer: fine) {
+  #toolbar, #menus, #taskbar-windows, .stories-bar { scrollbar-width: thin !important; }
+  #toolbar::-webkit-scrollbar, #menus::-webkit-scrollbar, #taskbar-windows::-webkit-scrollbar, .stories-bar::-webkit-scrollbar { height: 6px; display: block; }
+}
