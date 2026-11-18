@@ -45,6 +45,7 @@ export function openGame() {
           alive = false; clearInterval(timer);
           const b = Math.max(score, Number(localStorage.getItem("du.snake.best") || 0));
           localStorage.setItem("du.snake.best", b); body.querySelector("#bs").textContent = b;
+          import("./engage.js").then((m) => m.submitScore("snake", score));
           return draw();
         }
         snake.unshift(head);

@@ -113,6 +113,7 @@ export function renderProfile(el, u, uid, { viewer, openDirectory } = {}) {
     ${rows ? `<div class="panel"><h3>📋 Member Info</h3><table class="member-info">${rows}</table></div>` : ""}
     ${interests.length ? `<div class="panel"><h3>❤️ Interests</h3><div class="chips">${interests.map((i) => `<button class="chip" data-int="${esc(i)}">${esc(i)}</button>`).join("")}</div>
       <p class="small muted" style="margin:4px 0 0">Tap an interest to find other members who like it.</p></div>` : ""}
+    <div class="profile-badges"></div>
     <div class="profile-pics"></div>
     <div class="profile-top8"></div>
     <div class="profile-wall"></div>
@@ -120,6 +121,10 @@ export function renderProfile(el, u, uid, { viewer, openDirectory } = {}) {
   if (!String(uid).endsWith("__preview")) import("./social.js").then((m) => {
     m.renderTop8(el.querySelector(".profile-top8"), uid, u.top8);
     m.renderWall(el.querySelector(".profile-wall"), uid);
+  });
+  if (!String(uid).endsWith("__preview") && (u.badges || u.streak?.n > 1)) import("./engage.js").then((m) => {
+    const st = u.streak && u.streak.n > 1 && Date.now() - new Date(u.streak.last + "T23:59:59").getTime() < 86400000 * 2 ? u.streak.n : 0;
+    el.querySelector(".profile-badges").innerHTML = `<div class="panel"><h3>🏅 Badges</h3>${st ? `<p class="small" style="margin:0 0 4px">🔥 <b>${st}-day</b> sign-on streak</p>` : ""}${m.badgesHTML(u.badges)}</div>`;
   });
   {
     const realUid = String(uid).replace(/__preview$/, "");

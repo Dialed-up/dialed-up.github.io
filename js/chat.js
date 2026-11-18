@@ -118,6 +118,10 @@ export async function startChat() {
     [...watches.keys()].forEach((u) => { if (!storyWatched.has(u)) { storyWatched.add(u); m.watchStories(u, refreshBuddyList); } });
     document.addEventListener("du:stories", refreshBuddyList);
   });
+  import("./engage.js").then((m) => {
+    m.onSignOn();
+    if (sessionStorage.getItem("du.justSignedUp")) { sessionStorage.removeItem("du.justSignedUp"); m.handleInviteAfterSignup(addBuddyByUid); }
+  });
   setTimeout(() => { state.loadedUsers = true; }, 4000);
   listen(".info/connected", (v) => {
     const was = state.connected;
@@ -670,6 +674,13 @@ function newGroup() {
   saveGroups();
 }
 
+/** Adds someone to your first buddy group (used by invite links). */
+export async function addBuddyByUid(u) {
+  if (!u || u === state.uid || buddyList().includes(u)) return;
+  (state.groups[0] || state.groups.find(() => true))?.members.push(u);
+  await saveGroups();
+}
+
 export function openAddBuddy(prefill = "") {
   openWindow("addbuddy", {
     title: "Add a Buddy", icon: "➕", width: 300, height: 300,
@@ -961,6 +972,7 @@ async function sendIM(uid, text, style, { auto = false, file = null, media = nul
   await set(ref(db, `inbox/${state.uid}/${conv}`), { with: uid, from: state.uid, ts: serverTimestamp(), preview }).catch(() => {});
   if (delivered && !auto && uid !== "__bot") import("./notify.js").then((m) => m.pushTo(uid, "im"));
   if (!auto) import("./stats-track.js").then((m) => m.trackIM());
+  if (!auto && uid !== "__bot") import("./engage.js").then((m) => m.countUp("ims"));
   remove(ref(db, `typing/${conv}/${state.uid}`)).catch(() => {});
 }
 

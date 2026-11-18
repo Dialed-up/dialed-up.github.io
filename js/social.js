@@ -52,12 +52,12 @@ export function report(what, path, owner, preview) {
 }
 
 /** One post card (live likes & comments). Returns a cleanup function. */
-function postCard(el, owner, pid, p) {
+function postCard(el, owner, pid, p, label = null) {
   const refs = [];
-  const mine = p.by === uid(), myWall = owner === uid();
+  const mine = p.by === uid(), myWall = owner === uid() || (owner.startsWith("g_") && groupOwner[owner] === uid());
   el.className = "post";
   el.innerHTML = `<div class="post-head">${iconHTML(p.by, 34)}<div><b class="post-who" data-u="${p.by}">${esc(p.n || userName(p.by))}</b>
-      ${p.by !== owner ? `<span class="small muted"> ▸ ${esc(userName(owner))}'s Wall</span>` : ""}<br><span class="small muted">${p.ts ? ago(p.ts) : ""}</span></div>
+      ${p.by !== owner && !label ? `<span class="small muted"> ▸ ${esc(userName(owner))}'s Wall</span>` : ""}<br><span class="small muted">${p.ts ? ago(p.ts) : ""}</span></div>
       <button class="post-more" title="More">⋯</button></div>
     ${p.text ? `<div class="post-text">${linkify(p.text)}</div>` : ""}
     ${p.img ? `<div class="post-img"><span class="small muted">📷 Loading photo…</span></div>` : ""}
@@ -124,11 +124,11 @@ function postCard(el, owner, pid, p) {
 }
 
 /** A composer box: post to your own Wall or (as a buddy) on someone else's. */
-function composer(owner, onDone) {
+function composer(owner, onDone, label = null) {
   const box = document.createElement("form");
   box.className = "composer";
   const self = owner === uid();
-  box.innerHTML = `<textarea placeholder="${self ? "What's on your mind?" : `Write something on ${esc(userName(owner))}'s Wall…`}" maxlength="1000" rows="2"></textarea>
+  box.innerHTML = `<textarea placeholder="${self ? "What's on your mind?" : label ? `Post to ${esc(label)}…` : `Write something on ${esc(userName(owner))}'s Wall…`}" maxlength="1000" rows="2"></textarea>
     <div class="row"><span><label class="btn small-btn" style="margin:0;font-weight:normal">📷 Photo<input type="file" accept="image/*" hidden></label>
       <button type="button" class="btn small-btn" data-emo>😀</button> <span class="small muted pf-name"></span></span>
       <button class="btn primary small-btn">Post</button></div>`;
@@ -142,16 +142,18 @@ function composer(owner, onDone) {
     const btn = box.querySelector(".btn.primary");
     btn.disabled = true; btn.textContent = "Posting…";
     try { await createPost(owner, ta.value.trim(), file); ta.value = ""; file = null; box.querySelector(".pf-name").textContent = ""; onDone?.(); }
-    catch { alert(self ? "Couldn't post right now." : `Couldn't post on ${userName(owner)}'s Wall. Only people they've added as a buddy can write there.`); }
+    catch { alert(self || label ? "Couldn't post right now." : `Couldn't post on ${userName(owner)}'s Wall. Only people they've added as a buddy can write there.`); }
     btn.disabled = false; btn.textContent = "Post";
   };
   return box;
 }
 
 /** Renders a person's Wall (their posts + buddies' notes) into el. */
-export function renderWall(el, owner) {
+const groupOwner = {};
+export function renderWall(el, owner, { label = null, groupOwnerUid = null } = {}) {
+  if (groupOwnerUid) groupOwner[owner] = groupOwnerUid;
   el.innerHTML = `<div class="panel wall"><h3>📝 Wall</h3><div class="wall-compose"></div><div class="wall-posts"><p class="small muted">Loading posts…</p></div></div>`;
-  el.querySelector(".wall-compose").appendChild(composer(owner));
+  el.querySelector(".wall-compose").appendChild(composer(owner, null, label));
   const list = el.querySelector(".wall-posts");
   const cleanups = new Map();
   const r = query(ref(db, `posts/${owner}`), orderByKey(), limitToLast(30));
@@ -165,8 +167,8 @@ export function renderWall(el, owner) {
     const keep = new Set(posts.map(([k]) => k));
     for (const [k, fn] of cleanups) if (!keep.has(k)) { fn(); cleanups.delete(k); }
     list.innerHTML = "";
-    posts.forEach(([pid, p]) => { const d = document.createElement("div"); list.appendChild(d); cleanups.get(pid)?.(); cleanups.set(pid, postCard(d, owner, pid, p)); });
-  }, () => (list.innerHTML = `<p class="small muted">🔒 Their Wall is only for their buddies.</p>`));
+    posts.forEach(([pid, p]) => { const d = document.createElement("div"); list.appendChild(d); cleanups.get(pid)?.(); cleanups.set(pid, postCard(d, owner, pid, p, label)); });
+  }, () => (list.innerHTML = label ? `<p class="small muted">🔒 Join the group to see its Wall.</p>` : `<p class="small muted">🔒 Their Wall is only for their buddies.</p>`));
   return () => { off(r); cleanups.forEach((fn) => fn()); };
 }
 

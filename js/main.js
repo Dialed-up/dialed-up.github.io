@@ -69,6 +69,8 @@ $("mute").checked = sfx.isMuted();
 $("mute").onchange = (e) => sfx.setMuted(e.target.checked);
 
 $("new-user").onclick = () => { $("signon-form").hidden = true; $("signup-form").hidden = false; $("su-sn").focus(); };
+// Came from a friend's invite link: show "Get a Screen Name" right away
+if (/[?&]invite=/.test(location.search)) setTimeout(() => { if ($("signup-form").hidden && !$("signon-form").hidden) $("new-user").click(); }, 0);
 $("back-signon").onclick = () => { $("signup-form").hidden = true; $("signon-form").hidden = false; };
 
 /** Plays the dial-up show while `work` runs; resolves when both are done. */
@@ -114,6 +116,7 @@ $("signup-form").onsubmit = async (e) => {
   if ($("su-pw").value !== $("su-pw2").value) { $("signup-error").textContent = "The passwords don't match."; return; }
   try {
     await dialUpWhile(() => signUp($("su-sn").value, $("su-pw").value));
+    sessionStorage.setItem("du.justSignedUp", "1");
     enterDesktop("signup");
   } catch (err) {
     $("signup-form").hidden = false;

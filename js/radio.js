@@ -36,7 +36,7 @@ function paintNow(el) {
   el.querySelector("[data-r=vol]")?.addEventListener("input", (e) => (audio.volume = Number(e.target.value)));
 }
 
-function play(st) {
+export function play(st) {
   audio.src = st.url;
   audio.play().catch(() => alert("That station isn't answering right now — try another one."));
   setNowPlaying(st);

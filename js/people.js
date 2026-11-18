@@ -129,6 +129,7 @@ export async function openRoom(displayName, category = "") {
       body.innerHTML = `<div class="room">
         <div class="room-main">
           <div class="small room-topic"><b>Topic:</b> <span id="topic">—</span> <a href="#" id="set-topic" class="small">change</a></div>
+          <div class="party-bar" hidden></div>
           <div class="transcript"></div>
           <div class="compose"><textarea placeholder="Say something to the room…"></textarea><button class="btn primary">Send</button></div>
         </div>
@@ -136,6 +137,7 @@ export async function openRoom(displayName, category = "") {
           <div class="small"><b id="count">0</b> in room</div>
           <ul class="list" id="people"></ul>
           <button class="btn small-btn" id="invite">Invite a Buddy</button>
+          <button class="btn small-btn" id="party">🎉 Party</button>
         </aside></div>`;
       const tx = body.querySelector(".transcript");
       const ta = body.querySelector("textarea");
@@ -228,16 +230,94 @@ export async function openRoom(displayName, category = "") {
       };
 
       body.querySelector("#invite").onclick = () => inviteBuddy(displayName);
+      refs.push(roomParty(body, key, say, () => mod));
       const send = () => {
         const t = ta.value.trim();
         if (!t) return;
         ta.value = "";
-        say(t).catch(() => alert("Couldn't send to the room."));
+        say(t).then(() => import("./engage.js").then((m) => m.countUp("room"))).catch(() => alert("Couldn't send to the room."));
       };
       body.querySelector(".compose .btn").onclick = send;
       ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
     },
   });
+}
+
+// ---------- Listening Parties & Watch Parties ----------
+const PARTY = { listen: ["🎧", "Listening Party"], watch: ["🎬", "Watch Party"] };
+function roomParty(body, key, say, getMod) {
+  const uid = auth.currentUser.uid;
+  const bar = body.querySelector(".party-bar");
+  const pr = ref(db, `rooms/${key}/party`);
+  let party = null, tunedIn = null;
+  const tuneOut = () => {
+    if (tunedIn === "radio") import("./radio.js").then((r) => r.stop());
+    bar.querySelector(".party-player")?.remove();
+    tunedIn = null;
+  };
+  const tuneIn = async () => {
+    if (!party) return;
+    if (party.station) { (await import("./radio.js")).play(party.station); tunedIn = "radio"; draw(); return; }
+    const { embedFor } = await import("./browser.js");
+    let src = embedFor(party.url);
+    if (!src) { window.open(party.url, "_blank", "noopener"); return; }
+    // Everyone watches the same moment: start YouTube where the host is now
+    if (/youtube-nocookie/.test(src)) src += `&start=${Math.max(0, Math.floor((Date.now() - party.at) / 1000))}`;
+    tunedIn = "embed"; draw();
+    bar.insertAdjacentHTML("beforeend", `<div class="party-player ${party.kind}"><iframe src="${esc(src)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`);
+  };
+  const draw = () => {
+    bar.hidden = !party;
+    if (!party) { bar.innerHTML = ""; return; }
+    const [emo, label] = PARTY[party.kind] || PARTY.listen;
+    const canEnd = party.host === uid || getMod() === uid;
+    const player = bar.querySelector(".party-player");
+    bar.innerHTML = `<div class="party-head"><span>${emo} <b>${label}</b> · ${esc(party.title || "")}<br><span class="small">Hosted by ${esc(party.hostName || "…")}</span></span>
+      <span>${tunedIn ? `<button class="btn small-btn" data-pt="out">🔇 Tune Out</button>` : `<button class="btn primary small-btn" data-pt="in">▶ Tune In</button>`}
+      ${canEnd ? `<button class="btn small-btn" data-pt="end">End</button>` : ""}</span></div>`;
+    if (player) bar.appendChild(player);
+    bar.querySelector("[data-pt=in]")?.addEventListener("click", tuneIn);
+    bar.querySelector("[data-pt=out]")?.addEventListener("click", () => { tuneOut(); draw(); });
+    bar.querySelector("[data-pt=end]")?.addEventListener("click", () => {
+      remove(pr).then(() => say(`🎉 ${me().screenName} ended the ${label}.`, "enter")).catch(() => alert("Couldn't end the party."));
+    });
+  };
+  onValue(pr, (s) => {
+    const was = party;
+    party = s.val();
+    if (!party || (was && (was.url !== party.url || was.station?.url !== party.station?.url))) tuneOut();
+    draw();
+  }, () => {});
+  body.querySelector("#party").onclick = (e) => {
+    if (party && party.host !== uid && getMod() !== uid) { alert(`There's already a ${PARTY[party.kind]?.[1] || "party"} going on. Hit ▶ Tune In to join!`); return; }
+    const r = e.target.getBoundingClientRect();
+    contextMenu(r.left, r.bottom, [
+      { label: "🎧 Listening Party: song or playlist link…", action: () => start("listen") },
+      { label: "📻 Listening Party: my Radio station", action: async () => {
+        const st = (await import("./radio.js")).getNowPlaying();
+        if (!st) { alert("Open DialedUp Radio and start a station first, then come back here."); import("./radio.js").then((m) => m.openRadio()); return; }
+        start("listen", { station: { name: st.name, url: st.url }, title: "📻 " + st.name });
+      } },
+      { label: "🎬 Watch Party: YouTube / Twitch / Vimeo link…", action: () => start("watch") },
+    ]);
+  };
+  const start = (kind, extra = null) => {
+    let data = extra;
+    if (!data) {
+      const url = prompt(kind === "watch" ? "Paste a YouTube, Twitch or Vimeo link to watch together:" : "Paste a Spotify, SoundCloud or YouTube link to listen to together:");
+      if (!url) return;
+      if (!/^https:\/\//i.test(url.trim())) { alert("That needs to be a full link starting with https://"); return; }
+      const title = prompt("Give it a name (optional):", "") || "";
+      data = { url: url.trim().slice(0, 500), title: title.slice(0, 80) || (kind === "watch" ? "Now showing" : "Now playing") };
+    }
+    set(pr, { kind, ...data, host: uid, hostName: me().screenName, at: Date.now() }).then(() => {
+      say(`🎉 ${me().screenName} started a ${PARTY[kind][1]}: ${data.title}. Hit ▶ Tune In at the top!`, "enter");
+      import("./engage.js").then((m) => m.awardBadge("host"));
+      tuneIn();
+    }).catch(() => alert("Couldn't start the party right now."));
+  };
+  const origOff = pr;
+  return origOff;
 }
 
 function inviteBuddy(room) {

@@ -70,9 +70,11 @@ function openTrivia() {
         if (i >= qs.length) {
           const b = Math.max(best(), score);
           localStorage.setItem("du.trivia.best", b);
+          import("./engage.js").then((m) => m.submitScore("trivia", score));
           body.innerHTML = `<div style="text-align:center"><h2 style="color:var(--grape)">${score} / ${qs.length}</h2>
             <p>${score >= 9 ? "Genius status! 🧠" : score >= 6 ? "Nice work! 😎" : "Not bad — run it back! 💪"}</p>
-            <p class="small muted">Your best: ${b}</p><button class="btn primary" id="again">Play Again</button></div>`;
+            <p class="small muted">Your best: ${b}</p><button class="btn primary" id="again">Play Again</button> <button class="btn" id="lb">🏆 Leaderboard</button></div>`;
+          body.querySelector("#lb").onclick = () => import("./engage.js").then((m) => m.openLeaderboards());
           body.querySelector("#again").onclick = () => openTrivia.call(null, closeWindow("trivia"));
           return;
         }
@@ -137,6 +139,7 @@ function openScramble() {
           clearInterval(timer);
           const b = Math.max(score, Number(localStorage.getItem("du.scramble.best") || 0));
           localStorage.setItem("du.scramble.best", b);
+          import("./engage.js").then((m) => m.submitScore("scramble", score));
           body.querySelector("#sc-w").innerHTML = `⏱ Time! The word was <u>${word}</u>.<br><span style="font-size:18px">You got ${score}.</span>`;
         }
       }, 1000);

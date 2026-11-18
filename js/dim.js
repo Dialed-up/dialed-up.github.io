@@ -114,6 +114,10 @@ $("start").onclick = () => {
   contextMenu(r.left, r.top - 4, [
     { label: "👥 Buddy List", action: openBuddyList },
     { label: "📰 Buddy Feed", action: () => import("./social.js").then((m) => m.openFeed()) },
+    { label: "🔥 Trending", action: () => import("./engage.js").then((m) => m.openTrending()) },
+    { label: "🌍 Groups", action: () => import("./engage.js").then((m) => m.openGroups()) },
+    { label: "👋 People You May Know", action: () => import("./engage.js").then((m) => m.openPYMK()) },
+    { label: "🎟 Invite Friends", action: () => import("./engage.js").then((m) => m.openInvite()) },
     { label: "✨ New Buddy Update", action: () => import("./social.js").then((m) => m.newStory()) },
     { label: "📨 Unread IMs", action: () => import("./chat.js").then((m) => m.openUnreadIMs()) },
     { label: "➕ Add a Buddy", action: () => openAddBuddy() },
