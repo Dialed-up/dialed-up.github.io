@@ -1,3 +1,4 @@
+import "./guard.js";
 import { auth, onAuthStateChanged, signOn, signUp, signOff, saveEmail, validEmail } from "./firebase.js";
 import * as sfx from "./sounds.js";
 import { closeAll } from "./wm.js";

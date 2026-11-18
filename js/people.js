@@ -72,7 +72,7 @@ function watchCount(key, container) {
   const r = ref(db, `rooms/${key}/members`);
   onValue(r, (s) => {
     const n = Object.values(s.val() || {}).filter((v) => Date.now() - (typeof v === "object" ? v.t : v) < 120000).length;
-    const el = container.querySelector(`[data-count="${key}"]`);
+    const el = container.querySelector(`[data-count="${esc(key)}"]`);
     if (el) el.textContent = n >= ROOM_LIMIT ? "FULL" : `${n} ${n === 1 ? "person" : "people"}`;
   });
   listeners.push(r);
@@ -84,7 +84,7 @@ async function showMemberRooms(el) {
   onValue(r, (s) => {
     const rooms = Object.entries(s.val() || {}).filter(([, v]) => !v.private && Date.now() - (v.active || 0) < 86400000);
     el.innerHTML = rooms.length ? `<ul class="list">${rooms.map(([k, v]) =>
-      `<li class="row"><a href="#" data-room="${esc(v.name)}">💬 ${esc(v.name)}</a><span class="small muted" data-count="${k}">…</span></li>`).join("")}</ul>`
+      `<li class="row"><a href="#" data-room="${esc(v.name)}">💬 ${esc(v.name)}</a><span class="small muted" data-count="${esc(k)}">…</span></li>`).join("")}</ul>`
       : `<p class="muted small">No member rooms right now. Start one below!</p>`;
     el.querySelectorAll("[data-room]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openRoom(a.dataset.room, "Member Rooms"); }));
     rooms.forEach(([k]) => watchCount(k, el));
@@ -191,7 +191,7 @@ export async function openRoom(displayName, category = "") {
         people.forEach((p) => (names[p] = roomName(p)));
         body.querySelector("#count").textContent = people.length;
         body.querySelector("#people").innerHTML = people.sort((a, b) => joined(a) - joined(b)).map((p) =>
-          `<li><a href="#" data-p="${p}" class="${ignored.has(p) ? "muted" : ""}">${p === mod ? `<span class="mod-bolt" title="Room moderator">⚡</span>` : ""}${esc(roomName(p))}</a></li>`).join("");
+          `<li><a href="#" data-p="${esc(p)}" class="${ignored.has(p) ? "muted" : ""}">${p === mod ? `<span class="mod-bolt" title="Room moderator">⚡</span>` : ""}${esc(roomName(p))}</a></li>`).join("");
         body.querySelectorAll("[data-p]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); personMenu(a.dataset.p, e.clientX, e.clientY); }));
       });
       refs.push(allRef);
@@ -260,7 +260,7 @@ function roomParty(body, key, say, getMod) {
     if (party.station) { (await import("./radio.js")).play(party.station); tunedIn = "radio"; draw(); return; }
     const { embedFor } = await import("./browser.js");
     let src = embedFor(party.url);
-    if (!src) { window.open(party.url, "_blank", "noopener"); return; }
+    if (!src) { if (/^https:\/\//i.test(party.url || "")) window.open(party.url, "_blank", "noopener"); return; }
     // Everyone watches the same moment: start YouTube where the host is now
     if (/youtube-nocookie/.test(src)) src += `&start=${Math.max(0, Math.floor((Date.now() - party.at) / 1000))}`;
     tunedIn = "embed"; draw();
@@ -327,7 +327,7 @@ function inviteBuddy(room) {
     title: "Invite to Chat", icon: "✉️", width: 300, height: 360,
     render(body) {
       body.innerHTML = `<p class="small">Invite homies to <b>${esc(room)}</b>:</p>
-        <ul class="list">${buddies.map((b) => `<li><label class="check"><input type="checkbox" value="${b}"> ${esc(userName(b))}</label></li>`).join("")}</ul>
+        <ul class="list">${buddies.map((b) => `<li><label class="check"><input type="checkbox" value="${esc(b)}"> ${esc(userName(b))}</label></li>`).join("")}</ul>
         <label>Message <input id="inv-msg" value="Come chat with me!"></label>
         <div class="row"><span></span><button class="btn primary" id="inv-go">Send Invites</button></div>`;
       body.querySelector("#inv-go").onclick = async () => {
@@ -347,7 +347,17 @@ export function watchInvites() {
   invitesRef = ref(db, `invites/${uid}`);
   let first = true;
   onValue(invitesRef, (s) => {
-    const all = Object.entries(s.val() || {});
+    // Anti-spam: one invitation per person (the newest), nothing older than a day, at most 3 on screen
+    const blocked = new Set(JSON.parse(localStorage.getItem("du.ignored") || "[]"));
+    const newest = new Map();
+    Object.entries(s.val() || {}).forEach(([id, inv]) => {
+      const old = !inv || Date.now() - (inv.ts || 0) > 86400000 || blocked.has(inv.from) || typeof inv.room !== "string";
+      const prev = newest.get(inv?.from);
+      if (old || (prev && (prev[1].ts || 0) >= (inv.ts || 0))) { remove(ref(db, `invites/${uid}/${id}`)).catch(() => {}); return; }
+      if (prev) remove(ref(db, `invites/${uid}/${prev[0]}`)).catch(() => {});
+      newest.set(inv.from, [id, inv]);
+    });
+    const all = [...newest.values()].slice(0, 3);
     if (!first && all.length) sfx.alertBlip();
     first = false;
     all.forEach(([id, inv]) => {

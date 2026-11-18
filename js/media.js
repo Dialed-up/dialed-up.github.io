@@ -98,22 +98,22 @@ export async function paintMedia(el, conv) {
   if (el.dataset.painted) return;
   el.dataset.painted = "1";
   const info = JSON.parse(el.dataset.media);
-  if (info.url && /^https:\/\/[^/]+\/f\/[a-f0-9]{32}$/.test(info.url)) { paintStored(el, info); return; }
+  if (info.url && /^https:\/\/dialedup-push\.stickyarcadecloud\.workers\.dev\/f\/[a-f0-9]{32}$/.test(info.url)) { paintStored(el, info); return; }
   const show = async () => {
     el.innerHTML = `<span class="small muted">${info.kind === "photo" ? "📷 Loading photo…" : info.kind === "video" ? "🎬 Loading video…" : info.name ? `🎵 Loading ${esc(info.name)}…` : "🎙 Loading voice note…"}</span>`;
     try {
       const url = await load(conv, info);
       if (info.kind === "photo") {
-        el.innerHTML = `<img src="${url}" alt="Photo" class="im-photo" ${info.w ? `width="${info.w}" height="${info.h}"` : ""}>`;
+        el.innerHTML = `<img src="${esc(url)}" alt="Photo" class="im-photo" ${info.w ? `width="${Number(info.w) | 0}" height="${Number(info.h) | 0}"` : ""}>`;
         el.querySelector("img").onclick = () => openViewer(url, "photo");
       } else if (info.kind === "video") {
-        el.innerHTML = `${info.name ? `<div class="media-name small">🎬 <b>${esc(info.name)}</b> <span class="muted">${sizeLabel(info.size)}</span></div>` : ""}<video src="${url}" controls playsinline preload="metadata" class="im-video"></video>`;
+        el.innerHTML = `${info.name ? `<div class="media-name small">🎬 <b>${esc(info.name)}</b> <span class="muted">${sizeLabel(info.size)}</span></div>` : ""}<video src="${esc(url)}" controls playsinline preload="metadata" class="im-video"></video>`;
       } else {
         const label = info.name ? `🎵 <b>${esc(info.name)}</b> <span class="muted">${sizeLabel(info.size)}</span>`
           : `🎙 <b>Voice note</b>${info.dur ? ` <span class="muted">${fmtDur(info.dur)}</span>` : ""}`;
-        el.innerHTML = `<div class="media-name small">${label}</div><div class="voice-note"><audio src="${url}" controls preload="metadata"></audio></div>`;
+        el.innerHTML = `<div class="media-name small">${label}</div><div class="voice-note"><audio src="${esc(url)}" controls preload="metadata"></audio></div>`;
       }
-      el.insertAdjacentHTML("beforeend", `<a class="small media-save" href="${url}" download="${esc(info.name || (info.kind === "photo" ? "photo.jpg" : info.kind === "video" ? "video" : "voice-note"))}">💾 Save</a>`);
+      el.insertAdjacentHTML("beforeend", `<a class="small media-save" href="${esc(url)}" download="${esc(info.name || (info.kind === "photo" ? "photo.jpg" : info.kind === "video" ? "video" : "voice-note"))}">💾 Save</a>`);
     } catch { el.innerHTML = `<span class="small muted">This ${info.kind === "audio" ? "voice note" : info.kind} isn't available anymore.</span>`; }
   };
   if (info.kind === "video" && !cache.has(info.mid)) {
@@ -125,7 +125,7 @@ export async function paintMedia(el, conv) {
 function openViewer(url) {
   const v = document.createElement("div");
   v.className = "media-viewer";
-  v.innerHTML = `<img src="${url}" alt=""><button aria-label="Close">✕</button>`;
+  v.innerHTML = `<img src="${esc(url)}" alt=""><button aria-label="Close">✕</button>`;
   v.onclick = () => v.remove();
   document.body.appendChild(v);
 }
@@ -172,7 +172,7 @@ function paintStored(el, info) {
   const nameLine = info.name ? `<div class="media-name small">${{ video: "🎬", audio: "🎵", file: "📄", photo: "📷" }[info.kind] || "📄"} <b>${esc(info.name)}</b> <span class="muted">${sizeLabel(info.size)}</span></div>` : "";
   const gone = () => (el.innerHTML = `<span class="small muted">This ${info.kind === "audio" ? (info.name ? "audio file" : "voice note") : info.kind} has expired (files are kept 24 hours).</span>`);
   if (info.kind === "photo") {
-    el.innerHTML = `<img src="${esc(url)}" alt="Photo" class="im-photo" ${info.w ? `width="${info.w}" height="${info.h}"` : ""}>`;
+    el.innerHTML = `<img src="${esc(url)}" alt="Photo" class="im-photo" ${info.w ? `width="${Number(info.w) | 0}" height="${Number(info.h) | 0}"` : ""}>`;
     const img = el.querySelector("img");
     img.onerror = gone;
     img.onclick = () => openViewer(url);

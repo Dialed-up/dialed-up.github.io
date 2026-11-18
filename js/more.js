@@ -118,7 +118,7 @@ function pollCard(el, pid, q, options, extra = "") {
     const total = counts.reduce((a, b) => a + b, 0);
     el.innerHTML = `<div class="poll"><p style="margin:0 0 6px"><b>${esc(q)}</b></p>
       ${options.map((o, i) => mine === undefined
-        ? `<button class="btn small-btn poll-opt" data-v="${i}">${esc(o)}</button>`
+        ? `<button class="btn small-btn poll-opt" data-v="${esc(i)}">${esc(o)}</button>`
         : `<div class="poll-bar ${mine === i ? "mine" : ""}"><span style="width:${total ? Math.round((counts[i] / total) * 100) : 0}%"></span>
              <em>${esc(o)}</em><b>${total ? Math.round((counts[i] / total) * 100) : 0}%</b></div>`).join("")}
       <p class="small muted" style="margin:6px 0 0">${total} vote${total === 1 ? "" : "s"}${mine !== undefined ? " · you voted" : ""}${extra}</p></div>`;
@@ -146,8 +146,8 @@ export function openPolls() {
       onValue(pr, (s) => {
         const list = Object.entries(s.val() || {}).filter(([, p]) => Date.now() - (p.ts || 0) < 14 * 86400000).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0)).slice(0, 25);
         const el = body.querySelector("#plist");
-        el.innerHTML = list.length ? list.map(([id]) => `<div class="panel" data-poll="${id}"></div>`).join("") : `<p class="muted small">No polls yet. Start one!</p>`;
-        list.forEach(([id, p]) => refs.push(pollCard(el.querySelector(`[data-poll="${id}"]`), id, p.q, p.options || [],
+        el.innerHTML = list.length ? list.map(([id]) => `<div class="panel" data-poll="${esc(id)}"></div>`).join("") : `<p class="muted small">No polls yet. Start one!</p>`;
+        list.forEach(([id, p]) => refs.push(pollCard(el.querySelector(`[data-poll="${esc(id)}"]`), id, p.q, p.options || [],
           ` · by ${esc(p.fromName || "someone")} · ${timeAgo(p.ts)}${p.from === uid() ? ` · <a href="#" data-del>delete</a>` : ""}`)));
       });
       refs.push(pr);
@@ -299,12 +299,12 @@ export function openRecipes() {
       body.innerHTML = `<form class="row" id="rf"><input placeholder="Search recipes (tacos, wings…)" style="flex:1"><button class="btn primary small-btn">Search</button></form>
         <div class="row" style="justify-content:flex-start;gap:4px;margin:6px 0;flex-wrap:wrap">
           <button class="btn small-btn" data-r="__random">🎲 Surprise Me</button>
-          ${cats.map((c) => `<button class="btn small-btn" data-r="${c}">${c}</button>`).join("")}</div>
+          ${cats.map((c) => `<button class="btn small-btn" data-r="${esc(c)}">${c}</button>`).join("")}</div>
         <div id="rr"></div>`;
       const out = body.querySelector("#rr");
       const grid = (meals) => {
         out.innerHTML = meals?.length ? `<div class="recipe-grid">${meals.slice(0, 24).map((m) =>
-          `<button class="recipe-tile" data-id="${m.idMeal}"><img src="${esc(m.strMealThumb)}/preview" alt="" loading="lazy"><span>${esc(m.strMeal)}</span></button>`).join("")}</div>`
+          `<button class="recipe-tile" data-id="${esc(m.idMeal)}"><img src="${esc(m.strMealThumb)}/preview" alt="" loading="lazy"><span>${esc(m.strMeal)}</span></button>`).join("")}</div>`
           : `<p class="muted">No recipes found. Try another word.</p>`;
         out.querySelectorAll("[data-id]").forEach((b) => (b.onclick = () => showRecipe(b.dataset.id)));
       };
@@ -431,7 +431,7 @@ function paintReminders(body) {
         <button class="btn primary small-btn">Add</button></div></form>
     <h4 style="margin:10px 0 4px">📅 Coming Up</h4>
     <ul class="list">${list.slice(0, 30).map((x) => `<li class="row"><span>${esc(x.label)} <span class="small muted">${x.date.toLocaleDateString([], { month: "short", day: "numeric" })}</span></span>
-      <span class="small">${x.n === 0 ? "Today!" : x.n === 1 ? "Tomorrow" : `${x.n} days`} ${x.mine ? `<a href="#" data-del="${x.id}" title="Delete">✖</a>` : ""}</span></li>`).join("")}</ul>`;
+      <span class="small">${x.n === 0 ? "Today!" : x.n === 1 ? "Tomorrow" : `${x.n} days`} ${x.mine ? `<a href="#" data-del="${esc(x.id)}" title="Delete">✖</a>` : ""}</span></li>`).join("")}</ul>`;
   const now = new Date();
   body.querySelector("#rm").value = now.getMonth() + 1;
   body.querySelector("#rd").value = now.getDate();
@@ -455,7 +455,7 @@ export function openClassifieds() {
     onClose: () => r && off(r),
     render(body) {
       body.innerHTML = `<div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-          ${["All", ...adCats].map((c) => `<button class="btn small-btn ${c === "All" ? "primary" : ""}" data-c="${c}">${c}</button>`).join("")}</div>
+          ${["All", ...adCats].map((c) => `<button class="btn small-btn ${c === "All" ? "primary" : ""}" data-c="${esc(c)}">${c}</button>`).join("")}</div>
         <div class="row" style="margin-bottom:6px"><span class="small muted">Ads stay up for 30 days. Meet in public, never send money ahead.</span>
           <button class="btn primary small-btn" id="postad">+ Post an Ad</button></div><div id="ads"><p class="muted">Loading ads…</p></div>`;
       let all = {};
@@ -467,7 +467,7 @@ export function openClassifieds() {
             <div class="row"><b>${esc(a.title)}</b>${a.price ? `<span class="ad-price">${esc(a.price)}</span>` : ""}</div>
             <p class="small" style="white-space:pre-wrap;margin:4px 0">${esc(a.body)}</p>
             <div class="row small"><span class="muted">${esc(a.cat)} · ${esc(a.fromName)} · ${timeAgo(a.ts)}</span>
-              <span>${a.from === uid() ? `<a href="#" data-del="${id}">Delete</a>` : `<a href="#" data-im="${a.from}">💬 IM</a> · <a href="#" data-mail="${esc(a.fromName)}" data-t="${esc(a.title)}">✉️ Mail</a>`}</span></div></div>`).join("")
+              <span>${a.from === uid() ? `<a href="#" data-del="${esc(id)}">Delete</a>` : `<a href="#" data-im="${esc(a.from)}">💬 IM</a> · <a href="#" data-mail="${esc(a.fromName)}" data-t="${esc(a.title)}">✉️ Mail</a>`}</span></div></div>`).join("")
           : `<p class="muted">No ads here yet. Be the first!</p>`;
         el.querySelectorAll("[data-del]").forEach((x) => (x.onclick = (e) => { e.preventDefault(); if (confirm("Delete your ad?")) remove(ref(db, `classifieds/${x.dataset.del}`)); }));
         el.querySelectorAll("[data-im]").forEach((x) => (x.onclick = (e) => { e.preventDefault(); openIM(x.dataset.im); }));
@@ -556,8 +556,8 @@ function paintEvents(body) {
       <p class="small" style="margin:2px 0">${new Date(e.start).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · hosted by ${esc(e.hostName)}</p>
       ${e.desc ? `<p class="small" style="margin:2px 0;white-space:pre-wrap">${esc(e.desc)}</p>` : ""}
       <div class="row small" style="justify-content:flex-start;gap:4px;margin-top:4px">
-        ${isLive(e) ? `<button class="btn primary small-btn" data-join="${id}">Join Now</button>` : `<button class="btn small-btn" data-rsvp="${id}">${rs.has(id) ? "✅ I'm Going" : "🔔 Remind Me"}</button>`}
-        ${e.host === uid() ? `<a href="#" data-del="${id}">Cancel event</a>` : ""}</div></div>`).join("")
+        ${isLive(e) ? `<button class="btn primary small-btn" data-join="${esc(id)}">Join Now</button>` : `<button class="btn small-btn" data-rsvp="${esc(id)}">${rs.has(id) ? "✅ I'm Going" : "🔔 Remind Me"}</button>`}
+        ${e.host === uid() ? `<a href="#" data-del="${esc(id)}">Cancel event</a>` : ""}</div></div>`).join("")
       : `<p class="muted">No events scheduled yet. Host one and invite everybody!</p>`}`;
   body.querySelector("#newev").onclick = newEvent;
   body.querySelectorAll("[data-join]").forEach((b) => (b.onclick = () => openRoom(roomFor(events[b.dataset.join]), "Live Events")));
@@ -578,7 +578,7 @@ function newEvent() {
       d.setMinutes(0, 0, 0);
       const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
       body.innerHTML = `<form id="ef"><label>Event name <input id="et" maxlength="60" required placeholder="Friday Night Mix Session"></label>
-        <label>When <input id="ew" type="datetime-local" value="${local}" required></label>
+        <label>When <input id="ew" type="datetime-local" value="${esc(local)}" required></label>
         <label>How long <select id="eh"><option value="1">1 hour</option><option value="2" selected>2 hours</option><option value="3">3 hours</option></select></label>
         <label>What's it about? <textarea id="ed" rows="4" maxlength="400"></textarea></label>
         <div class="row"><span class="small muted">Everyone on DialedUp can see it.</span><button class="btn primary">Schedule</button></div></form>`;

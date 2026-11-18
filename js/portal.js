@@ -130,7 +130,7 @@ function paintOnline(body) {
   el.innerHTML = `<h3>🟢 Homies Online</h3>
     <div class="big-temp" style="font-size:24px">${on.length}</div>
     <div class="small muted">of ${memberCount()} ${memberCount() === 1 ? "homie" : "homies"} signed on now</div>
-    <div class="small" style="margin-top:4px">${on.slice(0, 8).map((u) => `<a href="#" data-im="${u}">${esc(userName(u))}</a>`).join(", ")
+    <div class="small" style="margin-top:4px">${on.slice(0, 8).map((u) => `<a href="#" data-im="${esc(u)}">${esc(userName(u))}</a>`).join(", ")
       || (memberCount() ? "None of your homies are on right now." : "Add homies to see who's on!")}</div>`;
   el.querySelectorAll("[data-im]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openIM(a.dataset.im); }));
 }
@@ -178,7 +178,7 @@ export function startTicker() {
 export function stopTicker() { clearInterval(tickerTimer); }
 
 const tile = (title, sub, color, kw) =>
-  `<button class="tile" style="background:linear-gradient(135deg, ${color}, #5b2a86)" data-kw="${kw}">${title}<small>${sub}</small></button>`;
+  `<button class="tile" style="background:linear-gradient(135deg, ${color}, #5b2a86)" data-kw="${esc(kw)}">${title}<small>${sub}</small></button>`;
 
 // ---------- Channels ----------
 export function openChannels() {
@@ -288,7 +288,7 @@ function openSounds() {
     render(body) {
       const list = [["👋 \"Welcome!\" (signing on)", "welcome"], ["📬 \"You have mail!\"", "youHaveMail"], ["🚪 Door opens (homie signs on)", "doorOpen"],
         ["🚪 Door closes (homie signs off)", "doorClose"], ["💬 IM received", "imIn"], ["👋 Goodbye (signing off)", "goodbye"]];
-      body.innerHTML = `<ul class="list">${list.map(([l, f]) => `<li class="row"><span>${l}</span><button class="btn small-btn" data-s="${f}">▶ Play</button></li>`).join("")}</ul>
+      body.innerHTML = `<ul class="list">${list.map(([l, f]) => `<li class="row"><span>${l}</span><button class="btn small-btn" data-s="${esc(f)}">▶ Play</button></li>`).join("")}</ul>
         <label class="check" style="margin-top:8px"><input type="checkbox" id="snd-mute" ${sfx.isMuted() ? "checked" : ""}> Mute all sounds</label>
         <p class="small muted">The voice is your phone or computer's built-in voice. Turn your ringer on (iPhone side switch) to hear sounds.</p>`;
       body.querySelectorAll("[data-s]").forEach((b) => (b.onclick = () => { sfx.unlock(); sfx[b.dataset.s](); }));
@@ -304,7 +304,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.2129) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.2148) · Still connecting since '96.</p>
         <p class="small muted">DialedUp is an independent, fan-made throwback. Not affiliated with, endorsed by, or connected to AOL, AIM, Yahoo or Bending Spoons. All trademarks belong to their owners.</p></div>`;
     },
   });
@@ -323,7 +323,7 @@ function openHelp(missing) {
     render(body) {
       body.innerHTML = `${typeof missing === "string" ? `<p class="error">No keyword "${esc(missing)}". Try one of these:</p>` : ""}
         <ul class="list">${Object.keys(keywords).filter((k, i, a) => a.indexOf(k) === i).map((k) =>
-          `<li><a href="#" data-k="${k}">${k}</a></li>`).join("")}</ul>`;
+          `<li><a href="#" data-k="${esc(k)}">${k}</a></li>`).join("")}</ul>`;
       body.querySelectorAll("[data-k]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); runKeyword(a.dataset.k); }));
     },
   });
@@ -403,7 +403,7 @@ function openNews() {
     render(body) {
       const tabs = [["top", "Top Stories"], ["us", "U.S."], ["world", "World"], ["nyc", "NYC"], ["business", "Business"],
         ["entertainment", "Entertainment"], ["sports", "Sports"], ["tech", "Tech"], ["space", "Space"]];
-      body.innerHTML = `<div class="mb-tabs">${tabs.map(([k, l], i) => `<button class="mtab ${i ? "" : "on"}" data-t="${k}">${l}</button>`).join("")}</div>
+      body.innerHTML = `<div class="mb-tabs">${tabs.map(([k, l], i) => `<button class="mtab ${i ? "" : "on"}" data-t="${esc(k)}">${l}</button>`).join("")}</div>
         <div id="n-out" style="margin-top:8px"><p class="muted">📡 Loading the latest…</p></div>`;
       let news = null;
       const show = (k) => {
@@ -447,7 +447,7 @@ function openSports() {
     title: "Sports", icon: "🏀", width: 380, height: 500,
     render(body) {
       body.innerHTML = `<div class="row" style="justify-content:flex-start;margin-bottom:8px">${Object.keys(leagues).map((l) =>
-        `<button class="btn small-btn" data-l="${l}">${l}</button>`).join("")}</div><div id="s-out"></div>`;
+        `<button class="btn small-btn" data-l="${esc(l)}">${l}</button>`).join("")}</div><div id="s-out"></div>`;
       const out = body.querySelector("#s-out");
       const load = async (l) => {
         out.innerHTML = `<p class="muted">Loading ${l}…</p>`;
@@ -496,7 +496,7 @@ export function horoscopeFor(signIndex, date = new Date()) {
 
 function renderHoroscope(el, compact) {
   const saved = Number(localStorage.getItem("du.sign") ?? "-1");
-  const options = signs.map(([n, s], i) => `<option value="${i}" ${i === saved ? "selected" : ""}>${s} ${n}</option>`).join("");
+  const options = signs.map(([n, s], i) => `<option value="${esc(i)}" ${i === saved ? "selected" : ""}>${s} ${n}</option>`).join("");
   el.innerHTML = `<h3>🔮 Your Horoscope</h3>
     <select id="sign-pick"><option value="-1">Pick your sign…</option>${options}</select>
     <p class="small" id="horo-text">${saved >= 0 ? esc(horoscopeFor(saved)) : "Choose your sign to see today's reading."}</p>

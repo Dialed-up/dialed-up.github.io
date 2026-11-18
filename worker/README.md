@@ -1,10 +1,25 @@
-# DialedUp push sender (Cloudflare Worker)
+# DialedUp Worker
 
-Sends push alerts for new IMs and mail, even when DialedUp is closed.
-Runs on DialedUp's own free Cloudflare account. Its address goes in `PUSH` in `js/notify.js`.
+A Cloudflare Worker that provides two services:
 
-- `VAPID_PUBLIC` is public (also in `js/notify.js`).
-- `VAPID_PRIVATE` is a Cloudflare secret — it is **not** in this repo.
-- Phone subscriptions are stored in the Workers KV namespace bound as `SUBS`.
+- **Push notifications:** Web Push alerts for new instant messages and mail, delivered even when DialedUp is closed.
+- **File transfer:** temporary storage for files shared in IMs and Homie Updates. Files are limited to 25 MB and deleted after 24 hours.
 
-Deploy: `npm i @block65/webcrypto-web-push wrangler && npx wrangler deploy`
+## How requests are verified
+
+Every request carries the sender's Firebase ID token. The Worker reads the relevant record from the Realtime Database using that token, so the database's own security rules decide whether the request is allowed. Alerts are only sent for messages that actually exist and were sent by the caller. Each account is also rate-limited.
+
+## Configuration
+
+| Setting | Where |
+| --- | --- |
+| `VAPID_PUBLIC` | `wrangler.toml` (public; also used in `js/notify.js`) |
+| `VAPID_PRIVATE` | Cloudflare secret: `npx wrangler secret put VAPID_PRIVATE` (never committed) |
+| `SUBS` | Workers KV namespace for push subscriptions, rate-limit counters and temporary files |
+
+## Deploy
+
+```sh
+npm i @block65/webcrypto-web-push wrangler
+npx wrangler deploy
+```

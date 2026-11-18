@@ -99,9 +99,9 @@ function renderMailbox(body) {
   });
   if (selected && !rows.some((r) => r.id === selected)) selected = null;
 
-  const tab = (f, label) => `<button class="mtab ${folder === f ? "on" : ""}" data-f="${f}">${label}</button>`;
+  const tab = (f, label) => `<button class="mtab ${folder === f ? "on" : ""}" data-f="${esc(f)}">${label}</button>`;
   const tree = (f, icon, label, n) =>
-    `<li class="${folder === f ? "on" : ""}" data-f="${f}">${icon} ${label}${n ? ` <b>(${n})</b>` : ""}</li>`;
+    `<li class="${folder === f ? "on" : ""}" data-f="${esc(f)}">${icon} ${label}${n ? ` <b>(${n})</b>` : ""}</li>`;
   const arrow = (k) => (sortBy.key === k ? (sortBy.dir > 0 ? " ▲" : " ▼") : "");
   const sentView = folder === "sent";
 
@@ -138,7 +138,7 @@ function renderMailbox(body) {
             <th data-sort="read">Type${arrow("read")}</th><th data-sort="ts">Date${arrow("ts")}</th>
             <th data-sort="who">${sentView ? "To" : "From"}${arrow("who")}</th><th data-sort="subject">Subject${arrow("subject")}</th>
           </tr></thead>
-          <tbody>${rows.map((r) => `<tr data-id="${r.id}" class="${r.id === selected ? "sel" : ""} ${!r.read && !sentView ? "unread" : ""}">
+          <tbody>${rows.map((r) => `<tr data-id="${esc(r.id)}" class="${r.id === selected ? "sel" : ""} ${!r.read && !sentView ? "unread" : ""}">
             <td>${sentView ? (r.unsent ? "↩️" : r.read ? "📖" : "📤") : r.card ? "💌" : r.read ? "✉️" : "📩"}${r.files ? "📎" : ""}</td>
             <td>${r.ts ? new Date(r.ts).toLocaleDateString([], { month: "numeric", day: "numeric", year: "2-digit" }) : ""}</td>
             <td>${esc(r.who || "")}</td><td>${esc(r.subject || "(no subject)")}</td></tr>`).join("")}</tbody>
@@ -251,7 +251,7 @@ function readMail(id) {
         ${m.card ? `<div class="mail-card" style="margin-top:8px"></div>` : ""}
         <div class="panel" style="margin-top:8px;white-space:pre-wrap;min-height:${m.card ? 0 : 120}px">${esc(m.body)}</div>
         ${m.files?.length ? `<div class="panel small mail-files"><b>📎 Attachments</b>${m.files.map((f, i) =>
-          `<div class="row"><span>📄 ${esc(f.name)} <span class="muted">(${sizeLabel(f.size)})</span></span><button class="btn small-btn" data-dl="${i}">⬇ Download</button></div>`).join("")}</div>` : ""}
+          `<div class="row"><span>📄 ${esc(f.name)} <span class="muted">(${sizeLabel(f.size)})</span></span><button class="btn small-btn" data-dl="${esc(i)}">⬇ Download</button></div>`).join("")}</div>` : ""}
         <div class="row">
           <span><button class="btn small-btn" data-x="save">💾 Save</button> <button class="btn danger small-btn" data-x="del">Delete</button></span>
           <span><button class="btn small-btn" data-x="fwd">Forward</button> <button class="btn primary small-btn" data-x="reply">Reply</button></span>
@@ -291,7 +291,7 @@ export function writeMail(to = "", subject = "", text = "") {
       let files = [];
       const paintFiles = () => {
         body.querySelector("#attlist").innerHTML = files.map((f, i) =>
-          `<div class="row"><span>📄 ${esc(f.name)} <span class="muted">(${sizeLabel(f.size)})</span></span><a href="#" data-rm="${i}">remove</a></div>`).join("");
+          `<div class="row"><span>📄 ${esc(f.name)} <span class="muted">(${sizeLabel(f.size)})</span></span><a href="#" data-rm="${esc(i)}">remove</a></div>`).join("");
         body.querySelectorAll("[data-rm]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); files.splice(Number(a.dataset.rm), 1); paintFiles(); }));
       };
       body.querySelector("#att").onchange = (e) => {
@@ -441,7 +441,7 @@ async function spellCheck(ta, box) {
   if (!bad.length) { box.innerHTML = `<p>✅ No spelling mistakes found!</p>`; return; }
   box.innerHTML = `<div class="panel"><b>Check these words:</b>${bad.map((b, i) => `<div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap">
       <span style="color:#c62828;text-decoration:underline wavy">${esc(b.w)}</span> →
-      ${b.sug.map((s) => `<button type="button" class="btn small-btn" data-fix="${i}" data-to="${esc(s)}">${esc(s)}</button>`).join("") || `<span class="muted">no ideas</span>`}
+      ${b.sug.map((s) => `<button type="button" class="btn small-btn" data-fix="${esc(i)}" data-to="${esc(s)}">${esc(s)}</button>`).join("") || `<span class="muted">no ideas</span>`}
     </div>`).join("")}</div>`;
   box.querySelectorAll("[data-fix]").forEach((btn) => (btn.onclick = () => {
     const from = bad[btn.dataset.fix].w;

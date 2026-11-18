@@ -1,3 +1,4 @@
+import "./guard.js";
 // DIM — DialedUp Instant Messenger: Homies, IMs and chat rooms on their own desktop, in their own tab.
 import "./update.js";
 import "./fullscreen.js";

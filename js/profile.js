@@ -1,7 +1,7 @@
 // Profiles, the classic way: styled text (fonts, colors, sizes, effects), Member Info fields,
 // clickable interests, a profile background, a profile song, a view counter and %n / %d / %t magic words.
 import { db, ref, get, set, update, remove, runTransaction } from "./firebase.js";
-import { openWindow, closeWindow, esc } from "./wm.js";
+import { openWindow, closeWindow, esc, img64 } from "./wm.js";
 import { pickEmoji } from "./emoji.js";
 import { smileys } from "./chat.js";
 
@@ -132,9 +132,9 @@ export function renderProfile(el, u, uid, { viewer, openDirectory } = {}) {
       const list = Object.values(sn.val() || {}).filter(Boolean).slice(0, 6);
       const box = el.querySelector(".profile-pics");
       if (!list.length || !box) return;
-      box.innerHTML = `<div class="panel"><h3>📷 Photos</h3><div class="pp-grid">${list.map((d) => `<figure><img src="data:image/jpeg;base64,${d}" alt=""></figure>`).join("")}</div></div>`;
+      box.innerHTML = `<div class="panel"><h3>📷 Photos</h3><div class="pp-grid">${list.map((d) => `<figure><img src="${img64(d)}" alt=""></figure>`).join("")}</div></div>`;
       box.querySelectorAll("img").forEach((im) => (im.onclick = () => {
-        const v = document.createElement("div"); v.className = "media-viewer"; v.innerHTML = `<img src="${im.src}" alt=""><button>✕</button>`; v.onclick = () => v.remove(); document.body.appendChild(v);
+        const v = document.createElement("div"); v.className = "media-viewer"; v.innerHTML = `<img src="${esc(im.src)}" alt=""><button>✕</button>`; v.onclick = () => v.remove(); document.body.appendChild(v);
       }));
     }).catch(() => {});
   }
@@ -182,7 +182,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         <section data-p="write">
           <div class="rt-bar">
             <select data-c="fontName" title="Font">${FONTS.map((f) => `<option style="font-family:'${f}'">${f}</option>`).join("")}</select>
-            <select data-c="fontSize" title="Size">${[["1", "Tiny"], ["2", "Small"], ["3", "Normal"], ["4", "Medium"], ["5", "Large"], ["6", "Huge"], ["7", "Giant"]].map(([v, l]) => `<option value="${v}" ${v === "3" ? "selected" : ""}>${l}</option>`).join("")}</select>
+            <select data-c="fontSize" title="Size">${[["1", "Tiny"], ["2", "Small"], ["3", "Normal"], ["4", "Medium"], ["5", "Large"], ["6", "Huge"], ["7", "Giant"]].map(([v, l]) => `<option value="${esc(v)}" ${v === "3" ? "selected" : ""}>${l}</option>`).join("")}</select>
             <button data-c="bold"><b>B</b></button><button data-c="italic"><i>I</i></button><button data-c="underline"><u>U</u></button><button data-c="strikeThrough"><s>S</s></button>
             <button data-c="textcolor" title="Text color" class="rt-a">A<span class="rt-a-bar"></span></button>
             <button data-c="bucket" title="Background color">🪣</button>
@@ -200,9 +200,9 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
             <div class="row" style="gap:4px;margin-top:4px"><input id="sn-new" value="${esc(screenName)}" maxlength="20" autocapitalize="off" style="flex:1"><button class="btn small-btn" id="sn-go">Change</button></div>
             <p class="small muted" style="margin:4px 0 0">3–16 letters or numbers (spaces OK). Your password stays the same, and you can sign on with your new or old name. Homies see the new name right away.</p>
             <p class="error" id="sn-err"></p></div>
-          ${FIELDS.map(([k, label, ph]) => k === "gender" ? `<label>${label}<select data-f="${k}">${GENDER.map((g) => `<option ${card[k] === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>`
-            : k === "status" ? `<label>${label}<select data-f="${k}">${STATUS.map((g) => `<option ${card[k] === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>`
-            : `<label>${label}<input data-f="${k}" maxlength="${k === "quote" ? 140 : 60}" value="${esc(card[k] || (k === "location" ? u.location || "" : ""))}" placeholder="${esc(ph)}"></label>`).join("")}
+          ${FIELDS.map(([k, label, ph]) => k === "gender" ? `<label>${label}<select data-f="${esc(k)}">${GENDER.map((g) => `<option ${card[k] === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>`
+            : k === "status" ? `<label>${label}<select data-f="${esc(k)}">${STATUS.map((g) => `<option ${card[k] === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>`
+            : `<label>${label}<input data-f="${esc(k)}" maxlength="${k === "quote" ? 140 : 60}" value="${esc(card[k] || (k === "location" ? u.location || "" : ""))}" placeholder="${esc(ph)}"></label>`).join("")}
           <label>Interests <span class="small muted">(separate with commas — people can tap these to find you)</span><input data-f="interests" maxlength="200" value="${esc(u.interests || "")}" placeholder="music, sneakers, basketball"></label>
           <label class="check"><input type="checkbox" id="pd" ${localStorage.getItem("du.listed." + uid) === "1" ? "checked" : ""}> List me in the Member Directory (screen name, interests and location only)</label>
           <div class="panel" style="margin-top:8px"><b>Who can see my profile?</b>
@@ -218,7 +218,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
             <button class="btn small-btn" id="lreset" title="Use the background's own text color">Auto text</button>
           </div>
           <h4 style="margin:8px 0 4px">Or pick a style</h4><div class="look-grid">${Object.entries(LOOKS).map(([n, L]) => `<button data-look="${esc(n)}" style="background:${L.bg};color:${L.ink}" class="${look.theme === n ? "on" : ""}">${esc(n)}</button>`).join("")}</div>
-          <h4 style="margin:10px 0 4px">Border</h4><div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap">${Object.keys(BORDERS).map((b) => `<button class="btn small-btn ${look.border === b ? "primary" : ""}" data-border="${b}">${b}</button>`).join("")}</div>
+          <h4 style="margin:10px 0 4px">Border</h4><div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap">${Object.keys(BORDERS).map((b) => `<button class="btn small-btn ${look.border === b ? "primary" : ""}" data-border="${esc(b)}">${b}</button>`).join("")}</div>
           <label style="margin-top:10px">Main font<select id="lf">${FONTS.map((f) => `<option ${look.font === f ? "selected" : ""} style="font-family:'${f}'">${f}</option>`).join("")}</select></label>
         </section>
         <section data-p="top8" hidden><div id="t8"></div></section>
@@ -359,7 +359,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
       let pics = [];
       const paintPics = () => {
         const box = body.querySelector(".pf-photos");
-        box.innerHTML = pics.length ? `<div class="pp-grid">${pics.map((d, i) => `<figure><img src="data:image/jpeg;base64,${d}" alt=""><button data-rmp="${i}" title="Remove">✕</button></figure>`).join("")}</div>`
+        box.innerHTML = pics.length ? `<div class="pp-grid">${pics.map((d, i) => `<figure><img src="${img64(d)}" alt=""><button data-rmp="${esc(i)}" title="Remove">✕</button></figure>`).join("")}</div>`
           : `<p class="small muted">No profile photos yet.</p>`;
         box.querySelectorAll("[data-rmp]").forEach((b) => (b.onclick = () => { pics.splice(Number(b.dataset.rmp), 1); paintPics(); }));
       };
@@ -380,7 +380,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         pick.innerHTML = `<p class="small muted">Loading your albums…</p>`;
         const all = (await get(ref(db, `photos/${uid}`)).catch(() => null))?.val() || {};
         const list = Object.values(all).flatMap((album) => Object.values(album || {})).map((p) => p.data).filter(Boolean).slice(0, 60);
-        pick.innerHTML = list.length ? `<p class="small">Tap photos to add them:</p><div class="pp-grid">${list.map((d, i) => `<figure><img src="data:image/jpeg;base64,${d}" data-ai="${i}" alt=""></figure>`).join("")}</div>`
+        pick.innerHTML = list.length ? `<p class="small">Tap photos to add them:</p><div class="pp-grid">${list.map((d, i) => `<figure><img src="${img64(d)}" data-ai="${esc(i)}" alt=""></figure>`).join("")}</div>`
           : `<p class="small muted">Your Photo Albums are empty.</p>`;
         pick.querySelectorAll("[data-ai]").forEach((im) => (im.onclick = () => { if (pics.length < 6) { pics.push(list[im.dataset.ai]); paintPics(); im.style.opacity = ".35"; } }));
       };
@@ -436,7 +436,7 @@ function pickBackground(anchor, title, onPick) {
   bucketPop = document.createElement("div");
   bucketPop.className = "color-pop";
   bucketPop.innerHTML = `<b class="small">${esc(title)}</b>
-    <div class="color-grid">${PALETTE.map((c) => `<button style="background:${c}" data-col="${c}" title="${c}"></button>`).join("")}</div>
+    <div class="color-grid">${PALETTE.map((c) => `<button style="background:${c}" data-col="${esc(c)}" title="${esc(c)}"></button>`).join("")}</div>
     <label class="color-pick" style="margin-top:6px">🎨 More colors…<input type="color" value="#ffe3f3"></label>`;
   document.body.appendChild(bucketPop);
   const r = anchor.getBoundingClientRect();

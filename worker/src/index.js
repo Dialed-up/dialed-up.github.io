@@ -5,12 +5,15 @@
 import { buildPushPayload } from "@block65/webcrypto-web-push";
 
 const DB = "https://buddychat-48c0b-default-rtdb.firebaseio.com";
-const ORIGINS = ["https://dialedup.lol", "https://www.dialedup.lol", "https://dialed-up.github.io", "http://localhost:8765"];
+const ORIGINS = ["https://dialedup.lol", "https://www.dialedup.lol", "https://dialed-up.github.io"];
+// File types that may be shown directly in the browser. Everything else downloads as a plain file.
+const INLINE_TYPES = /^(image\/(jpeg|png|gif|webp|heic|heif)|video\/(mp4|webm|quicktime)|audio\/[a-z0-9.+-]+)$/;
+const DAILY_FILES = 60, DAILY_BYTES = 300 * 1024 * 1024;   // per person, to stop storage abuse
 
 const cors = (req) => {
   const o = req.headers.get("origin") || "";
   return {
-    "access-control-allow-origin": ORIGINS.includes(o) || o.endsWith(".dialed-up.github.io") ? o : ORIGINS[0],
+    "access-control-allow-origin": ORIGINS.includes(o) ? o : ORIGINS[0],
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "content-type, x-du-token, x-du-name, x-du-conv, range",
     "access-control-expose-headers": "content-length, content-range, accept-ranges",
@@ -26,9 +29,9 @@ function uidOf(token) {
     return typeof p.user_id === "string" && /^[A-Za-z0-9]{10,40}$/.test(p.user_id) ? p.user_id : null;
   } catch { return null; }
 }
-async function dbGet(path, token) {
+async function dbGet(path, token, query = "") {
   try {
-    const r = await fetch(`${DB}/${path}.json?auth=${encodeURIComponent(token)}`);
+    const r = await fetch(`${DB}/${path}.json?${query}${query ? "&" : ""}auth=${encodeURIComponent(token)}`);
     if (!r.ok) return { ok: false, status: r.status };
     return { ok: true, val: await r.json() };
   } catch { return { ok: false, status: 502 }; }
@@ -77,9 +80,11 @@ export default {
       if (!/^[a-f0-9]{32}$/.test(id)) return new Response("not found", { status: 404, headers: cors(req) });
       const { value, metadata } = await env.SUBS.getWithMetadata(`file:${id}`, "arrayBuffer");
       if (!value) return new Response("This file has expired.", { status: 404, headers: cors(req) });
-      const type = metadata?.type || "application/octet-stream";
-      const base = { ...cors(req), "content-type": type, "accept-ranges": "bytes", "cache-control": "private, max-age=86400",
-        "content-disposition": `inline; filename*=UTF-8''${encodeURIComponent(metadata?.name || "file")}` };
+      const raw = String(metadata?.type || "").toLowerCase();
+      const inline = INLINE_TYPES.test(raw);
+      const base = { ...cors(req), "content-type": inline ? raw : "application/octet-stream", "accept-ranges": "bytes", "cache-control": "private, max-age=86400",
+        "content-disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(metadata?.name || "file")}`,
+        "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox", "referrer-policy": "no-referrer" };
       const range = req.headers.get("range")?.match(/bytes=(\d*)-(\d*)/);
       if (range) {   // videos on iPhone need this
         const size = value.byteLength;
@@ -100,8 +105,13 @@ export default {
       if (len > 25 * 1024 * 1024) return json(req, { error: "too big" }, 413);
       const check = await dbGet(`users/${me}/screenName`, token);
       if (!check.ok) return json(req, { error: "not signed in" }, 401);
+      // daily allowance per person
+      const qKey = `quota:${me}:${new Date().toISOString().slice(0, 10)}`;
+      const q = (await env.SUBS.get(qKey, "json")) || { n: 0, b: 0 };
+      if (q.n >= DAILY_FILES || q.b + len > DAILY_BYTES) return json(req, { error: "daily limit reached" }, 429);
       const buf = await req.arrayBuffer();
       if (buf.byteLength > 25 * 1024 * 1024) return json(req, { error: "too big" }, 413);
+      await env.SUBS.put(qKey, JSON.stringify({ n: q.n + 1, b: q.b + buf.byteLength }), { expirationTtl: 60 * 60 * 26 });
       const id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
       const name = decodeURIComponent(req.headers.get("x-du-name") || "file").slice(0, 100);
       await env.SUBS.put(`file:${id}`, buf, { expirationTtl: 60 * 60 * 24,
@@ -153,11 +163,15 @@ export default {
       const fresh = (ts) => typeof ts === "number" && Math.abs(Date.now() - ts) < 120000;
       let note;
       if (body.kind === "im") {
+        // Check the real conversation: the newest message must be from the sender and brand new.
+        // (Writing there already passes the database's block check, so blocked people can't send alerts.)
         const conv = [me, to].sort().join("_");
-        const entry = await dbGet(`inbox/${me}/${conv}`, token);
-        if (!entry.ok || !entry.val || entry.val.from !== me || entry.val.with !== to || !fresh(entry.val.ts)) return json(req, { error: "no such message" }, 403);
-        const name = (await dbGet(`names/${me}`, token)).val || "A buddy";
-        note = { title: `💬 ${clip(name, 24)}`, body: clip(entry.val.preview, 120) || "New Instant Message", tag: `im-${me}`, url: "./" };
+        const last = await dbGet(`messages/${conv}`, token, 'orderBy=%22%24key%22&limitToLast=1');
+        const msg = last.ok && last.val ? Object.values(last.val)[0] : null;
+        if (!msg || msg.from !== me || !fresh(msg.ts)) return json(req, { error: "no such message" }, 403);
+        const name = (await dbGet(`names/${me}`, token)).val || "A homie";
+        const preview = msg.media ? { photo: "📷 Photo", video: "🎬 Video", audio: "🎵 Audio" }[msg.media.kind] || "📎 File" : msg.text;
+        note = { title: `💬 ${clip(name, 24)}`, body: clip(preview, 120) || "New Instant Message", tag: `im-${me}`, url: "./" };
       } else if (body.kind === "mail") {
         const sentId = String(body.sentId || "");
         if (!/^[-_A-Za-z0-9]{10,40}$/.test(sentId)) return json(req, { error: "bad mail" }, 400);

@@ -27,7 +27,7 @@ export function openGreetings(send) {
     render(body) {
       let design = "birthday";
       body.innerHTML = `<div class="swatches">${Object.entries(cardDesigns).map(([k, d], i) =>
-          `<button data-d="${k}" class="${i ? "" : "on"}" style="background:${d.bg};color:#fff">${d.label}</button>`).join("")}</div>
+          `<button data-d="${esc(k)}" class="${i ? "" : "on"}" style="background:${d.bg};color:#fff">${d.label}</button>`).join("")}</div>
         <label style="margin-top:8px">To (screen name) <input id="g-to"></label>
         <label>Headline <input id="g-h" maxlength="60" placeholder="${esc(cardDesigns.birthday.headline)}"></label>
         <label>Your message <textarea id="g-t" rows="3" maxlength="400" placeholder="Hope your day is amazing!"></textarea></label>

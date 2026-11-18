@@ -51,12 +51,12 @@ export function openPreferences() {
       const cur = { theme: localStorage.getItem("du.theme") || "Grape", wp: localStorage.getItem("du.wallpaper") || "Bubble Pop", im: localStorage.getItem("du.imbg") || "Plain" };
       body.innerHTML = `
         <div class="panel"><h3>🎨 Color Theme</h3><div class="swatches">${Object.entries(themes).map(([n, t]) =>
-          `<button data-theme="${n}" class="${n === cur.theme ? "on" : ""}" style="background:linear-gradient(90deg, ${t.grape}, ${t.grape2}, ${t.pink})">${n}</button>`).join("")}</div></div>
+          `<button data-theme="${esc(n)}" class="${n === cur.theme ? "on" : ""}" style="background:linear-gradient(90deg, ${t.grape}, ${t.grape2}, ${t.pink})">${n}</button>`).join("")}</div></div>
         <div class="panel"><h3>🖼 Wallpaper</h3><div class="swatches">${Object.entries(wallpapers).map(([n, w]) =>
-          `<button data-wp="${n}" class="${n === cur.wp ? "on" : ""}" style="background:${w || "#888"};color:#fff">${n}</button>`).join("")}</div>
+          `<button data-wp="${esc(n)}" class="${n === cur.wp ? "on" : ""}" style="background:${w || "#888"};color:#fff">${n}</button>`).join("")}</div>
           <label class="btn small-btn" style="display:inline-block;margin-top:6px;font-weight:normal">Use my own picture<input type="file" accept="image/*" id="wp-file" hidden></label></div>
         <div class="panel"><h3>💬 IM Window Background</h3><div class="swatches">${Object.entries(imBackgrounds).map(([n, b]) =>
-          `<button data-im="${n}" class="${n === cur.im ? "on" : ""}" style="background:${b};color:${n === "Dark" ? "#fff" : "#333"}">${n}</button>`).join("")}</div>
+          `<button data-im="${esc(n)}" class="${n === cur.im ? "on" : ""}" style="background:${b};color:${n === "Dark" ? "#fff" : "#333"}">${n}</button>`).join("")}</div>
           <p class="small muted">Applies to all IM windows. Each IM window also has its own 🎨 button.</p></div>`;
       const mark = (attr, val) => body.querySelectorAll(`[data-${attr}]`).forEach((b) => b.classList.toggle("on", b.dataset[attr] === val));
       body.querySelectorAll("[data-theme]").forEach((b) => (b.onclick = () => { localStorage.setItem("du.theme", b.dataset.theme); applyPrefs(); mark("theme", b.dataset.theme); }));

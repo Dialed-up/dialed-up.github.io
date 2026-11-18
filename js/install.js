@@ -37,7 +37,7 @@ export async function addToHomeScreen() {
           or open the browser menu <b>⋮</b> → <b>Install DialedUp</b> / <b>Add to Home screen</b>.</li>
         <li>Confirm with <b>Install</b>.</li>
       </ol>`;
-  const html = `<div style="text-align:center"><img src="img/icon-192-d1794979108.png" onerror="this.src='img/logo.png'" alt=""
+  const html = `<div style="text-align:center"><img src="img/icon-192-d1794979108.png" alt=""
       style="width:72px;height:72px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.25)"></div>
     ${steps}
     <div class="row"><span></span><button class="btn primary small-btn" data-x="ok">Got it</button></div>

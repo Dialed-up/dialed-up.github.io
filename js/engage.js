@@ -164,7 +164,7 @@ export function openLeaderboards() {
       const isFriday = new Date().getDay() === 5;
       const week = await topScores(`triviaweek/${weekKey()}`);
       const boards = await Promise.all(Object.keys(GAMES).map(async (g) => [g, await topScores(`leaderboards/${g}`)]));
-      const table = (rows, unit = "") => rows.length ? `<ol class="lb">${rows.map((r, i) => `<li class="${r.u === uid() ? "me" : ""}"><span>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(r.n)}</span><b>${r.s}${unit}</b></li>`).join("")}</ol>` : `<p class="small muted">No scores yet. Be the first!</p>`;
+      const table = (rows, unit = "") => rows.length ? `<ol class="lb">${rows.map((r, i) => `<li class="${r.u === uid() ? "me" : ""}"><span>${["🥇", "🥈", "🥉"][i] || i + 1 + "."} ${esc(r.n)}</span><b>${Number(r.s) || 0}${unit}</b></li>`).join("")}</ol>` : `<p class="small muted">No scores yet. Be the first!</p>`;
       body.innerHTML = `<div class="panel trivia-night"><h3>🏆 Trivia Night — this week</h3>
           <p class="small" style="margin:0 0 6px">${isFriday ? "🎉 <b>It's Trivia Night!</b> Play now to climb the board." : "Every week's best Trivia scores. The board resets Monday — Friday is Trivia Night!"}</p>
           ${table(week, "/10")}<button class="btn primary small-btn" data-play>❓ Play Trivia</button></div>
@@ -210,8 +210,8 @@ export function openTrending() {
       try { events = Object.values((await get(ref(db, "events"))).val() || {}).filter((e) => e.start > Date.now() - 2 * 3600000).sort((a, b) => a.start - b.start).slice(0, 3); } catch {}
       body.innerHTML = `
         <div class="panel"><h3>💬 Hot chat rooms</h3>${rooms.length ? `<ul class="list">${rooms.map(([n, c]) => `<li class="row"><a href="#" data-room="${esc(n)}">💬 ${esc(n)}</a><span class="small">${c} 🟢</span></li>`).join("")}</ul>` : `<p class="small muted">The rooms are quiet. Start the party!</p>`}</div>
-        <div class="panel"><h3>❤️ Most-liked posts this week</h3>${posts.length ? `<ul class="list">${posts.map((x) => `<li><a href="#" data-who="${x.o}"><b>${esc(x.p.n)}</b></a>: ${esc((x.p.text || "📷 Photo").slice(0, 60))} <span class="small">❤️ ${x.likes}</span></li>`).join("")}</ul>` : `<p class="small muted">No liked posts yet this week.</p>`}</div>
-        <div class="panel"><h3>📌 Busy message boards</h3>${threads.length ? `<ul class="list">${threads.map((t) => `<li>${esc(t.title || "Thread")} <span class="small muted">· ${t.replies || 0} replies</span></li>`).join("")}</ul>` : `<p class="small muted">No busy threads this week.</p>`}</div>
+        <div class="panel"><h3>❤️ Most-liked posts this week</h3>${posts.length ? `<ul class="list">${posts.map((x) => `<li><a href="#" data-who="${esc(x.o)}"><b>${esc(x.p.n)}</b></a>: ${esc((x.p.text || "📷 Photo").slice(0, 60))} <span class="small">❤️ ${x.likes}</span></li>`).join("")}</ul>` : `<p class="small muted">No liked posts yet this week.</p>`}</div>
+        <div class="panel"><h3>📌 Busy message boards</h3>${threads.length ? `<ul class="list">${threads.map((t) => `<li>${esc(t.title || "Thread")} <span class="small muted">· ${Number(t.replies) || 0} replies</span></li>`).join("")}</ul>` : `<p class="small muted">No busy threads this week.</p>`}</div>
         <div class="panel"><h3>🎤 Coming up</h3>${events.length ? `<ul class="list">${events.map((e) => `<li>${esc(e.title)} <span class="small muted">· ${new Date(e.start).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}</span></li>`).join("")}</ul>` : `<p class="small muted">No live events scheduled.</p>`}
           <button class="btn small-btn" data-ev>See Live Events</button></div>`;
       body.querySelectorAll("[data-room]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); import("./people.js").then((m) => m.openRoom(a.dataset.room)); }));
@@ -238,8 +238,8 @@ export function openPYMK() {
       const nameOf = async (u) => (userName(u) !== "…" && userName(u)) || (await get(ref(db, `names/${u}`)).catch(() => null))?.val() || "Someone";
       const addedRows = await Promise.all(added.slice(0, 15).map(async (u) => ({ u, n: await nameOf(u) })));
       body.innerHTML = `
-        <div class="panel"><h3>➕ Added you as a homie</h3>${addedRows.length ? `<ul class="list">${addedRows.map((x) => `<li class="row"><a href="#" data-info="${x.u}">${esc(x.n)}</a><button class="btn primary small-btn" data-add="${esc(x.n)}">Add Back</button></li>`).join("")}</ul>` : `<p class="small muted">Nobody new.</p>`}</div>
-        <div class="panel"><h3>❤️ Likes what you like</h3>${alike.length ? `<ul class="list">${alike.map((x) => `<li class="row"><span><a href="#" data-info="${x.u}">${esc(x.d.screenName)}</a><br><span class="small muted">${esc(x.shared.join(", "))}</span></span><button class="btn small-btn" data-add="${esc(x.d.screenName)}">Add</button></li>`).join("")}</ul>`
+        <div class="panel"><h3>➕ Added you as a homie</h3>${addedRows.length ? `<ul class="list">${addedRows.map((x) => `<li class="row"><a href="#" data-info="${esc(x.u)}">${esc(x.n)}</a><button class="btn primary small-btn" data-add="${esc(x.n)}">Add Back</button></li>`).join("")}</ul>` : `<p class="small muted">Nobody new.</p>`}</div>
+        <div class="panel"><h3>❤️ Likes what you like</h3>${alike.length ? `<ul class="list">${alike.map((x) => `<li class="row"><span><a href="#" data-info="${esc(x.u)}">${esc(x.d.screenName)}</a><br><span class="small muted">${esc(x.shared.join(", "))}</span></span><button class="btn small-btn" data-add="${esc(x.d.screenName)}">Add</button></li>`).join("")}</ul>`
           : `<p class="small muted">${myInterests.length ? "No matches yet." : "Add Interests to your profile (My Profile → Member Info) to find people who like the same things."}</p>`}</div>
         <button class="btn small-btn" data-invite>🎟 Invite Friends to DialedUp</button>`;
       body.querySelectorAll("[data-info]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openInfo(a.dataset.info); }));
@@ -299,7 +299,7 @@ export function openGroups() {
         const rows = groups.map(([gid, g], i) => ({ gid, g, c: counts[i] })).sort((a, b) => b.c - a.c);
         const el = body.querySelector("#gl");
         if (!el) return;
-        el.innerHTML = rows.length ? rows.map(({ gid, g, c }) => `<button class="group-tile" data-g="${gid}"><span class="g-emo">${esc(g.emoji || "🌍")}</span>
+        el.innerHTML = rows.length ? rows.map(({ gid, g, c }) => `<button class="group-tile" data-g="${esc(gid)}"><span class="g-emo">${esc(g.emoji || "🌍")}</span>
             <span><b>${esc(g.name)}</b><br><span class="small muted">${esc((g.desc || "").slice(0, 70))}</span></span><span class="small">${c} 👥</span></button>`).join("")
           : `<p class="muted">No groups yet. Start the first one!</p>`;
         el.querySelectorAll("[data-g]").forEach((b) => (b.onclick = () => openGroup(b.dataset.g)));

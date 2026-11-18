@@ -1,7 +1,7 @@
 // DialedUp social: permanent Posts (photos + text) that live on your Wall, the Homie Feed, likes & comments,
 // Homie Updates (24-hour stories), Top 8, and Report buttons.
 import { auth, db, ref, get, set, push, remove, update, onValue, off, query, orderByKey, limitToLast, serverTimestamp } from "./firebase.js";
-import { openWindow, closeWindow, getWindow, esc, contextMenu } from "./wm.js";
+import { openWindow, closeWindow, getWindow, esc, img64, contextMenu } from "./wm.js";
 import { me, userName, iconHTML, buddyList, openInfo, openIM } from "./chat.js";
 import { pickEmoji } from "./emoji.js";
 import * as sfx from "./sounds.js";
@@ -17,7 +17,7 @@ const ago = (ts) => {
   if (m < 10080) return `${Math.floor(m / 1440)}d`;
   return new Date(ts).toLocaleDateString([], { month: "short", day: "numeric" });
 };
-const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).replace(/\n/g, "<br>");
+const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${u}</a>`).replace(/\n/g, "<br>");
 
 async function shrink(file, max = 960, q = 0.72) {
   let img;
@@ -66,7 +66,7 @@ function postCard(el, owner, pid, p, label = null) {
   const refs = [];
   const mine = p.by === uid(), myWall = owner === uid() || (owner.startsWith("g_") && groupOwner[owner] === uid());
   el.className = "post";
-  el.innerHTML = `<div class="post-head">${iconHTML(p.by, 34)}<div><b class="post-who" data-u="${p.by}">${esc(p.n || userName(p.by))}</b>
+  el.innerHTML = `<div class="post-head">${iconHTML(p.by, 34)}<div><b class="post-who" data-u="${esc(p.by)}">${esc(p.n || userName(p.by))}</b>
       ${p.by !== owner && !label ? `<span class="small muted"> ▸ ${esc(userName(owner))}'s Wall</span>` : ""}<br><span class="small muted">${p.ts ? ago(p.ts) : ""}</span></div>
       <button class="post-more" title="More">⋯</button></div>
     ${p.text ? `<div class="post-text">${linkify(p.text)}</div>` : ""}
@@ -78,8 +78,8 @@ function postCard(el, owner, pid, p, label = null) {
   if (p.img) get(ref(db, `postimgs/${owner}/${pid}`)).then((s) => {
     const box = el.querySelector(".post-img");
     if (!s.val()) { box.innerHTML = ""; return; }
-    box.innerHTML = `<img src="data:image/jpeg;base64,${s.val()}" alt="">`;
-    box.querySelector("img").onclick = (e) => { const v = document.createElement("div"); v.className = "media-viewer"; v.innerHTML = `<img src="${e.target.src}" alt=""><button>✕</button>`; v.onclick = () => v.remove(); document.body.appendChild(v); };
+    box.innerHTML = `<img src="${img64(s.val())}" alt="">`;
+    box.querySelector("img").onclick = (e) => { const v = document.createElement("div"); v.className = "media-viewer"; v.innerHTML = `<img src="${esc(e.target.src)}" alt=""><button>✕</button>`; v.onclick = () => v.remove(); document.body.appendChild(v); };
     box.querySelector("img").ondblclick = () => toggleLike(true);
   }).catch(() => {});
   // likes
@@ -105,8 +105,8 @@ function postCard(el, owner, pid, p, label = null) {
     const list = [];
     s.forEach((c) => { list.push([c.key, c.val()]); });
     el.querySelector(".cmt span").textContent = list.length;
-    el.querySelector(".clist").innerHTML = list.map(([cid, c]) => `<li><b data-u="${c.by}">${esc(c.n || userName(c.by))}</b> ${linkify(c.text)}
-      <span class="small muted">${c.ts ? ago(c.ts) : ""}</span>${c.by === uid() || myWall || uid() === OWNER ? ` <a href="#" class="small" data-delc="${cid}">delete</a>` : ` <a href="#" class="small" data-repc="${cid}">report</a>`}</li>`).join("");
+    el.querySelector(".clist").innerHTML = list.map(([cid, c]) => `<li><b data-u="${esc(c.by)}">${esc(c.n || userName(c.by))}</b> ${linkify(c.text)}
+      <span class="small muted">${c.ts ? ago(c.ts) : ""}</span>${c.by === uid() || myWall || uid() === OWNER ? ` <a href="#" class="small" data-delc="${esc(cid)}">delete</a>` : ` <a href="#" class="small" data-repc="${esc(cid)}">report</a>`}</li>`).join("");
     el.querySelectorAll("[data-delc]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); remove(ref(db, `postcomments/${owner}/${pid}/${a.dataset.delc}`)).catch(() => {}); }));
     el.querySelectorAll("[data-repc]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); const c = list.find(([k]) => k === a.dataset.repc)?.[1]; report("comment", `postcomments/${owner}/${pid}/${a.dataset.repc}`, owner, c?.text); }));
     el.querySelectorAll(".clist [data-u]").forEach((b) => (b.onclick = () => openInfo(b.dataset.u)));
@@ -274,7 +274,7 @@ function paintStoriesBar(el) {
   const draw = () => {
     const withStories = people.filter((u) => u !== uid() && hasStory(u)).sort((a, b) => Number(hasNewStory(b)) - Number(hasNewStory(a)));
     el.innerHTML = `<button class="story-bubble add" data-add>${iconHTML(uid(), 52)}<b>＋</b><span>${hasStory(uid()) ? "Your Update" : "Add Update"}</span></button>
-      ${withStories.map((u) => `<button class="story-bubble ${hasNewStory(u) ? "new" : ""}" data-s="${u}">${iconHTML(u, 52)}<span>${esc(userName(u))}</span></button>`).join("")}`;
+      ${withStories.map((u) => `<button class="story-bubble ${hasNewStory(u) ? "new" : ""}" data-s="${esc(u)}">${iconHTML(u, 52)}<span>${esc(userName(u))}</span></button>`).join("")}`;
     el.querySelector("[data-add]").onclick = () => (hasStory(uid()) ? contextMenu(...pos(el), [
       { label: "👀 View My Update", action: () => viewStories(uid()) }, { label: "➕ Add Another", action: newStory }]) : newStory());
     el.querySelectorAll("[data-s]").forEach((b) => (b.onclick = () => viewStories(b.dataset.s, () => draw())));
@@ -375,7 +375,7 @@ export function renderTop8(el, u, top8) {
   const list = (Array.isArray(top8) ? top8 : []).filter(Boolean).slice(0, 8);
   if (!list.length) { el.innerHTML = ""; return; }
   el.innerHTML = `<div class="panel"><h3>⭐ ${esc(userName(u))}'s Top ${list.length}</h3><div class="top8">${list.map((b, i) =>
-    `<button class="top8-tile" data-u="${b}">${iconHTML(b, 56)}<span>${i + 1}. ${esc(userName(b))}</span></button>`).join("")}</div></div>`;
+    `<button class="top8-tile" data-u="${esc(b)}">${iconHTML(b, 56)}<span>${i + 1}. ${esc(userName(b))}</span></button>`).join("")}</div></div>`;
   el.querySelectorAll("[data-u]").forEach((b) => (b.onclick = () => openInfo(b.dataset.u)));
 }
 
@@ -385,8 +385,8 @@ export function top8Editor(el, current = []) {
   const paint = () => {
     const buddies = buddyList().filter((b) => !picks.includes(b)).sort((a, b) => userName(a).localeCompare(userName(b)));
     el.innerHTML = `<p class="small" style="margin-top:0">Pick up to 8 favorite homies to show on your profile. Use ⬆️ to change the order.</p>
-      <ol class="t8-list">${picks.map((b, i) => `<li><span>${iconHTML(b, 22)} ${esc(userName(b))}</span><span><button class="btn small-btn" data-up="${i}" ${i ? "" : "disabled"}>⬆️</button><button class="btn small-btn" data-rm="${i}">✖</button></span></li>`).join("")}</ol>
-      ${picks.length < 8 ? `<label>Add a homie <select data-add><option value="">Choose…</option>${buddies.map((b) => `<option value="${b}">${esc(userName(b))}</option>`).join("")}</select></label>` : `<p class="small muted">Your Top 8 is full!</p>`}`;
+      <ol class="t8-list">${picks.map((b, i) => `<li><span>${iconHTML(b, 22)} ${esc(userName(b))}</span><span><button class="btn small-btn" data-up="${esc(i)}" ${i ? "" : "disabled"}>⬆️</button><button class="btn small-btn" data-rm="${esc(i)}">✖</button></span></li>`).join("")}</ol>
+      ${picks.length < 8 ? `<label>Add a homie <select data-add><option value="">Choose…</option>${buddies.map((b) => `<option value="${esc(b)}">${esc(userName(b))}</option>`).join("")}</select></label>` : `<p class="small muted">Your Top 8 is full!</p>`}`;
     el.querySelectorAll("[data-up]").forEach((b) => (b.onclick = () => { const i = Number(b.dataset.up); [picks[i - 1], picks[i]] = [picks[i], picks[i - 1]]; paint(); }));
     el.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => { picks.splice(Number(b.dataset.rm), 1); paint(); }));
     el.querySelector("[data-add]")?.addEventListener("change", (e) => { if (e.target.value) { picks.push(e.target.value); paint(); } });
@@ -408,11 +408,12 @@ export function openReports() {
         body.innerHTML = list.length ? list.map(([id, x]) => `<div class="panel small">
             <b>🚩 ${esc(x.what)}</b> by ${esc(userName(x.owner) || "someone")} · reported by ${esc(x.byName || "")} · ${x.ts ? ago(x.ts) : ""}<br>
             ${x.preview ? `“${esc(x.preview)}”<br>` : ""}${x.why ? `<i>Why: ${esc(x.why)}</i><br>` : ""}
-            <div class="row" style="justify-content:flex-start;gap:4px;margin-top:4px"><button class="btn danger small-btn" data-del="${id}">Remove it</button>
-            <button class="btn small-btn" data-ok="${id}">Dismiss</button><button class="btn small-btn" data-who="${x.owner}">View person</button></div></div>`).join("")
+            <div class="row" style="justify-content:flex-start;gap:4px;margin-top:4px"><button class="btn danger small-btn" data-del="${esc(id)}">Remove it</button>
+            <button class="btn small-btn" data-ok="${esc(id)}">Dismiss</button><button class="btn small-btn" data-who="${esc(x.owner)}">View person</button></div></div>`).join("")
           : `<p class="muted">No reports. All quiet. 🛡</p>`;
         body.querySelectorAll("[data-del]").forEach((b) => (b.onclick = async () => {
           const x = list.find(([id]) => id === b.dataset.del)[1];
+          if (!/^(posts|postcomments|stories|guestbook|groups)\/[-_A-Za-z0-9/]{1,160}$/.test(String(x.path || ""))) { alert("This report points somewhere unexpected, so it wasn't removed. Dismiss it instead."); return; }
           if (!confirm("Remove the reported content?")) return;
           if (x.path.startsWith("posts/")) { const [, owner, pid] = x.path.split("/"); await deletePost(owner, pid).catch(() => {}); }
           else await remove(ref(db, x.path)).catch(() => {});

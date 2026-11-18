@@ -17,7 +17,7 @@ export function openArcade() {
         ["⭕", "Tic-Tac-Toe Online", "Challenge a homie live", "#2b59ff", openTicTacToeLobby],
       ];
       body.innerHTML = `<div class="grid2">${games.map(([ic, n, sub, c], i) =>
-        `<button class="tile" data-g="${i}" style="background:linear-gradient(135deg, ${c}, #5b2a86)"><span style="font-size:26px">${ic}</span><br>${n}<small>${sub}</small></button>`).join("")}</div>`;
+        `<button class="tile" data-g="${esc(i)}" style="background:linear-gradient(135deg, ${c}, #5b2a86)"><span style="font-size:26px">${ic}</span><br>${n}<small>${sub}</small></button>`).join("")}</div>`;
       body.querySelectorAll("[data-g]").forEach((b) => (b.onclick = () => games[b.dataset.g][4]()));
     },
   });
@@ -157,7 +157,7 @@ function openMemory() {
       const deck = shuffle([...faces, ...faces]);
       let open = [], matched = 0, moves = 0, lock = false;
       body.innerHTML = `<div class="row small"><b>Moves: <span id="mm-m">0</span></b><span>Pairs: <span id="mm-p">0</span>/8</span></div>
-        <div class="mm-grid">${deck.map((f, i) => `<button class="mm-card" data-i="${i}"><span>${f}</span></button>`).join("")}</div>`;
+        <div class="mm-grid">${deck.map((f, i) => `<button class="mm-card" data-i="${esc(i)}"><span>${f}</span></button>`).join("")}</div>`;
       body.querySelectorAll(".mm-card").forEach((c) => (c.onclick = () => {
         if (lock || c.classList.contains("up")) return;
         c.classList.add("up");
@@ -225,7 +225,7 @@ export function openTicTacToe(gameId) {
         const status = w === "draw" ? "It's a draw! 🤝" : w ? (w === mark ? "You win! 🎉" : `${esc(userName(opp))} wins!`)
           : g.turn === mark ? "Your turn" : `Waiting for ${esc(userName(opp))}…`;
         body.innerHTML = `<p style="text-align:center"><b>You (${mark.toUpperCase()}) vs ${esc(userName(opp))}</b><br><span class="small">${status}</span></p>
-          <div class="ttt">${board.map((c, i) => `<button data-i="${i}" ${c || w || g.turn !== mark ? "disabled" : ""}>${c === "x" ? "❌" : c === "o" ? "⭕" : ""}</button>`).join("")}</div>
+          <div class="ttt">${board.map((c, i) => `<button data-i="${esc(i)}" ${c || w || g.turn !== mark ? "disabled" : ""}>${c === "x" ? "❌" : c === "o" ? "⭕" : ""}</button>`).join("")}</div>
           ${w ? `<div class="row" style="margin-top:8px"><span></span><button class="btn primary small-btn" id="rematch">Rematch</button></div>` : ""}`;
         body.querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => {
           const nb = g.board.split("");

@@ -29,7 +29,7 @@ function paintNow(el) {
     ? `<div class="row"><span>🎶 <b>${esc(nowPlaying.name)}</b> <span class="small muted">${esc(nowPlaying.country || "")}</span></span>
        <span><button class="btn small-btn" data-r="toggle">${audio.paused ? "▶ Play" : "⏸ Pause"}</button>
        <button class="btn small-btn" data-r="stop">⏹ Stop</button></span></div>
-       <label class="small" style="margin:6px 0 0;display:flex;gap:6px;align-items:center">🔊 <input type="range" min="0" max="1" step="0.05" value="${audio.volume}" data-r="vol" style="flex:1"></label>`
+       <label class="small" style="margin:6px 0 0;display:flex;gap:6px;align-items:center">🔊 <input type="range" min="0" max="1" step="0.05" value="${esc(audio.volume)}" data-r="vol" style="flex:1"></label>`
     : `<span class="muted small">Pick a station to start listening. Music keeps playing while you chat.</span>`;
   el.querySelector("[data-r=toggle]")?.addEventListener("click", toggle);
   el.querySelector("[data-r=stop]")?.addEventListener("click", stop);
@@ -70,7 +70,7 @@ export function openRadio() {
         list.innerHTML = `<li class="muted">📡 Tuning in to ${esc(label)}…</li>`;
         try {
           const items = await stations(path);
-          list.innerHTML = items.length ? items.map((s, i) => `<li class="row"><a href="#" data-i="${i}">📻 ${esc(s.name)}</a>
+          list.innerHTML = items.length ? items.map((s, i) => `<li class="row"><a href="#" data-i="${esc(i)}">📻 ${esc(s.name)}</a>
             <span class="small muted">${esc(s.country || "")}</span></li>`).join("") : `<li class="muted">No stations found.</li>`;
           list.querySelectorAll("[data-i]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); play(items[a.dataset.i]); }));
         } catch { list.innerHTML = `<li class="muted">The radio directory isn't answering. Try again in a minute.</li>`; }

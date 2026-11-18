@@ -23,7 +23,7 @@ export function openAddressBook({ pick = null } = {}) {
             <div class="row"><span></span><button class="btn primary small-btn">Save</button></div></form>`}
           <ul class="list">${list.map((c) => `<li class="row"><span><b>${esc(c.name || c.screenName)}</b> <span class="small muted">${esc(c.screenName || "")}</span>
             ${c.notes ? `<div class="small">${esc(c.notes)}</div>` : ""}</span>
-            ${pick ? `<button class="btn primary small-btn" data-pick="${esc(c.screenName)}">Pick</button>` : `<button class="btn small-btn" data-del="${c.id}">🗑</button>`}</li>`).join("")
+            ${pick ? `<button class="btn primary small-btn" data-pick="${esc(c.screenName)}">Pick</button>` : `<button class="btn small-btn" data-del="${esc(c.id)}">🗑</button>`}</li>`).join("")
             || `<li class="muted small">Your Address Book is empty.</li>`}</ul>`;
         body.querySelector("#ab-new")?.addEventListener("submit", async (e) => {
           e.preventDefault();

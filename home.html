@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="script-src 'self' https://www.gstatic.com https://*.firebaseio.com; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Home Page — DialedUp</title>
 <link rel="icon" href="img/logo.png" type="image/png">
@@ -29,17 +31,6 @@
       <div id="gb-list" style="margin-top:10px"></div>
     </div>
   </div>
-  <script type="module">
-    import { auth, onAuthStateChanged } from "./js/firebase.js";
-    import { showPublicPage } from "./js/homepage.js";
-    const key = (new URLSearchParams(location.search).get("u") || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (!key) document.getElementById("page").innerHTML = '<div class="panel">No page picked. Try a link like home.html?u=screenname</div>';
-    else showPublicPage(key, document.getElementById("page"), document.getElementById("guestbook"));
-    onAuthStateChanged(auth, (u) => {
-      const f = document.getElementById("gb-form");
-      f.querySelector("button").disabled = !u;
-      document.getElementById("gb-hint").innerHTML = u ? "" : 'Sign on to DialedUp to sign the guestbook.';
-    });
-  </script>
+  <script type="module" src="js/home.js"></script>
 </body>
 </html>

@@ -20,7 +20,7 @@ export function openBoards() {
     title: "Message Boards", icon: "📌", width: 360, height: 440,
     render(body) {
       body.innerHTML = `<p class="small" style="margin-top:0">Pick a board to read and post.</p>
-        <ul class="list">${Object.entries(boards).map(([k, n]) => `<li><a href="#" data-b="${k}">📌 ${esc(n)}</a></li>`).join("")}</ul>`;
+        <ul class="list">${Object.entries(boards).map(([k, n]) => `<li><a href="#" data-b="${esc(k)}">📌 ${esc(n)}</a></li>`).join("")}</ul>`;
       body.querySelectorAll("[data-b]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openBoard(a.dataset.b); }));
     },
   });
@@ -38,8 +38,8 @@ function openBoard(key) {
       onValue(r, (s) => {
         const list = Object.entries(s.val() || {}).sort((a, b) => (b[1].last || 0) - (a[1].last || 0));
         body.querySelector("#threads").innerHTML = list.length ? list.map(([id, t]) =>
-          `<li><a href="#" data-t="${id}"><b>${esc(t.title)}</b></a>
-           <div class="small muted">by ${esc(t.name)} · ${t.replies || 0} replies · ${t.last ? new Date(t.last).toLocaleDateString() : ""}</div></li>`).join("")
+          `<li><a href="#" data-t="${esc(id)}"><b>${esc(t.title)}</b></a>
+           <div class="small muted">by ${esc(t.name)} · ${Number(t.replies) || 0} replies · ${t.last ? new Date(t.last).toLocaleDateString() : ""}</div></li>`).join("")
           : `<li class="muted">No threads yet. Start the first one!</li>`;
         body.querySelectorAll("[data-t]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openThread(key, a.dataset.t); }));
       });

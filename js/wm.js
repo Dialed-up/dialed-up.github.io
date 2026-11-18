@@ -269,6 +269,13 @@ function makeResizable(el, grip) {
   });
 }
 
+/** A stored picture (base64, with or without a data: prefix) → a safe src value, or "" if it isn't a real image. */
+export const img64 = (d) => {
+  const v = String(d ?? "");
+  if (/^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(v)) return v;
+  return /^[A-Za-z0-9+/=]+$/.test(v) ? "data:image/jpeg;base64," + v : "";
+};
+
 /** Safe text → HTML. */
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 

@@ -1,3 +1,4 @@
+import "./guard.js";
 // The owner's live stats page. Only the owner's account can read these numbers (see database rules).
 import { auth, db, ref, get, onValue, query, orderByKey, limitToLast, onAuthStateChanged, signOn } from "./firebase.js";
 

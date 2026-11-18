@@ -20,7 +20,7 @@ export function openFavorites(run) {
         body.innerHTML = `<form id="fa" class="row" style="margin-bottom:8px"><input id="fa-k" placeholder="Add a keyword (e.g. sports)" style="flex:1">
             <button class="btn small-btn">❤️ Add</button></form>
           ${f.length ? `<ul class="list">${f.map((x, i) => `<li class="row"><a href="#" data-k="${esc(x.keyword)}">❤️ ${esc(x.label)}</a>
-            <button class="btn small-btn" data-del="${i}">✕</button></li>`).join("")}</ul>`
+            <button class="btn small-btn" data-del="${esc(i)}">✕</button></li>`).join("")}</ul>`
             : `<p class="muted small">No favorites yet. Add keywords like <i>news</i>, <i>nyc</i> or <i>games</i>.</p>`}`;
         body.querySelectorAll("[data-k]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); run(a.dataset.k); }));
         body.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => {

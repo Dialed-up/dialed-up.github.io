@@ -47,7 +47,7 @@ export function renderHomepage(el, d, { counter = null } = {}) {
   const links = String(d.links || "").split("\n").map((l) => l.split("|")).filter(([, u]) => safeURL((u || "").trim()));
   const counterHTML = counter == null ? "" : `<p style="text-align:center">You are visitor number
       <span class="counter">${String(counter).padStart(6, "0").split("").map((c) => `<b>${c}</b>`).join("")}</span></p>`;
-  el.innerHTML = `<div class="homepage" style="background:${backgrounds[d.bg] || backgrounds.stars};color:${/^#[0-9a-f]{6}$/i.test(d.color || "") ? d.color : "#ffffff"};font-family:${esc(d.font || "Comic Sans MS")}, Verdana, sans-serif">
+  el.innerHTML = `<div class="homepage" style="background:${Object.hasOwn(backgrounds, d.bg) ? backgrounds[d.bg] : backgrounds.stars};color:${/^#[0-9a-f]{6}$/i.test(d.color || "") ? d.color : "#ffffff"};font-family:${["Comic Sans MS", "Verdana", "Impact", "Courier New", "Georgia", "Trebuchet MS"].includes(d.font) ? d.font : "Comic Sans MS"}, Verdana, sans-serif">
     <h1 class="${d.glitter ? "glitter" : ""}">${esc(d.title || "Welcome to my page!")}</h1>
     ${d.marquee ? `<div class="marquee"><span>${esc(d.marquee)}</span></div>` : ""}
     ${d.intro ? `<p style="white-space:pre-wrap">${esc(d.intro)}</p>` : ""}

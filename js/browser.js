@@ -91,7 +91,7 @@ export function openBrowser(url = "", meta = {}) {
         if (!url) {
           setTitle(id, "DialedUp Browser — Start Page");
           view.innerHTML = `<div class="br-start"><h3>🌍 DialedUp Start Page</h3><p class="small muted">Pick a site or type an address above.</p>
-            <div class="br-tiles">${startLinks.map(([ic, n, u]) => `<button data-go="${u}"><span>${ic}</span>${esc(n)}</button>`).join("")}</div></div>`;
+            <div class="br-tiles">${startLinks.map(([ic, n, u]) => `<button data-go="${esc(u)}"><span>${ic}</span>${esc(n)}</button>`).join("")}</div></div>`;
           view.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => navigate(b.dataset.go)));
           msg.textContent = "Done";
           return;

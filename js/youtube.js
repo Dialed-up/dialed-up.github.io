@@ -26,7 +26,7 @@ export function openYouTube(start = "") {
       };
       const grid = (items, heading) => {
         list.innerHTML = items.length ? `<h4 style="margin:8px 0 4px">${heading}</h4><div class="yt-grid">${items.map((v, i) =>
-          `<button class="yt-tile" data-i="${i}"><img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="" loading="lazy"><span>${esc(v.title || "Video")}</span>${v.channel ? `<small>${esc(v.channel)}</small>` : ""}</button>`).join("")}</div>` : "";
+          `<button class="yt-tile" data-i="${esc(i)}"><img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="" loading="lazy"><span>${esc(v.title || "Video")}</span>${v.channel ? `<small>${esc(v.channel)}</small>` : ""}</button>`).join("")}</div>` : "";
         list.querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => play(items[b.dataset.i])));
       };
       const showHome = () => {

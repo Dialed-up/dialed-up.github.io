@@ -3,7 +3,7 @@ import {
   auth, db, ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect,
   query, orderByKey, limitToLast, normalize, conversationID,
 } from "./firebase.js";
-import { openWindow, closeWindow, getWindow, setTitle, flash, esc, contextMenu, onMenu } from "./wm.js";
+import { openWindow, closeWindow, getWindow, setTitle, flash, esc, img64, contextMenu, onMenu } from "./wm.js";
 import * as sfx from "./sounds.js";
 import { warningLevel, warn, alreadyWarned } from "./extras.js";
 import { imBackgroundFor } from "./prefs.js";
@@ -37,7 +37,7 @@ export const userName = name;
 /** A homie's icon as an <img>, or a colored letter if they haven't picked one. */
 export function iconHTML(uid, size = 22) {
   const b64 = state.icons[uid];
-  if (b64) return `<img class="bicon" src="${String(b64).startsWith("data:image/") ? b64 : "data:image/jpeg;base64," + b64}" width="${size}" height="${size}" alt="">`;
+  if (b64 && img64(b64)) return `<img class="bicon" src="${img64(b64)}" width="${esc(size)}" height="${esc(size)}" alt="">`;
   const n = name(uid);
   const hue = [...n].reduce((h, c) => h + c.charCodeAt(0), 0) % 360;
   return `<span class="bicon letter" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.55)}px;background:hsl(${hue} 65% 55%)">${esc((n[0] || "?").toUpperCase())}</span>`;
@@ -311,8 +311,8 @@ function refreshBuddyList() {
     const p = presence(u);
     const conv = conversationID(state.uid, uid);
     const unread = state.inbox[conv] && state.inbox[conv].from !== state.uid && (state.inbox[conv].ts || 0) > Number(localStorage.getItem("du.read." + conv) || 0);
-    return `<div class="buddy ${p}" data-buddy="${uid}" title="${p}">
-      <span class="dot"></span>${social?.hasStory(uid) ? `<span class="ring ${social.hasNewStory(uid) ? "new" : ""}" data-story="${uid}" title="See ${esc(name(uid))}'s Homie Update">${iconHTML(uid, 20)}</span>` : iconHTML(uid, 20)}<span>${esc(name(uid))}</span>
+    return `<div class="buddy ${p}" data-buddy="${esc(uid)}" title="${esc(p)}">
+      <span class="dot"></span>${social?.hasStory(uid) ? `<span class="ring ${social.hasNewStory(uid) ? "new" : ""}" data-story="${esc(uid)}" title="See ${esc(name(uid))}'s Homie Update">${iconHTML(uid, 20)}</span>` : iconHTML(uid, 20)}<span>${esc(name(uid))}</span>
       ${p === "idle" ? `<span class="small">(idle ${idleMin(u)})</span>` : ""}
       ${p === "away" ? `<span class="small" title="${esc(u.away)}">📝</span>` : ""}
       ${unread ? `<span class="unread">✉️</span>` : ""}</div>`;
@@ -324,7 +324,7 @@ function refreshBuddyList() {
   };
   const groupsHTML = state.groups.map((g) => {
     const on = g.members.filter(visible);
-    return `<div class="group"><button data-group="${g.id}">${g.collapsed ? "▸" : "▾"} ${esc(g.name)} (${on.length}/${g.members.length})</button>
+    return `<div class="group"><button data-group="${esc(g.id)}">${g.collapsed ? "▸" : "▾"} ${esc(g.name)} (${on.length}/${g.members.length})</button>
       ${g.collapsed ? "" : on.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>`;
   }).join("");
   const off_ = [...buddyIDs()].filter((m) => presence(state.users[m]) === "offline");
@@ -524,7 +524,7 @@ export function buddyMenu(uid, x, y) {
 
 function moveToGroup(uid, x, y) {
   const cur = state.groups.find((g) => g.members.includes(uid));
-  if (x === undefined) { const r = document.querySelector(`[data-buddy="${uid}"]`)?.getBoundingClientRect(); x = r ? r.left + 20 : innerWidth / 2 - 80; y = r ? r.bottom : innerHeight / 3; }
+  if (x === undefined) { const r = document.querySelector(`[data-buddy="${esc(uid)}"]`)?.getBoundingClientRect(); x = r ? r.left + 20 : innerWidth / 2 - 80; y = r ? r.bottom : innerHeight / 3; }
   contextMenu(x, y, state.groups.map((g) => ({ label: `${g === cur ? "✅" : "📁"} ${g.name}`, action: () => putInGroup(uid, g.id) })));
 }
 function putInGroup(uid, gid) {
@@ -641,16 +641,16 @@ export function openEditGroups() {
     title: "Manage Homies List", icon: "🛠", width: 360, height: 500, keyword: "managebuddies",
     render(body) {
       const paint = () => {
-        const opts = (sel) => state.groups.map((g) => `<option value="${g.id}" ${g.id === sel ? "selected" : ""}>${esc(g.name)}</option>`).join("");
+        const opts = (sel) => state.groups.map((g) => `<option value="${esc(g.id)}" ${g.id === sel ? "selected" : ""}>${esc(g.name)}</option>`).join("");
         body.innerHTML = `<div class="row" style="gap:4px;justify-content:flex-start;margin-bottom:8px">
             <button class="btn primary small-btn" data-addb>➕ Add a Homie</button><button class="btn small-btn" data-new>📁 Add a Group</button></div>
           ${state.groups.map((g, i) => `<div class="panel mg-group">
             <div class="row"><b>📁 ${esc(g.name)} <span class="small muted">(${g.members.length})</span></b>
-              <span style="white-space:nowrap"><button class="btn small-btn" data-r="${g.id}" title="Rename group">✏️</button><button class="btn small-btn" data-u="${g.id}" ${i ? "" : "disabled"} title="Move group up">⬆️</button><button class="btn small-btn" data-d="${g.id}" ${i < state.groups.length - 1 ? "" : "disabled"} title="Move group down">⬇️</button><button class="btn danger small-btn" data-x="${g.id}" title="Delete group">🗑</button></span></div>
+              <span style="white-space:nowrap"><button class="btn small-btn" data-r="${esc(g.id)}" title="Rename group">✏️</button><button class="btn small-btn" data-u="${esc(g.id)}" ${i ? "" : "disabled"} title="Move group up">⬆️</button><button class="btn small-btn" data-d="${esc(g.id)}" ${i < state.groups.length - 1 ? "" : "disabled"} title="Move group down">⬇️</button><button class="btn danger small-btn" data-x="${esc(g.id)}" title="Delete group">🗑</button></span></div>
             ${g.members.length ? `<ul class="list mg-members">${[...g.members].sort((a, b) => name(a).localeCompare(name(b))).map((m) => `<li class="row">
               <span class="mg-name">${iconHTML(m, 18)} ${esc(name(m))}</span>
-              <span style="white-space:nowrap"><select data-mv="${m}" title="Move to group">${opts(g.id)}</select>
-              <button class="btn small-btn" data-rm="${m}" title="Remove homie">✖</button></span></li>`).join("")}</ul>`
+              <span style="white-space:nowrap"><select data-mv="${esc(m)}" title="Move to group">${opts(g.id)}</select>
+              <button class="btn small-btn" data-rm="${esc(m)}" title="Remove homie">✖</button></span></li>`).join("")}</ul>`
               : `<p class="small muted" style="margin:4px 0 0">No homies in this group yet.</p>`}</div>`).join("")}
           <p class="small muted">Tip: press and hold any homie or group on your Homies List for quick options.</p>`;
         body.querySelector("[data-addb]").onclick = () => openAddBuddy();
@@ -691,7 +691,7 @@ export function openAddBuddy(prefill = "") {
     render(body) {
       body.innerHTML = `<form id="ab">
         <label>Homie's Screen Name <input id="ab-sn" value="${esc(typeof prefill === "string" ? prefill : "")}" required></label>
-        <label>Group <select id="ab-g">${state.groups.map((g) => `<option value="${g.id}">${esc(g.name)}</option>`).join("")}</select></label>
+        <label>Group <select id="ab-g">${state.groups.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join("")}</select></label>
         <p class="error" id="ab-err"></p>
         <div class="row"><span></span><button class="btn primary">Add Homie</button></div></form>`;
       body.querySelector("#ab").onsubmit = async (e) => {
@@ -718,7 +718,7 @@ export const smileys = [[/:-?\)/g, "🙂"], [/;-?\)/g, "😉"], [/:-?\(/g, "🙁
 
 function formatText(text) {
   let html = esc(text);
-  html = html.replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+  html = html.replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${u}</a>`);
   for (const [re, emoji] of smileys) html = html.replace(re, (m, off_, full) => {
     // skip anything inside a link we just made
     const before = full.slice(0, off_);
@@ -727,8 +727,11 @@ function formatText(text) {
   return html.replace(/\n/g, "<br>");
 }
 
+// Only these fonts are allowed in other people's messages (anything else could sneak in extra CSS)
+const IM_FONTS = ["Verdana", "Arial", "Georgia", "Courier New", "Trebuchet MS", "Times New Roman", "Comic Sans MS", "Impact"];
 function styleCSS(s = {}) {
-  return `font-family:${esc(s.font || "Verdana")}, Verdana, sans-serif;font-size:${Math.min(28, Math.max(10, Number(s.size) || 14))}px;`
+  const font = IM_FONTS.includes(s.font) ? s.font : "Verdana";
+  return `font-family:${font}, Verdana, sans-serif;font-size:${Math.min(28, Math.max(10, Number(s.size) || 14))}px;`
     + `color:${/^#[0-9a-f]{6}$/i.test(s.color || "") ? s.color : "#000"};${s.bold ? "font-weight:bold;" : ""}`
     + `${s.italic ? "font-style:italic;" : ""}${s.underline ? "text-decoration:underline;" : ""}`;
 }
@@ -749,17 +752,17 @@ export function openIM(uid, { quiet = false } = {}) {
     title: `${name(uid)} — Instant Message`, icon: "💬", width: 340, height: 420,
     onClose: () => refs.forEach((r) => (r.__cleanup ? r.__cleanup() : off(r))),
     render(body) {
-      body.innerHTML = `<div class="im" data-im="${uid}">
+      body.innerHTML = `<div class="im" data-im="${esc(uid)}">
         <div class="im-head"><button class="im-who" data-a="menu" title="Tap for IM options"><span class="im-ic"></span><b class="im-name"></b><span class="im-caret">▾</span></button>
           <span class="st"></span></div>
-        <div class="transcript" data-conv="${conv}" style="background:${imBackgroundFor(conv)}"></div>
+        <div class="transcript" data-conv="${esc(conv)}" style="background:${imBackgroundFor(conv)}"></div>
         <div class="typing"></div>
         <div class="fmt">
           <select data-f="font">${["Verdana", "Arial", "Georgia", "Courier New", "Trebuchet MS", "Times New Roman", "Comic Sans MS", "Impact"]
             .map((f) => `<option ${f === myStyle.font ? "selected" : ""}>${f}</option>`).join("")}</select>
           <button data-f="smaller">A-</button><button data-f="bigger">A+</button>
           <button data-f="bold"><b>B</b></button><button data-f="italic"><i>I</i></button><button data-f="underline"><u>U</u></button>
-          <input type="color" data-f="color" value="${myStyle.color}">
+          <input type="color" data-f="color" value="${esc(myStyle.color)}">
           <button data-f="smiley" title="Emojis">😀</button>
           <button data-f="mic" title="Record a voice note">🎙</button>
           <label class="btn small-btn" style="margin:0;font-weight:normal" title="Send a photo, video or file (up to 25 MB)">📎<input type="file" data-f="file" hidden></label>
@@ -1031,8 +1034,8 @@ function paintFile(el, uid, conv, metas) {
   const pct = meta ? Math.round(((meta.uploaded || 0) / Math.max(1, meta.chunks || 1)) * 100) : 0;
   let status = "";
   if (received[tid]) {
-    status = el.dataset.mime.startsWith("image/") ? `<img src="${received[tid]}" style="max-width:100%;border-radius:6px" alt=""><br>` : "";
-    status += `<a class="btn small-btn" href="${received[tid]}" download="${esc(fname)}">💾 Save</a>`;
+    status = el.dataset.mime.startsWith("image/") ? `<img src="${esc(received[tid])}" style="max-width:100%;border-radius:6px" alt=""><br>` : "";
+    status += `<a class="btn small-btn" href="${esc(received[tid])}" download="${esc(fname)}">💾 Save</a>`;
   } else if (!meta) status = `<span class="small muted">No longer available.</span>`;
   else if (mine) {
     status = { uploading: `Sending… ${pct}%`, ready: `Waiting for ${esc(name(uid))} to accept`, accepted: `${esc(name(uid))} is receiving it…`,
@@ -1092,7 +1095,7 @@ export function openUnreadIMs(list = null, away = false) {
     render(body) {
       const paint = (rows) => {
         body.innerHTML = rows.length ? `<p class="small" style="margin-top:0">${away ? `You got ${rows.length === 1 ? "an IM" : rows.length + " IMs"} while you were signed off:` : "Conversations with new messages:"}</p>
-          <ul class="list unread-list">${rows.map((r, i) => `<li data-i="${i}"><span class="ur-who">${iconHTML(r.with, 26)}<span><b>${esc(name(r.with))}</b>
+          <ul class="list unread-list">${rows.map((r, i) => `<li data-i="${esc(i)}"><span class="ur-who">${iconHTML(r.with, 26)}<span><b>${esc(name(r.with))}</b>
             <span class="small muted">${r.ts ? timeLabel(r.ts) : ""}</span><br><span class="small">${esc((r.preview || "").slice(0, 70))}</span></span></span></li>`).join("")}</ul>
           <div class="row" style="margin-top:8px"><button class="btn small-btn" data-x="clear">Mark All Read</button><button class="btn primary small-btn" data-x="all">Open All</button></div>`
           : `<p class="muted">No unread IMs. You're all caught up! 🎉</p>`;
@@ -1163,7 +1166,7 @@ function reactMenu(conv, key, x, y, el) {
   document.querySelector(".react-bar")?.remove();
   const bar = document.createElement("div");
   bar.className = "react-bar glossy";
-  bar.innerHTML = QUICK_REACTIONS.map((e) => `<button data-e="${e}">${e}</button>`).join("") + `<button data-more title="More emojis">＋</button><button data-copy title="Copy text">📋</button>`;
+  bar.innerHTML = QUICK_REACTIONS.map((e) => `<button data-e="${esc(e)}">${e}</button>`).join("") + `<button data-more title="More emojis">＋</button><button data-copy title="Copy text">📋</button>`;
   document.body.appendChild(bar);
   const w = bar.offsetWidth, h = bar.offsetHeight;
   bar.style.left = Math.max(6, Math.min(x - w / 2, innerWidth - w - 6)) + "px";
@@ -1314,7 +1317,7 @@ export function openAway() {
       const ta = body.querySelector("#aw");
       const paint = () => {
         body.querySelector("#saved").innerHTML = saved.map((m, i) =>
-          `<li class="row"><a href="#" data-i="${i}">${esc(m)}</a><button class="btn small-btn" data-del="${i}">🗑</button></li>`).join("");
+          `<li class="row"><a href="#" data-i="${esc(i)}">${esc(m)}</a><button class="btn small-btn" data-del="${esc(i)}">🗑</button></li>`).join("");
         body.querySelectorAll("[data-i]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); ta.value = saved[a.dataset.i]; }));
         body.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => { saved.splice(b.dataset.del, 1); store(); paint(); }));
       };
@@ -1354,7 +1357,7 @@ export function openDirectory(startQuery = "") {
           (!q || [u.screenName, u.interests, u.location].some((x) => (x || "").toLowerCase().includes(q))))
           .sort((a, b) => a[1].screenName.localeCompare(b[1].screenName)).slice(0, 100);
         body.querySelector("#dr").innerHTML = people.map(([id, u]) =>
-          `<li><a href="#" data-u="${id}"><b>${esc(u.screenName)}</b></a> <span class="small muted">${esc(u.interests || "")}${u.location ? " · 📍 " + esc(u.location) : ""}</span></li>`).join("")
+          `<li><a href="#" data-u="${esc(id)}"><b>${esc(u.screenName)}</b></a> <span class="small muted">${esc(u.interests || "")}${u.location ? " · 📍 " + esc(u.location) : ""}</span></li>`).join("")
           || `<li class="muted">No members found.</li>`;
         body.querySelectorAll("[data-u]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); nameCache[a.dataset.u] = all[a.dataset.u].screenName; openInfo(a.dataset.u); }));
       };
