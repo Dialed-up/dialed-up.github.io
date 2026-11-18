@@ -333,6 +333,8 @@ export function buddyMenu(uid, x, y) {
   contextMenu(x, y, [
     { label: "💬 Send Instant Message", action: () => openIM(uid) },
     { label: "📎 Send File…", action: () => sendFileTo(uid) },
+    { label: "📞 Talk", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid))) },
+    { label: "📹 Video Chat", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid), { video: true })) },
     { label: "🪪 Get Info", action: () => openInfo(uid) },
     { label: "🔔 Buddy Alert…", action: () => openBuddyAlert(uid) },
     { label: "📜 IM History", action: () => openHistory(uid) },
@@ -472,7 +474,7 @@ export function openIM(uid, { quiet = false } = {}) {
     render(body) {
       body.innerHTML = `<div class="im" data-im="${uid}">
         <div class="im-status"><span class="st"></span>
-          <span><button class="btn small-btn" data-a="info">Info</button> <button class="btn small-btn" data-a="warn">Warn</button> <button class="btn small-btn" data-a="hist">History</button> <button class="btn small-btn" data-a="talk">📞 Talk</button> <button class="btn small-btn" data-a="block"></button></span></div>
+          <span><button class="btn small-btn" data-a="info">Info</button> <button class="btn small-btn" data-a="warn">Warn</button> <button class="btn small-btn" data-a="hist">History</button> <button class="btn small-btn" data-a="talk">📞 Talk</button> <button class="btn small-btn" data-a="video">📹 Video</button> <button class="btn small-btn" data-a="block"></button></span></div>
         <div class="transcript" data-conv="${conv}" style="background:${imBackgroundFor(conv)}"></div>
         <div class="typing"></div>
         <div class="fmt">
@@ -504,6 +506,7 @@ export function openIM(uid, { quiet = false } = {}) {
       body.querySelector("[data-a=info]").onclick = () => openInfo(uid);
       body.querySelector("[data-a=hist]").onclick = () => openHistory(uid);
       body.querySelector("[data-a=talk]").onclick = () => import("./voice.js").then((m) => m.startCall(uid, name(uid)));
+      body.querySelector("[data-a=video]").onclick = () => import("./voice.js").then((m) => m.startCall(uid, name(uid), { video: true }));
       body.querySelector("[data-a=block]").onclick = () => toggleBlock(uid);
       body.querySelector("[data-a=warn]").onclick = async () => {
         if (alreadyWarned(uid)) { alert(`You already warned ${name(uid)} today.`); return; }

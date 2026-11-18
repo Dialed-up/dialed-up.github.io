@@ -495,3 +495,11 @@ html, body, #app, #desk, #signon, #connecting, .win, .win-body, .transcript, .mb
   touch-action: pan-x pan-y;
 }
 .win-title, .win-resize { touch-action: none; }
+
+/* Video chat */
+.vc { position: relative; height: 100%; min-height: 260px; background: #0b0618; border-radius: 10px; overflow: hidden; }
+.vc-remote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #0b0618; }
+.vc-local { position: absolute; right: 8px; top: 8px; width: 30%; max-width: 130px; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px;
+  border: 2px solid #fff; background: #222; transform: scaleX(-1); z-index: 2; }
+.vc-status { position: absolute; left: 8px; top: 8px; right: 40%; color: #fff; font-size: 12px; text-shadow: 0 1px 3px #000; z-index: 2; }
+.vc-controls { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; z-index: 2; }
