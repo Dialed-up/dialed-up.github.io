@@ -482,3 +482,10 @@ body.kid-mode #titlestrip::after { content: "🧒 Kid-Safe"; margin-left: 8px; b
 .signon-logo { width: 130px; height: 91px; }
 .signon-wordmark { width: min(280px, 78%); filter: none; }
 #titlestrip img, .start img, .welcome-head img, .connect-logo, .signon-logo { object-fit: contain; }
+
+/* No zooming in the app */
+html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* iPhone zooms into text boxes with text under 16px — keep them at 16px on touch screens */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: 16px !important; }
+}

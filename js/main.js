@@ -25,6 +25,16 @@ const show = (id) => ["signon", "connecting", "app"].forEach((s) => ($(s).hidden
 applyPrefs();
 applyKidMode();
 
+// No zooming: block pinch and double-tap zoom (iPhone ignores the page setting on its own).
+["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+let lastTouchEnd = 0;
+document.addEventListener("touchend", (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd < 300 && !e.target.closest("input, textarea, select")) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+
 let connectingNow = false;   // true while the dial-up show is running for a fresh sign-on
 let started = false;
 
