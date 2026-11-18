@@ -235,6 +235,15 @@ function checkPresenceChanges() {
   }
 }
 
+/** Marks a conversation read up to its newest message or inbox note (whichever is later). */
+function markConvRead(conv, ts = 0) {
+  const key = "du.read." + conv;
+  const v = Math.max(Number(localStorage.getItem(key) || 0), ts, state.inbox[conv]?.ts || 0);
+  localStorage.setItem(key, String(v));
+}
+/** True when you can actually see that person's IM window right now. */
+const imOnScreen = (uid) => { const w = getWindow("im." + uid); return !!w && !w.el.classList.contains("minimized") && document.visibilityState === "visible"; };
+
 function onInbox(v) {
   const old = state.inbox;
   state.inbox = v || {};
@@ -256,6 +265,8 @@ function onInbox(v) {
     if (missed.length) setTimeout(() => { sfx.imIn(); openUnreadIMs(missed, true); }, 1800);
   }
   state.loadedInbox = true;
+  // A new IM in a window you're looking at counts as read right away
+  for (const [conv, e] of Object.entries(state.inbox)) if (e.from !== state.uid && imOnScreen(e.from)) markConvRead(conv, e.ts || 0);
   refreshBuddyList();
   paintIMBadge();
 }
@@ -878,8 +889,7 @@ export function openIM(uid, { quiet = false } = {}) {
         paintSeen();
         markSeen();
         if (atBottom || msgs.length < 20) tx.scrollTop = tx.scrollHeight;
-        const last = msgs[msgs.length - 1];
-        localStorage.setItem("du.read." + conv, String(last?.[1]?.ts || Date.now()));
+        if (imOnScreen(uid)) markConvRead(conv, msgs[msgs.length - 1]?.[1]?.ts || 0);
         refreshBuddyList();
       });
       refs.push(q);
@@ -894,8 +904,9 @@ export function openIM(uid, { quiet = false } = {}) {
         line.textContent = mineLast && !theirsAfter && theirSeen >= (mineLast[1].ts || 0) ? `✓✓ Seen ${new Date(theirSeen).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
       };
       const markSeen = () => {
-        const w = getWindow(id);
-        if (!w || w.el.classList.contains("minimized") || document.visibilityState !== "visible") return;
+        if (!imOnScreen(uid)) return;
+        markConvRead(conv, lastMsgs[lastMsgs.length - 1]?.[1]?.ts || 0);
+        refreshBuddyList();
         const newest = [...lastMsgs].reverse().find(([, m]) => m.from !== state.uid);
         if (!newest || (newest[1].ts || 0) <= seenWritten) return;
         seenWritten = newest[1].ts || Date.now();
