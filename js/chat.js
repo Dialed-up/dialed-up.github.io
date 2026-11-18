@@ -305,11 +305,9 @@ function refreshBuddyList() {
   }).join("");
   const off_ = [...buddyIDs()].filter((m) => presence(state.users[m]) === "offline");
   // IM Requests: people who aren't buddies that messaged you (last 7 days)
-  const weekAgo = Date.now() - 7 * 86400000, hourAgo = Date.now() - 3600000;
+  const weekAgo = Date.now() - 7 * 86400000;
   const entries = Object.values(state.inbox).filter((e) => e.with && e.with !== state.uid && !state.blocked.has(e.with));
   const strangers = [...new Set(entries.filter((e) => (e.ts || 0) > weekAgo && !buddyIDs().has(e.with) && e.from !== state.uid).map((e) => e.with))];
-  // Recent IMs: anyone you've talked with in the last hour, newest first
-  const recents = [...new Set(entries.filter((e) => (e.ts || 0) > hourAgo).sort((a, b) => (b.ts || 0) - (a.ts || 0)).map((e) => e.with))];
   body.innerHTML = `
     ${state.connected === false ? `<div class="bl-offline">📡 Reconnecting to DialedUp…</div>` : ""}
     <div class="bl-top"><b class="bl-title">Buddy List</b>
@@ -323,8 +321,6 @@ function refreshBuddyList() {
     <div class="group"><button>▾ Bots (1/1)</button>
       <div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div></div>
     ${groupsHTML}
-    ${recents.length ? `<div class="group recent-ims"><button>▾ Recent IMs (${recents.length})</button>
-      ${recents.map((u) => (buddyIDs().has(u) ? row(u) : row(u).replace('data-buddy=', 'data-recent="1" data-buddy='))).join("")}</div>` : ""}
     ${strangers.length ? `<div class="group im-requests"><div class="row" style="align-items:center"><button>▾ IM Requests (${strangers.length})</button>
       <a href="#" class="small" data-clear-recent title="Clear all IM Requests">Clear</a></div>${strangers.map((u) => row(u).replace('data-buddy=', 'data-recent="1" data-buddy=')).join("")}</div>` : ""}
     ${show === "everyone" ? `<div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
