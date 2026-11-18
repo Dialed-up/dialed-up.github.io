@@ -5,7 +5,7 @@ const wins = new Map();
 let z = 10;
 let cascadeCount = 0;
 
-export function openWindow(id, { title, icon = "🗔", width = 360, height = 420, x, y, render, onClose, className = "", keyword = null }) {
+export function openWindow(id, { title, icon = "🗔", width = 360, height = 420, x, y, render, onClose, className = "", keyword = null, scale = true }) {
   if (wins.has(id)) { focus(id); const w = wins.get(id); w.el.classList.remove("minimized"); return w; }
   const el = document.createElement("section");
   el.className = "win " + className;
@@ -13,6 +13,9 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   const dw = desk().clientWidth, dh = desk().clientHeight;
   const small = dw < 600;
   const shortScreen = dh < 420;
+  // Big screens: everything opens bigger, like a real desktop online service.
+  const big = Math.min(1.6, Math.max(1, Math.min(dw / 1000, dh / 640)));
+  if (scale && big > 1.05) { width = Math.round(width * big); height = Math.round(height * big); }
   let w = Math.min(width, small ? Math.round(dw * 0.86) : dw - 12);
   let h = Math.min(height, small ? Math.round(dh * 0.7) : shortScreen ? dh - 10 : dh - 12);
   const step = (cascadeCount++ % 6) * (small ? 18 : 26);

@@ -211,10 +211,12 @@ async function syncBuddyOf() {
 export function openBuddyList() {
   const desk = document.getElementById("desk");
   const wide = desk.clientWidth > desk.clientHeight;
-  const w = Math.max(220, Math.min(wide ? 250 : 230, Math.round(desk.clientWidth * (wide ? 0.32 : 0.5))));
+  const bigScreen = desk.clientWidth >= 1000 && desk.clientHeight >= 560;
+  const w = bigScreen ? Math.round(Math.min(340, Math.max(260, desk.clientWidth * 0.2)))
+    : Math.max(220, Math.min(wide ? 250 : 230, Math.round(desk.clientWidth * (wide ? 0.32 : 0.5))));
   openWindow("buddies", {
     title: `${state.me.screenName}'s Buddy List`, icon: "👥", width: w, height: desk.clientHeight - 12,
-    x: desk.clientWidth - w - 6, y: 6, render: () => refreshBuddyList(),
+    x: desk.clientWidth - w - 6, y: 6, scale: false, render: () => refreshBuddyList(),
   });
 }
 
