@@ -19,11 +19,15 @@ import { openMail, writeMail } from "./mail.js";
 import { openBoards } from "./boards.js";
 import { openPeoplePlaza } from "./people.js";
 import { openFavorites, openClock, onlineFor } from "./extras.js";
+import { enableNotifications, sendTestAlert, notifyOn } from "./notify.js";
 import { mountQotd, openLocate, openPolls, openMovies, openTV, openDictionary, openRecipes, openReminders, openClassifieds, openEvents, openToday, openLottery } from "./more.js";
 
 const city = () => JSON.parse(localStorage.getItem("du.city") || "null") || { name: "New York", lat: 40.71, lon: -74.01 };
 
 // ---------- Welcome window ----------
+/** Show the "Turn On Alerts" bar in the Home Screen app until alerts are on. */
+const alertsAsk = () => ("Notification" in window) && Notification.permission === "default"
+  && (window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true || !/iPhone|iPad/.test(navigator.userAgent));
 let qotdRef = null;
 export function openWelcome() {
   openWindow("welcome", {
@@ -47,6 +51,7 @@ export function openWelcome() {
           <div><h2>${hello}, ${esc(me().screenName)}!</h2>
           <div class="small muted">${new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · online ${onlineFor()}</div></div>
         </div>
+        ${alertsAsk() ? `<div class="alerts-ask"><span>🔔 <b>Get alerts</b> for new IMs and mail, even when DialedUp is closed.</span><button class="btn primary small-btn" id="w-alerts">Turn On Alerts</button></div>` : ""}
         <div id="w-top" class="top-story"><div class="muted small" style="padding:30px;text-align:center">📡 Getting today's top story…</div></div>
         <div class="grid2">
           <div class="panel" id="w-online"><h3>🟢 Buddies Online</h3><span class="muted small">Checking…</span></div>
@@ -73,6 +78,7 @@ export function openWelcome() {
         </div>
         <p class="small muted">Tip: type a word in the <b>Keyword</b> box up top — try <i>weather</i>, <i>news</i>, <i>chat</i> or <i>help</i>.</p>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); runKeyword(b.dataset.kw); }));
+      body.querySelector("#w-alerts")?.addEventListener("click", async () => { if (await enableNotifications()) body.querySelector(".alerts-ask")?.remove(); });
       loadWeather(body.querySelector("#w-weather"), true);
       renderHoroscope(body.querySelector("#w-horo"), true);
       if (qotdRef) off(qotdRef);
@@ -254,8 +260,8 @@ const keywords = {
   today: openToday, history: openToday, todayinhistory: openToday, potd: openToday,
   podcasts: () => import("./podcasts.js").then((m) => m.openPodcasts()), podcast: () => import("./podcasts.js").then((m) => m.openPodcasts()),
   bot: () => import("./bot.js").then((m) => m.openBot()), dialbot: () => import("./bot.js").then((m) => m.openBot()),
-  notifications: () => import("./notify.js").then((m) => m.enableNotifications()),
-  testalert: () => import("./notify.js").then((m) => m.sendTestAlert()), pushtest: () => import("./notify.js").then((m) => m.sendTestAlert()),
+  notifications: () => enableNotifications(),
+  testalert: () => sendTestAlert(), pushtest: () => sendTestAlert(),
   sounds: openSounds, sound: openSounds, voices: openSounds,
   lottery: openLottery, lotto: openLottery, powerball: openLottery, megamillions: openLottery,
   help: openHelp,
@@ -283,7 +289,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.1859) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.1902) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });

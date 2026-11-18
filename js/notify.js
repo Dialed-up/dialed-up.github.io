@@ -50,13 +50,26 @@ export function pushTo(to, kind, extra = {}) {
   post("/notify", { to, kind, ...extra }).catch(() => {});
 }
 
+const onIPhone = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
+const inApp = () => window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
+
 export async function enableNotifications() {
-  if (!supported()) {
-    alert("This browser can't show notifications. On iPhone, add DialedUp to your Home Screen first, then open it from there and try again.");
+  if (onIPhone() && !inApp()) {
+    alert("On iPhone, notifications only work in the DialedUp app on your Home Screen.\n\n1. In Safari tap Share → Add to Home Screen\n2. Make sure \"Open as Web App\" is ON\n3. Tap Add, open DialedUp from the new icon, and try again.");
     return false;
   }
-  const p = await Notification.requestPermission();
-  if (p !== "granted") { alert("Notifications are blocked. You can turn them on in your phone or browser settings."); return false; }
+  if (!supported()) {
+    alert("This browser can't show notifications.");
+    return false;
+  }
+  if (Notification.permission === "denied") {
+    alert(onIPhone()
+      ? "Notifications were turned off for DialedUp.\n\nGo to iPhone Settings → Notifications → DialedUp and turn on Allow Notifications. (If DialedUp isn't listed there, delete the DialedUp icon, add it again from dialedup.lol, and tap Turn On Notifications.)"
+      : "Notifications are blocked for this site. Click the 🔒 next to the web address, allow Notifications, then try again.");
+    return false;
+  }
+  const p = await Notification.requestPermission();   // asked right away, on the tap (iPhone requires that)
+  if (p !== "granted") { alert("No problem — you can turn alerts on later from File → 🔔 Turn On Notifications."); return false; }
   localStorage.setItem("du.notify", "1");
   await registration();
   const pushed = await subscribePush();

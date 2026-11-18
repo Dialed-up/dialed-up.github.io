@@ -11,6 +11,7 @@ import { watchWarnings, stopWarnings } from "./extras.js";
 import { watchCalls, stopCalls } from "./voice.js";
 import { userName } from "./chat.js";
 import { watchMail, stopMail, openMail } from "./mail.js";
+import { enableNotifications, sendTestAlert } from "./notify.js";
 
 const $ = (id) => document.getElementById(id);
 let started = false;
@@ -122,8 +123,8 @@ $("start").onclick = () => {
     { label: "🔎 Locate a Member", action: () => import("./more.js").then((m) => m.openLocate()) },
     "-",
     { label: "🖼 Change Backdrop", action: changeBackdrop },
-    { label: "🔔 Turn On Notifications", action: () => import("./notify.js").then((m) => m.enableNotifications()) },
-    { label: "🔔 Send Me a Test Alert", action: () => import("./notify.js").then((m) => m.sendTestAlert()) },
+    { label: "🔔 Turn On Notifications", action: () => enableNotifications() },
+    { label: "🔔 Send Me a Test Alert", action: () => sendTestAlert() },
     { label: "🎙 Podcasts", action: () => import("./podcasts.js").then((m) => m.openPodcasts()) },
     { label: sfx.isMuted() ? "🔈 Sounds On" : "🔇 Sounds Off", action: () => sfx.setMuted(!sfx.isMuted()) },
     "-",

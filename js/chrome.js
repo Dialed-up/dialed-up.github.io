@@ -2,6 +2,7 @@
 import { contextMenu, listWindows, restore, cascade, tile, closeAll, closeWindow, frontWindowId } from "./wm.js";
 import { favorites, addFavorite, openFavorites, onlineFor, openClock } from "./extras.js";
 import { openBrowser } from "./browser.js";
+import { enableNotifications, sendTestAlert } from "./notify.js";
 
 const looksLikeURL = (v) => /^(https?:\/\/|www\.)\S+\.\S+/i.test(v) || /^[\w-]+(\.[\w-]+)*\.(com|net|org|io|co|edu|gov|tv|me|us|uk|fm|app)(\/\S*)?$/i.test(v);
 
@@ -36,7 +37,7 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
 
   // Menu bar
   const menus = {
-    File: [["📲 Add to Home Screen", () => import("./install.js").then((m) => m.addToHomeScreen())], ["Open Keyword…", () => $("keyword").focus()], ["Favorite Places", () => openFavorites(go)], ["Preferences…", () => go("preferences")], ["🔔 Turn On Notifications", () => import("./notify.js").then((m) => m.enableNotifications())], ["🔔 Send Me a Test Alert", () => import("./notify.js").then((m) => m.sendTestAlert())], ["⛶ Full Screen", () => import("./fullscreen.js").then((m) => m.toggleFullscreen())],
+    File: [["📲 Add to Home Screen", () => import("./install.js").then((m) => m.addToHomeScreen())], ["Open Keyword…", () => $("keyword").focus()], ["Favorite Places", () => openFavorites(go)], ["Preferences…", () => go("preferences")], ["🔔 Turn On Notifications", () => enableNotifications()], ["🔔 Send Me a Test Alert", () => sendTestAlert()], ["⛶ Full Screen", () => import("./fullscreen.js").then((m) => m.toggleFullscreen())],
       "-", ["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
     Edit: [["Copy", () => document.execCommand("copy")], ["Paste into Keyword", async () => { try { $("keyword").value = await navigator.clipboard.readText(); } catch {} }]],
     Mail: [["Read Mail", () => go("mail")], ["Write Mail", () => go("write")], ["Mail Signature…", () => import("./mail.js").then((m) => m.editSignature())], ["Send an E-Greeting", () => go("greetings")], ["Address Book", () => go("addressbook")]],
