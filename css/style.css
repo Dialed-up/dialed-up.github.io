@@ -709,3 +709,5 @@ body.dim #taskbar .fs-btn { color: #1e5fc8; font-weight: bold; }
 .yt-tile span { padding: 0 6px; font-weight: bold; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .yt-tile small { padding: 0 6px; color: #666; }
 .sn-panel input { font-weight: bold; }
+.im-notice { text-align: center; color: #777; font-size: 11px; font-style: italic; margin: 6px 0; }
+.im-notice span { opacity: .75; }

@@ -153,7 +153,7 @@ function thump(start, vol = 0.5) {
 /** A buddy signed on: latch click, then the door creaks open. */
 export function doorOpen() { if (muted) return; latch(0); creak(0.06, 0.75, 260, 520); }
 /** A buddy signed off: a short creak, then the door shuts. */
-export function doorClose() { if (muted) return; creak(0, 0.4, 480, 300, 0.06); thump(0.42); latch(0.44, 0.22); }
+export function doorClose() { if (muted) return; thump(0); latch(0.02, 0.22); creak(0.05, 0.25, 420, 300, 0.035); }
 
 export function buddyIn() { if (!muted) { tone(660, 0, 0.12, { type: "triangle" }); tone(990, 0.1, 0.18, { type: "triangle" }); } }
 export function buddyOut() { if (!muted) { tone(880, 0, 0.12, { type: "triangle" }); tone(440, 0.1, 0.22, { type: "triangle" }); } }

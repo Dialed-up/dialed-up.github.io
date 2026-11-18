@@ -12,7 +12,7 @@ import { pickEmoji, QUICK_REACTIONS } from "./emoji.js";
 import { uploadMedia, paintMedia, isMedia, startRecording } from "./media.js";
 
 const state = {
-  uid: null, me: { screenName: "" }, users: {}, groups: [], inbox: {}, blocked: new Set(),
+  uid: null, me: { screenName: "" }, users: {}, groups: [], inbox: {}, blocked: new Set(), notices: {},
   away: "", listeners: [], timers: [], icons: {}, known: {}, loadedUsers: false, loadedInbox: false, lastAuto: {},
 };
 
@@ -106,7 +106,8 @@ export async function startChat() {
   window.addEventListener("pagehide", () => state.uid && update(ref(db, `users/${state.uid}`), { fg: false }).catch(() => {}));
   state.timers.push(setInterval(() => update(meRef, { lastSeen: serverTimestamp(), signedOn: true }), 60000));
   set(ref(db, `names/${uid}`), state.me.screenName || "").catch(() => {});
-  state.timers.push(setInterval(refreshBuddyList, 10000));
+  // Every 5 seconds: notice buddies whose connection quietly went away (closed the app without signing off)
+  state.timers.push(setInterval(() => { checkPresenceChanges(); refreshBuddyList(); }, 5000));
   document.addEventListener("visibilitychange", onVisibility);
 
   await syncBuddyOf();   // tell the database who my buddies are first, so their status is readable
@@ -184,7 +185,7 @@ export function stopChat() {
   state.listeners.forEach((r) => off(r));
   state.timers.forEach(clearInterval);
   document.removeEventListener("visibilitychange", onVisibility);
-  Object.assign(state, { uid: null, listeners: [], timers: [], known: {}, loadedUsers: false, loadedInbox: false, users: {}, inbox: {} });
+  Object.assign(state, { uid: null, listeners: [], timers: [], known: {}, loadedUsers: false, loadedInbox: false, users: {}, inbox: {}, notices: {} });
 }
 
 function onVisibility() {
@@ -210,8 +211,8 @@ function checkPresenceChanges() {
     const before = state.known[uid];
     state.known[uid] = p;
     if (!state.loadedUsers || !before || before === p) continue;
-    if (before === "offline") sfx.doorOpen();
-    else if (p === "offline") sfx.doorClose();
+    if (before === "offline") { sfx.doorOpen(); imNotice(uid, "signed on"); }
+    else if (p === "offline") { sfx.doorClose(); imNotice(uid, "signed off"); }
     fireAlerts(uid, before, p);
   }
 }
@@ -792,7 +793,9 @@ export function openIM(uid, { quiet = false } = {}) {
         const msgs = [];
         snap.forEach((c) => { msgs.push([c.key, c.val()]); });
         lastMsgs = msgs;
-        tx.innerHTML = msgs.map(([k, m]) => renderMessage(k, m)).join("") + `<div class="seen-line small"></div>`;
+        const notes = (state.notices[uid] || []).map((n) => [null, n]);
+        const all = [...msgs, ...notes].sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
+        tx.innerHTML = all.map(([k, m]) => (k === null ? noticeHTML(m) : renderMessage(k, m))).join("") + `<div class="seen-line small"></div>`;
         tx.querySelectorAll("[data-file]").forEach((el) => paintFile(el, uid, conv, metas));
         tx.querySelectorAll("[data-media]").forEach((el) => paintMedia(el, conv));
         tx.querySelectorAll(".msg[data-k]").forEach((el) => onMenu(el, (x, y) => reactMenu(conv, el.dataset.k, x, y, el)));
@@ -997,6 +1000,21 @@ async function acceptFile(el, conv, tid, meta) {
   remove(ref(db, `filechunks/${conv}/${tid}`));
   progress(1, "Done! Tap 💾 Save in the IM window to keep it.", true);
   sfx.imIn();
+}
+
+// ---------- "Jerry has signed off" lines inside open IM windows ----------
+const noticeHTML = (n) => `<div class="im-notice">${esc(n.text)} <span>${new Date(n.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span></div>`;
+function imNotice(uid, what) {
+  const win = getWindow("im." + uid);
+  if (!win) return;
+  const n = { ts: Date.now(), text: `${name(uid)} has ${what}` };
+  (state.notices[uid] ||= []).push(n);
+  if (state.notices[uid].length > 30) state.notices[uid].shift();
+  const tx = win.body.querySelector(".transcript");
+  if (!tx) return;
+  const atBottom = tx.scrollHeight - tx.scrollTop - tx.clientHeight < 60;
+  tx.querySelector(".seen-line")?.insertAdjacentHTML("beforebegin", noticeHTML(n));
+  if (atBottom) tx.scrollTop = tx.scrollHeight;
 }
 
 // ---------- Photos, videos & voice notes in IMs ----------
