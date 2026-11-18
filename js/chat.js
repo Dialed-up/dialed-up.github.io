@@ -125,6 +125,9 @@ function syncWatches() {
     onValue(ur, (s) => {
       if (s.val()) state.users[uid] = s.val(); else delete state.users[uid];
       if (uid === state.uid) state.me = state.users[uid] || state.me;
+      // DialedUp and DIM can both be open: if one tab closes and marks me offline, the other puts me back.
+      if (uid === state.uid && s.val() && s.val().signedOn === false && !window.__duSigningOff && auth.currentUser)
+        update(ref(db, `users/${uid}`), { signedOn: true, lastSeen: serverTimestamp() }).catch(() => {});
       checkPresenceChanges();
       refreshBuddyList();
       if (getWindow("im." + uid)) renderIMStatus(uid);

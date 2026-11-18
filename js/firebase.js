@@ -83,6 +83,8 @@ export async function signUp(screenName, password) {
 }
 
 export async function signOff() {
+  window.__duSigningOff = true;
+  setTimeout(() => (window.__duSigningOff = false), 10000);
   const u = auth.currentUser;
   if (u) await update(ref(db, `users/${u.uid}`), { signedOn: false, lastSeen: serverTimestamp() }).catch(() => {});
   await signOut(auth);

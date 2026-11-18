@@ -27,7 +27,8 @@ const show = (id) => ["signon", "connecting", "app"].forEach((s) => ($(s).hidden
 applyPrefs();
 applyKidMode();
 document.querySelectorAll(".install-btn").forEach((b) => (b.onclick = addToHomeScreen));
-$("to-dim").onclick = () => { const w = window.open("dim.html", "dim"); if (!w) location.href = "dim.html"; };
+window.name = "dialedup";
+$("to-dim").onclick = () => import("./switcher.js").then((m) => m.switchTo("dim.html", "dim"));
 refreshButtons();
 
 // No zooming: block pinch and double-tap zoom (iPhone ignores the page setting on its own).

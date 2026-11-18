@@ -7,6 +7,7 @@ import { watchInvites, stopInvites, openPeoplePlaza } from "./people.js";
 import { watchWarnings, stopWarnings } from "./extras.js";
 import { watchCalls, stopCalls } from "./voice.js";
 import { userName } from "./chat.js";
+import { watchMail, stopMail, openMail } from "./mail.js";
 
 const $ = (id) => document.getElementById(id);
 let started = false;
@@ -83,13 +84,14 @@ async function enter(fresh) {
   watchInvites();
   watchWarnings();
   watchCalls(userName);
+  watchMail();
   openBuddyList();
   if (fresh) sfx.buddyIn();
 }
 
 function leave() {
   started = false;
-  stopChat(); stopInvites(); stopWarnings(); stopCalls();
+  stopChat(); stopInvites(); stopWarnings(); stopCalls(); stopMail();
   closeAll();
 }
 
@@ -97,10 +99,8 @@ function leave() {
 const tick = () => ($("clock").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
 tick(); setInterval(tick, 15000);
 
-$("to-du").onclick = () => {
-  const w = window.open("index.html", "dialedup");
-  if (!w) location.href = "index.html";
-};
+window.name = "dim";
+$("to-du").onclick = () => import("./switcher.js").then((m) => m.switchTo("index.html", "dialedup"));
 
 $("start").onclick = () => {
   const r = $("start").getBoundingClientRect();
@@ -108,6 +108,7 @@ $("start").onclick = () => {
     { label: "👥 Buddy List", action: openBuddyList },
     { label: "➕ Add a Buddy", action: () => openAddBuddy() },
     { label: "🗨️ Chat Rooms", action: () => openPeoplePlaza() },
+    { label: "📬 Mail", action: openMail },
     { label: "📝 Away Message", action: openAway },
     { label: "🪪 My Profile & Buddy Icon", action: openProfile },
     { label: "📇 Member Directory", action: openDirectory },
