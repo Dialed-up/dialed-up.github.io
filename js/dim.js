@@ -130,3 +130,6 @@ $("start").onclick = () => {
     { label: "🔌 Sign Off", action: async () => { sfx.goodbye(); await signOff(); } },
   ]);
 };
+
+// Background helper: keeps DialedUp's files fresh and handles notifications.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

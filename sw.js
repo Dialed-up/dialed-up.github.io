@@ -1,5 +1,22 @@
 // DialedUp service worker: shows notifications and opens the app when one is tapped.
 self.addEventListener("install", () => self.skipWaiting());
+
+// Always use the newest copy of DialedUp's own files when online (phones love to keep stale ones);
+// fall back to a saved copy when offline.
+self.addEventListener("fetch", (e) => {
+  const req = e.request;
+  const url = new URL(req.url);
+  if (req.method !== "GET" || url.origin !== self.location.origin || !/\.(js|css|html|webmanifest)$|\/$/.test(url.pathname)) return;
+  e.respondWith((async () => {
+    try {
+      const fresh = await fetch(req, { cache: "no-cache" });
+      if (fresh.ok) (await caches.open("du-files")).put(req, fresh.clone()).catch(() => {});
+      return fresh;
+    } catch {
+      return (await caches.match(req)) || Response.error();
+    }
+  })());
+});
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("message", (e) => {
   if (e.data?.type === "badge") e.waitUntil(caches.open("du-badge").then((c) => c.put("badge-count", new Response(String(e.data.count || 0)))));

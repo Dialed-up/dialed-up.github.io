@@ -208,3 +208,6 @@ $("signoff").onclick = async () => {
 const tick = () => ($("clock").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
 tick();
 setInterval(tick, 15000);
+
+// Background helper: keeps DialedUp's files fresh and handles notifications.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
