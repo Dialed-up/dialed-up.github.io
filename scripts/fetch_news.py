@@ -47,14 +47,8 @@ FEEDS = {
         ("NYT", "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"),
         ("Ars Technica", "https://feeds.arstechnica.com/arstechnica/index"),
     ],
-    "sports": [
-        ("ESPN", "https://www.espn.com/espn/rss/news"),
-        ("ESPN NBA", "https://www.espn.com/espn/rss/nba/news"),
-        ("ESPN NFL", "https://www.espn.com/espn/rss/nfl/news"),
-        ("ESPN MLB", "https://www.espn.com/espn/rss/mlb/news"),
-        ("ESPN NHL", "https://www.espn.com/espn/rss/nhl/news"),
-    ],
 }
+
 
 MAX_AGE_HOURS = 72          # skip feeds whose newest story is older than this (stale feeds)
 NS = {"media": "http://search.yahoo.com/mrss/", "atom": "http://www.w3.org/2005/Atom"}
@@ -113,6 +107,35 @@ def parse(source, raw):
     return out
 
 
+ESPN = [("NBA", "basketball/nba"), ("NFL", "football/nfl"), ("MLB", "baseball/mlb"), ("NHL", "hockey/nhl"),
+        ("Soccer", "soccer/eng.1"), ("College", "football/college-football")]
+
+
+def espn_sports():
+    """Sports headlines from ESPN's public data feed."""
+    out = []
+    for label, path in ESPN:
+        try:
+            data = json.loads(fetch(f"https://site.api.espn.com/apis/site/v2/sports/{path}/news?limit=12"))
+        except Exception as e:
+            print(f"sports/ESPN {label:16} error: {type(e).__name__}")
+            continue
+        n = 0
+        for a in data.get("articles", []):
+            if a.get("type") == "Media" or re.search(r"highlights?$", a.get("headline", ""), re.I):
+                continue
+            url = (a.get("links", {}).get("web", {}) or {}).get("href")
+            if not url:
+                continue
+            imgs = a.get("images") or []
+            out.append({"title": a["headline"][:220], "url": url, "source": f"ESPN {label}", "ts": when(a.get("published")),
+                        "image": imgs[0].get("url") if imgs else None})
+            n += 1
+        print(f"sports/ESPN {label:16} ok ({n})")
+    out.sort(key=lambda i: i["ts"], reverse=True)
+    return out[:40]
+
+
 def main():
     now = time.time() * 1000
     result = {"updated": int(now), "sources": {}}
@@ -136,6 +159,7 @@ def main():
                     stories.append(i)
         stories.sort(key=lambda i: i["ts"], reverse=True)
         result[cat] = stories[:40]
+    result["sports"] = espn_sports()
     for k, v in sorted(result["sources"].items()):
         print(f"{k:28} {v}")
     with open(sys.argv[1] if len(sys.argv) > 1 else "news.json", "w") as f:
