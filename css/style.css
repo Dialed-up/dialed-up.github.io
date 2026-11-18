@@ -824,3 +824,4 @@ ol.lb li.me { background: #fff6c8; font-weight: bold; }
 @media (max-width: 700px) { .install-btn .long { display: none; } .install-btn .short { display: inline; } }
 /* Fill the whole screen (iPhone Home Screen app mode can leave a gap under the taskbar otherwise) */
 #app { position: fixed; inset: 0; }
+.owner-tag { display: inline-block; background: linear-gradient(#ffe66d, #ffc107); color: #5b2a86; border-radius: 8px; padding: 0 6px; font-size: 10px; font-weight: bold; margin-left: 4px; }

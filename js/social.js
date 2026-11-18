@@ -7,6 +7,8 @@ import { pickEmoji } from "./emoji.js";
 import * as sfx from "./sounds.js";
 
 export const OWNER = "Dh35JEPVTiWIB96X03RGeiVmQN03";
+/** Whose posts show in your feed: you, your homies, and the site owner's posts (shared with every member). */
+const feedPeople = () => [...new Set([uid(), OWNER, ...buddyList()])];
 const FILES = "https://dialedup-push.stickyarcadecloud.workers.dev";
 const uid = () => auth.currentUser.uid;
 const ago = (ts) => {
@@ -67,6 +69,7 @@ function postCard(el, owner, pid, p, label = null) {
   const mine = p.by === uid(), myWall = owner === uid() || (owner.startsWith("g_") && groupOwner[owner] === uid());
   el.className = "post";
   el.innerHTML = `<div class="post-head">${iconHTML(p.by, 34)}<div><b class="post-who" data-u="${esc(p.by)}">${esc(p.n || userName(p.by))}</b>
+      ${p.by === OWNER && owner === OWNER ? `<span class="owner-tag" title="From the creator of DialedUp">⭐ DialedUp</span>` : ""}
       ${p.by !== owner && !label ? `<span class="small muted"> ▸ ${esc(userName(owner))}'s Wall</span>` : ""}<br><span class="small muted">${p.ts ? ago(p.ts) : ""}</span></div>
       <button class="post-more" title="More">⋯</button></div>
     ${p.text ? `<div class="post-text">${linkify(p.text)}</div>` : ""}
@@ -195,7 +198,7 @@ export function mountFeed(body, { limit = 60, more = null } = {}) {
   body.innerHTML = `<div class="stories-bar"></div><div class="feed-compose"></div><div class="feed-list"><p class="muted">Loading your homies' posts…</p></div>`;
   paintStoriesBar(body.querySelector(".stories-bar"));
   body.querySelector(".feed-compose").appendChild(composer(uid()));
-  const people = [uid(), ...buddyList()];
+  const people = feedPeople();
   const byUser = {};
   const paint = () => {
     const sorted = Object.entries(byUser).flatMap(([owner, posts]) => posts.map(([pid, p]) => ({ owner, pid, p })))
@@ -233,7 +236,7 @@ export function openFeed() {
 export async function checkFeed({ popUp = false } = {}) {
   const since = Number(localStorage.getItem(feedSeenKey()) || 0);
   let n = 0;
-  await Promise.all(buddyList().map(async (u) => {
+  await Promise.all(feedPeople().filter((u) => u !== uid()).map(async (u) => {
     try {
       const s = await get(query(ref(db, `posts/${u}`), orderByKey(), limitToLast(10)));
       s.forEach((c) => { const p = c.val(); if ((p.ts || 0) > since && p.by !== uid()) n++; });
