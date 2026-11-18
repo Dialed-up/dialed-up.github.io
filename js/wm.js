@@ -26,6 +26,8 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
     w = Math.min(saved.w, dw); h = Math.min(saved.h, dh);
     left = Math.min(Math.max(saved.x, 0), Math.max(0, dw - w)); top = Math.min(Math.max(saved.y, minTop), Math.max(minTop, dh - 40));
   }
+  // never let the bottom edge (and the resize corner) hang below the screen
+  if (top + h > dh - 4) { top = Math.max(minTop, dh - 4 - h); h = Math.min(h, dh - 4 - top); }
   el.style.width = w + "px";
   el.style.height = h + "px";
   el.style.left = left + "px";
@@ -289,3 +291,13 @@ export function refit() {
 let refitTimer = null;
 window.addEventListener("resize", () => { clearTimeout(refitTimer); refitTimer = setTimeout(refit, 120); });
 window.addEventListener("orientationchange", () => setTimeout(refit, 300));
+// Whenever the free space changes (taskbar grows to two rows, phone app mode, keyboard), squeeze windows to fit
+if (window.ResizeObserver) {
+  let roTimer = null, watched = null;
+  const ro = new ResizeObserver(() => { clearTimeout(roTimer); roTimer = setTimeout(refit, 60); });
+  const watch = () => { const d = desk(); if (d && d !== watched) { watched = d; ro.observe(d); } };
+  watch();
+  new MutationObserver(watch).observe(document.documentElement, { childList: true, subtree: false });
+  document.addEventListener("DOMContentLoaded", watch);
+  setTimeout(watch, 1000);
+}
