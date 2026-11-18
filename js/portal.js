@@ -2,6 +2,10 @@ import { openWindow, esc } from "./wm.js";
 import { me, openBuddyList, openChatRooms, openAway, openDirectory, openProfile, openAddBuddy } from "./chat.js";
 import { openMyPage } from "./homepage.js";
 import { openGame } from "./game.js";
+import { openMail, writeMail } from "./mail.js";
+import { openBoards } from "./boards.js";
+import { openPeoplePlaza } from "./people.js";
+import { openFavorites, openClock, onlineFor } from "./extras.js";
 
 const city = () => JSON.parse(localStorage.getItem("du.city") || "null") || { name: "New York", lat: 40.71, lon: -74.01 };
 
@@ -16,7 +20,7 @@ export function openWelcome() {
         <div class="welcome-head">
           <img src="img/logo.svg" alt="">
           <div><h2>${hello}, ${esc(me().screenName)}!</h2>
-          <div class="small muted">${new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}</div></div>
+          <div class="small muted">${new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · online ${onlineFor()}</div></div>
         </div>
         <div class="grid2">
           <div class="panel" id="w-weather"><h3>🌤 Weather</h3><span class="muted small">Loading…</span></div>
@@ -25,7 +29,9 @@ export function openWelcome() {
         <div class="panel"><h3>📰 In The News</h3><ul class="list" id="w-news"><li class="muted small">Loading…</li></ul></div>
         <div class="panel"><h3>🔥 Today's Hot Spots</h3>
           <div class="grid2">
-            ${tile("💬 Chat Rooms", "Jump into the lobby", "#ff5ec4", "chat")}
+            ${tile("💬 People Plaza", "Chat rooms by category", "#ff5ec4", "chat")}
+            ${tile("📬 Mail", "Check your mailbox", "#00a68c", "mail")}
+            ${tile("📌 Message Boards", "Post & reply", "#e53935", "boards")}
             ${tile("🌐 Home Pages", "Build yours — glitter included", "#8a4dff", "homepage")}
             ${tile("🏀 Sports", "Live scores", "#ff8a3d", "sports")}
             ${tile("🎮 Games", "Play Byte Snake", "#21a0fd", "games")}
@@ -57,7 +63,9 @@ export function openChannels() {
         ${tile("🎮 Games", "Byte Snake", "#2b59ff", "games")}
         ${tile("🗽 NYC", "The city, DialedUp style", "#ffb300", "nyc")}
         ${tile("👥 People", "Member Directory", "#ff5ec4", "people")}
-        ${tile("💬 Chat", "Chat rooms", "#d81b60", "chat")}
+        ${tile("💬 People Plaza", "Chat rooms", "#d81b60", "chat")}
+        ${tile("📬 Mail", "Your mailbox", "#00a68c", "mail")}
+        ${tile("📌 Boards", "Message boards", "#e53935", "boards")}
         ${tile("🌐 Home Pages", "Make your own", "#5b2a86", "homepage")}
       </div>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = () => runKeyword(b.dataset.kw)));
@@ -76,6 +84,11 @@ const keywords = {
   buddy: openBuddyList, buddies: openBuddyList, im: openBuddyList, add: openAddBuddy,
   away: openAway, profile: openProfile, people: openDirectory, directory: openDirectory, members: openDirectory,
   homepage: openMyPage, mypage: openMyPage, page: openMyPage,
+  mail: openMail, inbox: openMail, write: () => writeMail(), email: openMail,
+  boards: openBoards, forums: openBoards, messageboards: openBoards,
+  plaza: openPeoplePlaza, peopleplaza: openPeoplePlaza, chatrooms: openPeoplePlaza,
+  favorites: () => openFavorites(runKeyword), favs: () => openFavorites(runKeyword),
+  clock: openClock, time: openClock,
   help: openHelp,
 };
 

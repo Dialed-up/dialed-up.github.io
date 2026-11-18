@@ -5,6 +5,8 @@ import {
 } from "./firebase.js";
 import { openWindow, closeWindow, getWindow, setTitle, flash, esc } from "./wm.js";
 import * as sfx from "./sounds.js";
+import { warningLevel, warn, alreadyWarned } from "./extras.js";
+import { openPeoplePlaza, openRoom as openPlazaRoom } from "./people.js";
 
 const state = {
   uid: null, me: { screenName: "" }, users: {}, groups: [], inbox: {}, blocked: new Set(),
@@ -13,6 +15,8 @@ const state = {
 
 export const me = () => state.me;
 const name = (uid) => state.users[uid]?.screenName ?? "…";
+export const userName = name;
+export const buddyList = () => [...new Set(state.groups.flatMap((g) => g.members))];
 
 // ---------- Presence ----------
 function presence(u, now = Date.now()) {
@@ -148,7 +152,7 @@ function refreshBuddyList() {
   const strangers = Object.values(state.inbox).map((e) => e.with).filter((u) => u && !buddyIDs().has(u) && u !== state.uid);
   body.innerHTML = `
     <div class="bl-me"><img src="img/logo.svg" width="34" height="34" alt="">
-      <div><b>${esc(state.me.screenName)}</b><br>${myStatus}</div></div>
+      <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
     ${groupsHTML}
     ${strangers.length ? `<div class="group"><button>▾ Recent IMs (${strangers.length})</button>${[...new Set(strangers)].map(row).join("")}</div>` : ""}
     <div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>
@@ -246,7 +250,7 @@ export function openIM(uid, { quiet = false } = {}) {
     render(body) {
       body.innerHTML = `<div class="im" data-im="${uid}">
         <div class="im-status"><span class="st"></span>
-          <span><button class="btn small-btn" data-a="info">Info</button> <button class="btn small-btn" data-a="block"></button></span></div>
+          <span><button class="btn small-btn" data-a="info">Info</button> <button class="btn small-btn" data-a="warn">Warn</button> <button class="btn small-btn" data-a="block"></button></span></div>
         <div class="transcript"></div>
         <div class="typing"></div>
         <div class="fmt">
@@ -277,10 +281,22 @@ export function openIM(uid, { quiet = false } = {}) {
       body.querySelector("[data-f=file]").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) sendFile(uid, f, body); };
       body.querySelector("[data-a=info]").onclick = () => openInfo(uid);
       body.querySelector("[data-a=block]").onclick = () => toggleBlock(uid);
+      body.querySelector("[data-a=warn]").onclick = async () => {
+        if (alreadyWarned(uid)) { alert(`You already warned ${name(uid)} today.`); return; }
+        if (!confirm(`Warn ${name(uid)}? It raises their warning level by 10% for 24 hours.`)) return;
+        try { await warn(uid); alert(`${name(uid)} has been warned.`); } catch { alert("Couldn't warn right now."); }
+      };
 
+      let lastSend = 0;
       const send = async () => {
         const text = ta.value.trim();
         if (!text) return;
+        const level = warningLevel(state.uid);
+        if (level >= 50 && Date.now() - lastSend < level * 100) {
+          tx.insertAdjacentHTML("beforeend", `<div class="error">Your warning level is ${level}%. Slow down a little.</div>`);
+          return;
+        }
+        lastSend = Date.now();
         ta.value = "";
         try { await sendIM(uid, text, myStyle); sfx.imOut(); }
         catch { ta.value = text; tx.insertAdjacentHTML("beforeend", `<div class="error">Couldn't send — they may have blocked you.</div>`); }
@@ -346,7 +362,7 @@ function renderIMStatus(uid) {
   const p = presence(u);
   const st = win.body.querySelector(".st");
   if (st) st.innerHTML = { online: "🟢 Online", away: `🟠 Away: ${esc(u?.away || "")}`, idle: `⚪ Idle ${idleMin(u)} min`,
-    offline: "⚫ Offline — they'll get it when they sign on" }[p];
+    offline: "⚫ Offline — they'll get it when they sign on" }[p] + (warningLevel(uid) ? ` · ⚠️ ${warningLevel(uid)}%` : "");
   const b = win.body.querySelector("[data-a=block]");
   if (b) b.textContent = state.blocked.has(uid) ? "Unblock" : "Block";
   setTitle("im." + uid, `${name(uid)} — Instant Message`);
@@ -561,67 +577,8 @@ export function openDirectory() {
   });
 }
 
-// ---------- Chat rooms ----------
+// ---------- Chat rooms (People Plaza) ----------
 export function openChatRooms(room) {
-  if (typeof room === "string" && room) return openRoom(normalize(room));
-  openWindow("chatrooms", {
-    title: "Chat Rooms", icon: "💬", width: 320, height: 380,
-    render(body) {
-      const popular = ["lobby", "nyc", "music", "sports", "tech", "late night"];
-      body.innerHTML = `<div class="panel"><h3>Popular Rooms</h3><div class="row" style="justify-content:flex-start">${popular.map((r) =>
-          `<button class="btn small-btn" data-r="${r}">${r}</button>`).join("")}</div></div>
-        <form id="rf"><label>Or enter any room name<input id="rn" placeholder="e.g. friends2026"></label>
-        <div class="row"><span class="small muted">Same rooms as BuddyChat on iPhone.</span><button class="btn primary">Join</button></div></form>`;
-      body.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => openRoom(normalize(b.dataset.r))));
-      body.querySelector("#rf").onsubmit = (e) => { e.preventDefault(); const k = normalize(body.querySelector("#rn").value); if (k) openRoom(k); };
-    },
-  });
-}
-
-function openRoom(room) {
-  const refs = [];
-  let ping;
-  openWindow("room." + room, {
-    title: `Chat: ${room}`, icon: "💬", width: 360, height: 440,
-    onClose: () => {
-      refs.forEach((r) => off(r));
-      clearInterval(ping);
-      remove(ref(db, `rooms/${room}/members/${state.uid}`)).catch(() => {});
-    },
-    render(body) {
-      body.innerHTML = `<div class="im"><div class="small" id="here"></div><div class="transcript"></div>
-        <div class="compose"><textarea placeholder="Say hi to the room…"></textarea><button class="btn primary">Send</button></div></div>`;
-      const tx = body.querySelector(".transcript");
-      const ta = body.querySelector("textarea");
-      const memRef = ref(db, `rooms/${room}/members/${state.uid}`);
-      const beat = () => set(memRef, serverTimestamp()).catch(() => {});
-      beat();
-      ping = setInterval(beat, 45000);
-      const q = query(ref(db, `rooms/${room}/messages`), orderByKey(), limitToLast(100));
-      let first = true;
-      onValue(q, (snap) => {
-        const rows = [];
-        snap.forEach((c) => { const m = c.val(); rows.push(`<div class="msg"><span class="who ${m.from === state.uid ? "me" : "them"}">${esc(m.name || name(m.from))}</span>: ${formatText(m.text)}</div>`); });
-        tx.innerHTML = rows.join("");
-        tx.scrollTop = tx.scrollHeight;
-        if (!first) sfx.imIn();
-        first = false;
-      });
-      refs.push(q);
-      const membersRef = ref(db, `rooms/${room}/members`);
-      onValue(membersRef, (s) => {
-        const here = Object.entries(s.val() || {}).filter(([, t]) => Date.now() - t < 120000).map(([id]) => name(id));
-        body.querySelector("#here").textContent = "In the room: " + (here.length ? here.join(", ") : "just you");
-      });
-      refs.push(membersRef);
-      const send = () => {
-        const t = ta.value.trim();
-        if (!t) return;
-        ta.value = "";
-        push(ref(db, `rooms/${room}/messages`), { from: state.uid, name: state.me.screenName, text: t, ts: serverTimestamp() });
-      };
-      body.querySelector(".btn").onclick = send;
-      ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
-    },
-  });
+  if (typeof room === "string" && room) return openPlazaRoom(room);
+  openPeoplePlaza();
 }

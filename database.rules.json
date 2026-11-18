@@ -61,6 +61,9 @@
           "$uid": {
             ".write": "auth != null && auth.uid === $uid"
           }
+        },
+        "info": {
+          ".write": "auth != null"
         }
       }
     },
@@ -96,6 +99,59 @@
         "$id": {
           ".write": "auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (!newData.exists() && root.child('screennames/' + $key).val() === auth.uid))",
           ".validate": "!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 500)"
+        }
+      }
+    },
+    "roomlist": {
+      ".read": "auth != null",
+      "$room": {
+        ".write": "auth != null"
+      }
+    },
+    "mail": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$id": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))"
+        }
+      }
+    },
+    "mailsent": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "boards": {
+      ".read": "auth != null",
+      "$board": {
+        "threads": {
+          "$tid": {
+            ".write": "auth != null && (!data.exists() ? newData.child('from').val() === auth.uid : newData.child('from').val() === data.child('from').val())"
+          }
+        },
+        "posts": {
+          "$tid": {
+            "$pid": {
+              ".write": "auth != null && !data.exists() && newData.child('from').val() === auth.uid"
+            }
+          }
+        }
+      }
+    },
+    "invites": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$id": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))"
+        }
+      }
+    },
+    "warnings": {
+      ".read": "auth != null",
+      "$target": {
+        "$warner": {
+          ".write": "auth != null && auth.uid === $warner && $target !== auth.uid"
         }
       }
     }

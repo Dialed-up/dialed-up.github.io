@@ -4,6 +4,10 @@ import { closeAll } from "./wm.js";
 import { openWelcome, openChannels, runKeyword } from "./portal.js";
 import { startChat, stopChat, openBuddyList, openChatRooms, openAway } from "./chat.js";
 import { openMyPage } from "./homepage.js";
+import { openMail, watchMail, stopMail } from "./mail.js";
+import { openBoards } from "./boards.js";
+import { watchInvites, stopInvites } from "./people.js";
+import { openFavorites, startClock, openClock, watchWarnings, stopWarnings } from "./extras.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id) => ["signon", "connecting", "app"].forEach((s) => ($(s).hidden = s !== id));
@@ -73,6 +77,10 @@ async function enterDesktop(fresh) {
   started = true;
   show("app");
   await startChat();
+  startClock();
+  watchMail();
+  watchInvites();
+  watchWarnings();
   openWelcome();
   openBuddyList();
   if (fresh) sfx.welcome();
@@ -87,6 +95,9 @@ onAuthStateChanged(auth, (user) => {
 function leaveDesktop() {
   started = false;
   stopChat();
+  stopMail();
+  stopInvites();
+  stopWarnings();
   closeAll();
   $("pw").value = "";
   $("signup-form").hidden = true;
@@ -108,9 +119,14 @@ const actions = {
   channels: openChannels,
   mypage: openMyPage,
   away: openAway,
+  mail: openMail,
+  boards: openBoards,
+  favorites: () => openFavorites(runKeyword),
 };
 document.querySelectorAll("#toolbar [data-open]").forEach((b) => (b.onclick = () => actions[b.dataset.open]()));
 $("start").onclick = openWelcome;
+$("clock").onclick = openClock;
+$("clock").style.cursor = "pointer";
 
 $("keyword-form").onsubmit = (e) => {
   e.preventDefault();
