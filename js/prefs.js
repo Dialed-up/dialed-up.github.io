@@ -37,9 +37,9 @@ export function applyPrefs() {
   root.setProperty("--grape-2", t.grape2);
   root.setProperty("--pink", t.pink);
   root.setProperty("--aqua", t.aqua);
-  const wpName = localStorage.getItem("du.wallpaper") || "Candy Glow";
+  const wpName = localStorage.getItem("du.wallpaper") || "Bubble Pop";
   const custom = localStorage.getItem("du.wallpaperImg");
-  document.body.style.background = wpName === "My Picture" && custom ? `center/cover no-repeat url(${custom})` : wallpapers[wpName] || wallpapers["Candy Glow"];
+  document.body.style.background = wpName === "My Picture" && custom ? `center/cover no-repeat url(${custom})` : wallpapers[wpName] || wallpapers["Bubble Pop"];
 }
 
 export const imBackgroundFor = (conv) => imBackgrounds[localStorage.getItem("du.imbg." + conv) || localStorage.getItem("du.imbg") || "Plain"] || "#fff";
@@ -48,7 +48,7 @@ export function openPreferences() {
   openWindow("prefs", {
     title: "Preferences", icon: "🎨", width: 400, height: 500, keyword: "preferences",
     render(body) {
-      const cur = { theme: localStorage.getItem("du.theme") || "Grape", wp: localStorage.getItem("du.wallpaper") || "Candy Glow", im: localStorage.getItem("du.imbg") || "Plain" };
+      const cur = { theme: localStorage.getItem("du.theme") || "Grape", wp: localStorage.getItem("du.wallpaper") || "Bubble Pop", im: localStorage.getItem("du.imbg") || "Plain" };
       body.innerHTML = `
         <div class="panel"><h3>🎨 Color Theme</h3><div class="swatches">${Object.entries(themes).map(([n, t]) =>
           `<button data-theme="${n}" class="${n === cur.theme ? "on" : ""}" style="background:linear-gradient(90deg, ${t.grape}, ${t.grape2}, ${t.pink})">${n}</button>`).join("")}</div></div>

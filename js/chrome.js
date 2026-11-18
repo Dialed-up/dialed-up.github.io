@@ -63,7 +63,9 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
     const items = b.dataset.menu === "Window" ? windowMenu() : menus[b.dataset.menu];
     contextMenu(r.left, r.bottom + 2, items.map((it) => (it === "-" ? "-" : { label: it[0], action: it[1] })));
   }));
-  $("menu-toggle").onclick = () => $("menubar").classList.toggle("open");
+  // The menu row (File, Edit, Mail…) stays open unless you close it.
+  $("menubar").classList.toggle("open", localStorage.getItem("du.menuOpen") !== "0");
+  $("menu-toggle").onclick = () => localStorage.setItem("du.menuOpen", $("menubar").classList.toggle("open") ? "1" : "0");
 
   // Navigation bar
   $("nav-welcome").onclick = () => go("home");
