@@ -470,3 +470,13 @@ table.stocks td { padding: 4px; border-bottom: 1px solid #f0eaf9; }
 body.kid-mode #toolbar [data-open=chatrooms], body.kid-mode #toolbar [data-open=boards], body.kid-mode #toolbar [data-open=browser],
 body.kid-mode #toolbar [data-open=news], body.kid-mode #navbar .search { display: none !important; }
 body.kid-mode #titlestrip::after { content: "🧒 Kid-Safe"; margin-left: 8px; background: #fff; color: var(--grape); border-radius: 8px; padding: 0 6px; font-size: 10px; }
+
+/* New logo */
+.signon-wordmark { width: min(260px, 70%); height: auto; display: block; margin: 0 auto; filter: drop-shadow(0 4px 10px rgba(11,42,138,.25)); }
+.brand { color: #0b2a8a; }
+.brand span { color: #ffb800; }
+.connect-logo { width: 130px; height: 91px; }
+#titlestrip img { width: 26px; height: 18px; }
+.start img { width: 30px; height: 21px; }
+.welcome-head img { width: 64px; height: 45px; }
+.signon-logo { width: 130px; height: 91px; }
