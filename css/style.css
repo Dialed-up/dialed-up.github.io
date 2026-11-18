@@ -568,3 +568,5 @@ html:has(body.dim) { background: #1e5fc8; }
   #taskbar > #clock { flex: 0 0 auto; font-size: 13px; padding-left: 2px; }
   #taskbar > #radio-mini:not([hidden]) { flex: 1 1 100%; order: 0; max-width: none; }
 }
+.dim-mini { width: 18px; height: 18px; vertical-align: -4px; }
+.switch-tab { display: inline-flex; align-items: center; gap: 4px; }
