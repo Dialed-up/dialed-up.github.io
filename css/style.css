@@ -414,3 +414,13 @@ label.check input { width: auto; margin: 0; }
   #taskbar { grid-row: 4 !important; }
   #app { grid-template-rows: auto auto 1fr auto !important; }
 }
+
+/* Labels under the navigation and browser buttons */
+.nav-buttons button, .br-bar > button {
+  width: auto; min-width: 38px; height: auto; padding: 2px 4px; display: flex; flex-direction: column; align-items: center; line-height: 1.1; font-size: 12px;
+}
+.nav-buttons button span, .br-bar > button span { font-size: 9px; font-weight: bold; color: var(--grape); white-space: nowrap; }
+@media (max-width: 600px) {
+  .br-bar { flex-wrap: wrap; }
+  .br-form { order: 10; flex-basis: 100%; }
+}

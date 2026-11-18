@@ -52,10 +52,10 @@ export function openBrowser(url = "", meta = {}) {
       body.classList.add("browser-body");
       body.innerHTML = `
         <div class="br-bar">
-          <button data-b="back" title="Back">◀</button><button data-b="fwd" title="Forward">▶</button>
-          <button data-b="reload" title="Reload">⟳</button><button data-b="home" title="Start Page">🏠</button>
+          <button data-b="back" title="Back">◀<span>Back</span></button><button data-b="fwd" title="Forward">▶<span>Forward</span></button>
+          <button data-b="reload" title="Reload">⟳<span>Reload</span></button><button data-b="home" title="Start Page">🏠<span>Start</span></button>
           <form class="br-form"><input class="br-url" placeholder="Type a web address" autocomplete="off" inputmode="url"><button class="btn small-btn">Go</button></form>
-          <button data-b="fav" title="Add to Favorites">❤️</button><button data-b="out" title="Open in a new tab">↗</button>
+          <button data-b="fav" title="Add to Favorites">❤️<span>Save</span></button><button data-b="out" title="Open in a new tab">↗<span>New Tab</span></button>
         </div>
         <div class="br-view"></div>
         <div class="br-status small"><span class="br-msg">Done</span></div>`;
