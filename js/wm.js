@@ -12,8 +12,9 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   el.dataset.id = id;
   const dw = desk().clientWidth, dh = desk().clientHeight;
   const small = dw < 600;
+  const shortScreen = dh < 420;
   let w = Math.min(width, small ? Math.round(dw * 0.86) : dw - 12);
-  let h = Math.min(height, small ? Math.round(dh * 0.7) : dh - 12);
+  let h = Math.min(height, small ? Math.round(dh * 0.7) : shortScreen ? dh - 10 : dh - 12);
   const step = (cascadeCount++ % 6) * (small ? 18 : 26);
   let left = x ?? Math.min(8 + step, dw - w - 6);
   let top = y ?? Math.min(8 + step, dh - h - 6);
@@ -246,3 +247,27 @@ function makeResizable(el, grip) {
 
 /** Safe text → HTML. */
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+
+// ---------- keep windows on screen when the phone rotates or the window resizes ----------
+export function refit() {
+  const d = desk();
+  if (!d) return;
+  const dw = d.clientWidth, dh = d.clientHeight;
+  if (!dw || !dh) return;
+  wins.forEach((w) => {
+    const el = w.el;
+    if (w.id === "buddies") {
+      // the Buddy List stays docked on the right, full height
+      const bw = Math.min(Math.max(el.offsetWidth, 190), Math.round(dw * (dw > dh ? 0.32 : 0.5)), 260);
+      Object.assign(el.style, { width: bw + "px", height: dh - 12 + "px", left: dw - bw - 6 + "px", top: "6px" });
+      return;
+    }
+    const nw = Math.min(el.offsetWidth, dw - 8), nh = Math.min(el.offsetHeight, dh - 8);
+    const nx = Math.min(Math.max(el.offsetLeft, 0), dw - nw - 4), ny = Math.min(Math.max(el.offsetTop, 0), dh - nh - 4);
+    Object.assign(el.style, { width: nw + "px", height: nh + "px", left: Math.max(0, nx) + "px", top: Math.max(0, ny) + "px" });
+  });
+}
+let refitTimer = null;
+window.addEventListener("resize", () => { clearTimeout(refitTimer); refitTimer = setTimeout(refit, 120); });
+window.addEventListener("orientationchange", () => setTimeout(refit, 300));

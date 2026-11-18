@@ -12,7 +12,13 @@ const city = () => JSON.parse(localStorage.getItem("du.city") || "null") || { na
 // ---------- Welcome window ----------
 export function openWelcome() {
   openWindow("welcome", {
-    title: "Welcome to DialedUp", icon: "🏠", width: 460, height: 560,
+    title: "Welcome to DialedUp", icon: "🏠", keyword: "home",
+    // in landscape, fill the space left of the Buddy List
+    ...(() => {
+      const d = document.getElementById("desk");
+      const wide = d.clientWidth > d.clientHeight && d.clientHeight < 500;
+      return wide ? { x: 6, y: 4, width: Math.round(d.clientWidth * 0.62), height: d.clientHeight - 10 } : { width: 460, height: 560 };
+    })(),
     render(body) {
       const hour = new Date().getHours();
       const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
