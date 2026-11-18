@@ -1,4 +1,4 @@
-// Switching between DialedUp and DIM: same site, same sign-on, same buddies and messages.
+// Switching between DialedUp and DIM: same site, same sign-on, same homies and messages.
 const standalone = () => window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
 const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 export const embedded = () => { try { return window.self !== window.top; } catch { return true; } };

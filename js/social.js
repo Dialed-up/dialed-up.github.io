@@ -1,5 +1,5 @@
-// DialedUp social: permanent Posts (photos + text) that live on your Wall, the Buddy Feed, likes & comments,
-// Buddy Updates (24-hour stories), Top 8, and Report buttons.
+// DialedUp social: permanent Posts (photos + text) that live on your Wall, the Homie Feed, likes & comments,
+// Homie Updates (24-hour stories), Top 8, and Report buttons.
 import { auth, db, ref, get, set, push, remove, update, onValue, off, query, orderByKey, limitToLast, serverTimestamp } from "./firebase.js";
 import { openWindow, closeWindow, getWindow, esc, contextMenu } from "./wm.js";
 import { me, userName, iconHTML, buddyList, openInfo, openIM } from "./chat.js";
@@ -133,7 +133,7 @@ function postCard(el, owner, pid, p, label = null) {
   return () => refs.forEach((r) => off(r));
 }
 
-/** A composer box: post to your own Wall or (as a buddy) on someone else's. */
+/** A composer box: post to your own Wall or (as a homie) on someone else's. */
 function composer(owner, onDone, label = null) {
   const box = document.createElement("form");
   box.className = "composer";
@@ -154,7 +154,7 @@ function composer(owner, onDone, label = null) {
     try { await createPost(owner, ta.value.trim(), file); ta.value = ""; file = null; box.querySelector(".pf-name").textContent = ""; onDone?.(); }
     catch (err) {
       const denied = /permission/i.test(String(err?.code || err?.message));
-      alert(denied && !self && !label ? `Couldn't post on ${userName(owner)}'s Wall. Only people they've added as a buddy can write there.`
+      alert(denied && !self && !label ? `Couldn't post on ${userName(owner)}'s Wall. Only people they've added as a homie can write there.`
         : denied ? "Couldn't post: the database said no (PERMISSION DENIED). The newest database rules probably aren't published yet."
         : "Couldn't post: " + (err?.message || err));
     }
@@ -163,7 +163,7 @@ function composer(owner, onDone, label = null) {
   return box;
 }
 
-/** Renders a person's Wall (their posts + buddies' notes) into el. */
+/** Renders a person's Wall (their posts + homies' notes) into el. */
 const groupOwner = {};
 export function renderWall(el, owner, { label = null, groupOwnerUid = null } = {}) {
   if (groupOwnerUid) groupOwner[owner] = groupOwnerUid;
@@ -183,16 +183,16 @@ export function renderWall(el, owner, { label = null, groupOwnerUid = null } = {
     for (const [k, fn] of cleanups) if (!keep.has(k)) { fn(); cleanups.delete(k); }
     list.innerHTML = "";
     posts.forEach(([pid, p]) => { const d = document.createElement("div"); list.appendChild(d); cleanups.get(pid)?.(); cleanups.set(pid, postCard(d, owner, pid, p, label)); });
-  }, () => (list.innerHTML = label ? `<p class="small muted">🔒 Join the group to see its Wall.</p>` : `<p class="small muted">🔒 Their Wall is only for their buddies.</p>`));
+  }, () => (list.innerHTML = label ? `<p class="small muted">🔒 Join the group to see its Wall.</p>` : `<p class="small muted">🔒 Their Wall is only for their homies.</p>`));
   return () => { off(r); cleanups.forEach((fn) => fn()); };
 }
 
-// =================== The Buddy Feed ===================
+// =================== The Homie Feed ===================
 const feedSeenKey = () => "du.feedSeen." + uid();
 /** The feed itself (stories bar, post box, posts). Used by the Feed window and the Welcome screen. Returns a cleanup function. */
 export function mountFeed(body, { limit = 60, more = null } = {}) {
   const refs = [], cards = [];
-  body.innerHTML = `<div class="stories-bar"></div><div class="feed-compose"></div><div class="feed-list"><p class="muted">Loading your buddies' posts…</p></div>`;
+  body.innerHTML = `<div class="stories-bar"></div><div class="feed-compose"></div><div class="feed-list"><p class="muted">Loading your homies' posts…</p></div>`;
   paintStoriesBar(body.querySelector(".stories-bar"));
   body.querySelector(".feed-compose").appendChild(composer(uid()));
   const people = [uid(), ...buddyList()];
@@ -207,7 +207,7 @@ export function mountFeed(body, { limit = 60, more = null } = {}) {
     if (!all.length) { list.innerHTML = `<div class="panel small">No posts yet. Be the first! Share a photo or what you're up to above. 👆</div>`; return; }
     list.innerHTML = "";
     all.forEach(({ owner, pid, p }) => { const d = document.createElement("div"); list.appendChild(d); cards.push(postCard(d, owner, pid, p)); });
-    if (more && sorted.length > limit) { const a = document.createElement("button"); a.className = "btn small-btn feed-more"; a.textContent = "See more in the Buddy Feed ›"; a.onclick = more; list.appendChild(a); }
+    if (more && sorted.length > limit) { const a = document.createElement("button"); a.className = "btn small-btn feed-more"; a.textContent = "See more in the Homie Feed ›"; a.onclick = more; list.appendChild(a); }
     try { localStorage.setItem(feedSeenKey(), String(Date.now())); } catch {}
     paintFeedBadge(0);
   };
@@ -223,7 +223,7 @@ export function mountFeed(body, { limit = 60, more = null } = {}) {
 export function openFeed() {
   let cleanup = null;
   openWindow("feed", {
-    title: "Buddy Feed", icon: "📰", width: 440, height: 600, keyword: "feed",
+    title: "Homie Feed", icon: "📰", width: 440, height: 600, keyword: "feed",
     onClose: () => cleanup?.(),
     render(body) { cleanup = mountFeed(body); },
   });
@@ -249,7 +249,7 @@ function paintFeedBadge(n) {
   if (b) { b.textContent = n > 99 ? "99+" : n || ""; b.hidden = !n; }
 }
 
-// =================== Buddy Updates (24-hour stories) ===================
+// =================== Homie Updates (24-hour stories) ===================
 const DAY = 86400000;
 const storyCache = {};   // uid → [[sid, story], …] (only unexpired)
 const seenKey = () => "du.storySeen." + uid();
@@ -258,7 +258,7 @@ const markSeen = (sid) => { const s = seen(); s.add(sid); try { localStorage.set
 export const hasNewStory = (u) => (storyCache[u] || []).some(([sid]) => !seen().has(sid));
 export const hasStory = (u) => (storyCache[u] || []).length > 0;
 
-/** Keeps the story list for a person up to date (used by the Buddies window rings and the Feed). */
+/** Keeps the story list for a person up to date (used by the Homies window rings and the Feed). */
 export function watchStories(u, onChange) {
   const r = ref(db, `stories/${u}`);
   onValue(r, (s) => {
@@ -288,7 +288,7 @@ function paintStoriesBar(el) {
 const BGS = ["linear-gradient(135deg,#8a4dff,#ff5ec4)", "linear-gradient(135deg,#21a0fd,#5b2a86)", "linear-gradient(135deg,#ffb300,#ff5e8a)", "linear-gradient(135deg,#00a68c,#21d4fd)", "#111"];
 export function newStory() {
   openWindow("story.new", {
-    title: "New Buddy Update", icon: "✨", width: 340, height: 430,
+    title: "New Homie Update", icon: "✨", width: 340, height: 430,
     render(body) {
       let bg = 0, file = null;
       body.innerHTML = `<p class="small" style="margin-top:0">Share a photo, video or a quick thought. It disappears after 24 hours.</p>
@@ -357,7 +357,7 @@ export function viewStories(owner, onDone) {
     v.querySelector(".sv-x").onclick = (e) => { e.stopPropagation(); close(); };
     v.querySelector(".sv-body").onclick = (e) => { if (e.target.tagName !== "VIDEO") { i++; show(); } };
     v.querySelector("[data-reply]")?.addEventListener("click", () => { close(); openIM(owner); });
-    v.querySelector("[data-rep]")?.addEventListener("click", () => report("Buddy Update", `stories/${owner}/${sid}`, owner, st.text));
+    v.querySelector("[data-rep]")?.addEventListener("click", () => report("Homie Update", `stories/${owner}/${sid}`, owner, st.text));
     v.querySelector("[data-del]")?.addEventListener("click", () => { if (confirm("Delete this update?")) { remove(ref(db, `stories/${owner}/${sid}`)).catch(() => {}); list.splice(i, 1); show(); } });
     v.querySelector("[data-views]")?.addEventListener("click", async () => {
       clearTimeout(timer);
@@ -384,9 +384,9 @@ export function top8Editor(el, current = []) {
   let picks = (Array.isArray(current) ? current : []).filter(Boolean).slice(0, 8);
   const paint = () => {
     const buddies = buddyList().filter((b) => !picks.includes(b)).sort((a, b) => userName(a).localeCompare(userName(b)));
-    el.innerHTML = `<p class="small" style="margin-top:0">Pick up to 8 favorite buddies to show on your profile. Use ⬆️ to change the order.</p>
+    el.innerHTML = `<p class="small" style="margin-top:0">Pick up to 8 favorite homies to show on your profile. Use ⬆️ to change the order.</p>
       <ol class="t8-list">${picks.map((b, i) => `<li><span>${iconHTML(b, 22)} ${esc(userName(b))}</span><span><button class="btn small-btn" data-up="${i}" ${i ? "" : "disabled"}>⬆️</button><button class="btn small-btn" data-rm="${i}">✖</button></span></li>`).join("")}</ol>
-      ${picks.length < 8 ? `<label>Add a buddy <select data-add><option value="">Choose…</option>${buddies.map((b) => `<option value="${b}">${esc(userName(b))}</option>`).join("")}</select></label>` : `<p class="small muted">Your Top 8 is full!</p>`}`;
+      ${picks.length < 8 ? `<label>Add a homie <select data-add><option value="">Choose…</option>${buddies.map((b) => `<option value="${b}">${esc(userName(b))}</option>`).join("")}</select></label>` : `<p class="small muted">Your Top 8 is full!</p>`}`;
     el.querySelectorAll("[data-up]").forEach((b) => (b.onclick = () => { const i = Number(b.dataset.up); [picks[i - 1], picks[i]] = [picks[i], picks[i - 1]]; paint(); }));
     el.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => { picks.splice(Number(b.dataset.rm), 1); paint(); }));
     el.querySelector("[data-add]")?.addEventListener("change", (e) => { if (e.target.value) { picks.push(e.target.value); paint(); } });

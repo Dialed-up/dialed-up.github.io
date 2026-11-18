@@ -1,4 +1,4 @@
-// Shared with BuddyChat: same accounts, buddies, IMs and chat rooms.
+// Shared with BuddyChat: same accounts, homies, IMs and chat rooms.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut,
@@ -80,7 +80,7 @@ export async function signUp(screenName, password) {
   await set(ref(db, `users/${user.uid}`), {
     screenName: name, profile: "", away: "", signedOn: true, lastSeen: serverTimestamp(),
   });
-  const groups = ["Buddies", "Family", "Co-Workers"].map((n) => ({ id: crypto.randomUUID().toUpperCase(), name: n, members: [], collapsed: false }));
+  const groups = ["Homies", "Family", "Co-Workers"].map((n) => ({ id: crypto.randomUUID().toUpperCase(), name: n, members: [], collapsed: false }));
   await set(ref(db, `buddylists/${user.uid}`), JSON.stringify(groups)).catch(() => {});
   return user;
 }

@@ -1,4 +1,4 @@
-// DIM — DialedUp Instant Messenger: Buddies, IMs and chat rooms on their own desktop, in their own tab.
+// DIM — DialedUp Instant Messenger: Homies, IMs and chat rooms on their own desktop, in their own tab.
 import "./update.js";
 import "./fullscreen.js";
 import "./altcaps.js";
@@ -114,19 +114,19 @@ $("start").onclick = () => {
   const r = $("start").getBoundingClientRect();
   contextMenu(r.left, r.top - 4, [
     { label: "👥 Homies List", action: openBuddyList },
-    { label: "📰 Buddy Feed", action: () => import("./social.js").then((m) => m.openFeed()) },
+    { label: "📰 Homie Feed", action: () => import("./social.js").then((m) => m.openFeed()) },
     { label: "🔥 Trending", action: () => import("./engage.js").then((m) => m.openTrending()) },
     { label: "🌍 Groups", action: () => import("./engage.js").then((m) => m.openGroups()) },
     { label: "👋 People You May Know", action: () => import("./engage.js").then((m) => m.openPYMK()) },
     { label: "🎟 Invite Friends", action: () => import("./engage.js").then((m) => m.openInvite()) },
-    { label: "✨ New Buddy Update", action: () => import("./social.js").then((m) => m.newStory()) },
+    { label: "✨ New Homie Update", action: () => import("./social.js").then((m) => m.newStory()) },
     { label: "📨 Unread IMs", action: () => import("./chat.js").then((m) => m.openUnreadIMs()) },
-    { label: "➕ Add a Buddy", action: () => openAddBuddy() },
+    { label: "➕ Add a Homie", action: () => openAddBuddy() },
     { label: "🛠 Manage Homies List", action: () => import("./chat.js").then((m) => m.openEditGroups()) },
     { label: "🗨️ Chat Rooms", action: () => openPeoplePlaza() },
     { label: "📬 Mail", action: openMail },
     { label: "📝 Away Message", action: openAway },
-    { label: "🪪 My Profile & Buddy Icon", action: openProfile },
+    { label: "🪪 My Profile & Homie Icon", action: openProfile },
     { label: "📇 Member Directory", action: openDirectory },
     { label: "🔎 Get Member Info", action: () => import("./chat.js").then((m) => m.openGetInfo()) },
     { label: "🔎 Locate a Member", action: () => import("./more.js").then((m) => m.openLocate()) },

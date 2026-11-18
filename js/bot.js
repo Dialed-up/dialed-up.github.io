@@ -1,4 +1,4 @@
-// DialBot: an always-online buddy you can IM. Runs entirely in the browser, so it's free.
+// DialBot: an always-online homie you can IM. Runs entirely in the browser, so it's free.
 // Knows weather, scores, headlines, horoscopes, definitions, jokes, trivia and a few games.
 import { openWindow, getWindow, esc } from "./wm.js";
 import { me } from "./chat.js";
@@ -98,7 +98,7 @@ async function reply(text) {
   if (/^(good|great|fine|ok|okay|not bad|chillin|chilling)/.test(low)) return pick(["Love that. 😎", "Nice! Anything I can help with?", "Glad to hear it!"]);
   if (/\b(thanks|thank you|thx|ty)\b/.test(low)) return pick(["Anytime! 🤖", "You got it!", "Happy to help. 👍"]);
   if (/\b(bye|later|gn|good ?night|ttyl|brb)\b/.test(low)) return pick(["Later! I'll be right here. 👋", "Bye! I never sign off. 😄", "Catch you later!"]);
-  if (/who are you|what are you|your name/.test(low)) return "I'm DialBot 🤖 — DialedUp's always-online buddy. I never go idle, never go away, and I never get tired of your messages.";
+  if (/who are you|what are you|your name/.test(low)) return "I'm DialBot 🤖 — DialedUp's always-online homie. I never go idle, never go away, and I never get tired of your messages.";
   if (/\b(lol|lmao|haha|😂)\b/.test(low)) return pick(["😂😂", "Ha! I'm hilarious, I know.", "LOL 🤣"]);
   if (/love you|ily/.test(low)) return "Aww 🥹 I appreciate you too! (Strictly platonic, I'm a robot.)";
 
@@ -186,7 +186,7 @@ export function openBot() {
         <time>(${new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})</time>: <span style="white-space:pre-wrap">${esc(text)}</span></div>`;
       const paint = () => { tx.innerHTML = history().map((m) => line(m.who, m.text, m.ts)).join(""); tx.scrollTop = tx.scrollHeight; };
       const add = (who, text) => { const h = history(); h.push({ who, text, ts: Date.now() }); saveHistory(h); paint(); };
-      if (!history().length) add(BOT, `Hi ${me().screenName}! 👋 I'm ${BOT}, your always-online buddy.\n\n${HELP}`);
+      if (!history().length) add(BOT, `Hi ${me().screenName}! 👋 I'm ${BOT}, your always-online homie.\n\n${HELP}`);
       else paint();
       const send = async () => {
         const text = ta.value.trim();

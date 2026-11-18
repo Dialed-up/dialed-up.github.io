@@ -136,7 +136,7 @@ export async function openRoom(displayName, category = "") {
         <aside class="room-people">
           <div class="small"><b id="count">0</b> in room</div>
           <ul class="list" id="people"></ul>
-          <button class="btn small-btn" id="invite">Invite a Buddy</button>
+          <button class="btn small-btn" id="invite">Invite a Homie</button>
           <button class="btn small-btn" id="party">🎉 Party</button>
         </aside></div>`;
       const tx = body.querySelector(".transcript");
@@ -322,11 +322,11 @@ function roomParty(body, key, say, getMod) {
 
 function inviteBuddy(room) {
   const buddies = buddyList();
-  if (!buddies.length) { alert("Add some buddies first!"); return; }
+  if (!buddies.length) { alert("Add some homies first!"); return; }
   openWindow("invite", {
     title: "Invite to Chat", icon: "✉️", width: 300, height: 360,
     render(body) {
-      body.innerHTML = `<p class="small">Invite buddies to <b>${esc(room)}</b>:</p>
+      body.innerHTML = `<p class="small">Invite homies to <b>${esc(room)}</b>:</p>
         <ul class="list">${buddies.map((b) => `<li><label class="check"><input type="checkbox" value="${b}"> ${esc(userName(b))}</label></li>`).join("")}</ul>
         <label>Message <input id="inv-msg" value="Come chat with me!"></label>
         <div class="row"><span></span><button class="btn primary" id="inv-go">Send Invites</button></div>`;

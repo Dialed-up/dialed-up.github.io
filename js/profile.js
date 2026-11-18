@@ -98,7 +98,7 @@ export const FIELDS = [
 const STATUS = ["", "Single", "Taken", "Married", "It's complicated", "Not saying"];
 const GENDER = ["", "Male", "Female", "Non-binary", "Not saying"];
 
-// ---------- Viewing a profile (inside Buddy Info) ----------
+// ---------- Viewing a profile (inside Homie Info) ----------
 export function renderProfile(el, u, uid, { viewer, openDirectory } = {}) {
   const card = u.card || {};
   const interests = String(u.interests || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 15);
@@ -198,7 +198,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         <section data-p="info" hidden>
           <div class="panel sn-panel"><b>🆔 Screen Name</b>
             <div class="row" style="gap:4px;margin-top:4px"><input id="sn-new" value="${esc(screenName)}" maxlength="20" autocapitalize="off" style="flex:1"><button class="btn small-btn" id="sn-go">Change</button></div>
-            <p class="small muted" style="margin:4px 0 0">3–16 letters or numbers (spaces OK). Your password stays the same, and you can sign on with your new or old name. Buddies see the new name right away.</p>
+            <p class="small muted" style="margin:4px 0 0">3–16 letters or numbers (spaces OK). Your password stays the same, and you can sign on with your new or old name. Homies see the new name right away.</p>
             <p class="error" id="sn-err"></p></div>
           ${FIELDS.map(([k, label, ph]) => k === "gender" ? `<label>${label}<select data-f="${k}">${GENDER.map((g) => `<option ${card[k] === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>`
             : k === "status" ? `<label>${label}<select data-f="${k}">${STATUS.map((g) => `<option ${card[k] === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>`
@@ -206,7 +206,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
           <label>Interests <span class="small muted">(separate with commas — people can tap these to find you)</span><input data-f="interests" maxlength="200" value="${esc(u.interests || "")}" placeholder="music, sneakers, basketball"></label>
           <label class="check"><input type="checkbox" id="pd" ${localStorage.getItem("du.listed." + uid) === "1" ? "checked" : ""}> List me in the Member Directory (screen name, interests and location only)</label>
           <div class="panel" style="margin-top:8px"><b>Who can see my profile?</b>
-            <label class="check"><input type="radio" name="pv" value="buddies" ${u.publicProfile ? "" : "checked"}> 👥 Buddies only</label>
+            <label class="check"><input type="radio" name="pv" value="buddies" ${u.publicProfile ? "" : "checked"}> 👥 Homies only</label>
             <label class="check"><input type="radio" name="pv" value="public" ${u.publicProfile ? "checked" : ""}> 🌍 Public — anyone can look me up with Get Member Info</label></div>
           <p class="small muted">Leave anything blank to keep it private.</p>
         </section>
@@ -239,11 +239,11 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         </section>
         <section data-p="icon" hidden>
           <div class="panel" style="display:flex;gap:10px;align-items:center"><span id="pf-icon">${iconHTML(uid, 72)}</span>
-            <div><b>Buddy Icon</b><br><label class="btn small-btn" style="margin:4px 0 0;display:inline-block;font-weight:normal">Choose a picture<input type="file" accept="image/*" id="pf-file" hidden></label>
+            <div><b>Homie Icon</b><br><label class="btn small-btn" style="margin:4px 0 0;display:inline-block;font-weight:normal">Choose a picture<input type="file" accept="image/*" id="pf-file" hidden></label>
             <span class="small muted" id="pf-msg"></span></div></div>
         </section>
         <section data-p="preview" hidden><div id="pv"></div></section>
-        <div class="row profile-save"><span class="small muted">Your buddies see this in Buddy Info.</span><button class="btn primary" id="ps">💾 Save Profile</button></div>`;
+        <div class="row profile-save"><span class="small muted">Your homies see this in Homie Info.</span><button class="btn primary" id="ps">💾 Save Profile</button></div>`;
 
       const ed = body.querySelector(".rt-edit");
       ed.innerHTML = u.profileHtml ? sanitize(u.profileHtml) : esc(u.profile || "").replace(/\n/g, "<br>");
@@ -472,7 +472,7 @@ function withSmileys(html) {
   return tpl.innerHTML;
 }
 
-/** Keeps the public copy of your profile's icon up to date when you change your Buddy Icon. */
+/** Keeps the public copy of your profile's icon up to date when you change your Homie Icon. */
 export async function refreshPublicIcon(uid, icon) {
   try {
     const exists = (await get(ref(db, `publicprofiles/${uid}/screenName`))).val();

@@ -96,7 +96,7 @@ export async function onSignOn() {
 }
 document.addEventListener("click", (e) => { if (e.target.closest?.("[data-tn]")) { e.preventDefault(); openLeaderboards(); } });
 
-// Birthdays from buddies' Member Info ("May 4", "5/4", "December 10th")
+// Birthdays from homies' Member Info ("May 4", "5/4", "December 10th")
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 function parseBirthday(text) {
   const t = String(text || "").toLowerCase().trim();
@@ -184,7 +184,7 @@ export function openTrending() {
           return [n, Object.values(m).filter((v) => Date.now() - (typeof v === "object" ? v.t : v) < 120000).length];
         } catch { return [n, 0]; }
       }))).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]).slice(0, 8);
-      // most-liked posts from you and your buddies this week
+      // most-liked posts from you and your homies this week
       const weekAgo = Date.now() - 7 * 86400000;
       const posts = (await Promise.all([uid(), ...buddyList()].map(async (o) => {
         try {
@@ -233,7 +233,7 @@ export function openPYMK() {
       const nameOf = async (u) => (userName(u) !== "…" && userName(u)) || (await get(ref(db, `names/${u}`)).catch(() => null))?.val() || "Someone";
       const addedRows = await Promise.all(added.slice(0, 15).map(async (u) => ({ u, n: await nameOf(u) })));
       body.innerHTML = `
-        <div class="panel"><h3>➕ Added you as a buddy</h3>${addedRows.length ? `<ul class="list">${addedRows.map((x) => `<li class="row"><a href="#" data-info="${x.u}">${esc(x.n)}</a><button class="btn primary small-btn" data-add="${esc(x.n)}">Add Back</button></li>`).join("")}</ul>` : `<p class="small muted">Nobody new.</p>`}</div>
+        <div class="panel"><h3>➕ Added you as a homie</h3>${addedRows.length ? `<ul class="list">${addedRows.map((x) => `<li class="row"><a href="#" data-info="${x.u}">${esc(x.n)}</a><button class="btn primary small-btn" data-add="${esc(x.n)}">Add Back</button></li>`).join("")}</ul>` : `<p class="small muted">Nobody new.</p>`}</div>
         <div class="panel"><h3>❤️ Likes what you like</h3>${alike.length ? `<ul class="list">${alike.map((x) => `<li class="row"><span><a href="#" data-info="${x.u}">${esc(x.d.screenName)}</a><br><span class="small muted">${esc(x.shared.join(", "))}</span></span><button class="btn small-btn" data-add="${esc(x.d.screenName)}">Add</button></li>`).join("")}</ul>`
           : `<p class="small muted">${myInterests.length ? "No matches yet." : "Add Interests to your profile (My Profile → Member Info) to find people who like the same things."}</p>`}</div>
         <button class="btn small-btn" data-invite>🎟 Invite Friends to DialedUp</button>`;
@@ -250,7 +250,7 @@ export function openInvite() {
   openWindow("invite.link", {
     title: "Invite Friends", icon: "🎟", width: 330, height: 300, keyword: "invite",
     render(body) {
-      body.innerHTML = `<p style="margin-top:0">Send friends your invite link. When they join, you'll be buddies automatically and you earn the <b>🎟 Recruiter</b> badge!</p>
+      body.innerHTML = `<p style="margin-top:0">Send friends your invite link. When they join, you'll be homies automatically and you earn the <b>🎟 Recruiter</b> badge!</p>
         <input readonly value="${esc(link)}" style="width:100%">
         <div class="row" style="margin-top:8px;gap:4px;justify-content:flex-start"><button class="btn primary small-btn" data-share>📤 Share</button><button class="btn small-btn" data-copy>📋 Copy Link</button></div>
         <p class="small muted" id="inv-count"></p>`;

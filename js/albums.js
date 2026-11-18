@@ -1,4 +1,4 @@
-// Photo Albums: share pictures with your buddies.
+// Photo Albums: share pictures with your homies.
 import { auth, db, ref, get, set, push, remove, onValue, off, serverTimestamp } from "./firebase.js";
 import { openWindow, closeWindow, esc } from "./wm.js";
 import { userName } from "./chat.js";

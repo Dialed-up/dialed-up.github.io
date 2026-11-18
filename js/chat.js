@@ -1,4 +1,4 @@
-// Buddies, IMs, chat rooms, away messages and profiles — shared with the BuddyChat iPhone app.
+// Homies, IMs, chat rooms, away messages and profiles — shared with the BuddyChat iPhone app.
 import {
   auth, db, ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect,
   query, orderByKey, limitToLast, normalize, conversationID,
@@ -17,7 +17,7 @@ const state = {
 };
 
 export const me = () => state.me;
-// Screen names for people who aren't buddies come from a small public list of names only.
+// Screen names for people who aren't homies come from a small public list of names only.
 const nameCache = {};
 const fetching = new Set();
 function lookUpName(uid) {
@@ -34,7 +34,7 @@ const name = (uid) => {
   return n || "…";
 };
 export const userName = name;
-/** A buddy's icon as an <img>, or a colored letter if they haven't picked one. */
+/** A homie's icon as an <img>, or a colored letter if they haven't picked one. */
 export function iconHTML(uid, size = 22) {
   const b64 = state.icons[uid];
   if (b64) return `<img class="bicon" src="${String(b64).startsWith("data:image/") ? b64 : "data:image/jpeg;base64," + b64}" width="${size}" height="${size}" alt="">`;
@@ -43,7 +43,7 @@ export function iconHTML(uid, size = 22) {
   return `<span class="bicon letter" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.55)}px;background:hsl(${hue} 65% 55%)">${esc((n[0] || "?").toUpperCase())}</span>`;
 }
 
-/** Shrink a picture to a 96×96 square and save it as your Buddy Icon. */
+/** Shrink a picture to a 96×96 square and save it as your Homie Icon. */
 export async function setMyIcon(file) {
   // Animated GIFs stay animated (as long as they're small enough)
   if (file.type === "image/gif") {
@@ -62,8 +62,8 @@ export async function setMyIcon(file) {
   await set(ref(db, `icons/${state.uid}`), b64);
   import("./profile.js").then((m) => m.refreshPublicIcon?.(state.uid, b64));
 }
-/** Everyone signed on right now (not just buddies), newest activity first. */
-/** Buddies who are signed on right now, most recently active first. */
+/** Everyone signed on right now (not just homies), newest activity first. */
+/** Homies who are signed on right now, most recently active first. */
 export const onlineMembers = () => [...buddyIDs()]
   .filter((id) => presence(state.users[id]) !== "offline")
   .sort((a, b) => (state.users[b]?.lastSeen || 0) - (state.users[a]?.lastSeen || 0));
@@ -86,6 +86,9 @@ function listen(path, cb, q) {
   state.listeners.push(r);
 }
 
+// The old default group name "Buddies" is now "Homies" (shown that way; saved the next time the list changes)
+const renameOldGroup = () => state.groups.forEach((g) => { if (g.name === "Buddies") g.name = "Homies"; });
+
 export async function startChat() {
   const uid = auth.currentUser.uid;
   state.uid = uid;
@@ -97,7 +100,8 @@ export async function startChat() {
     const raw = (await get(ref(db, `buddylists/${uid}`))).val();
     state.groups = raw ? JSON.parse(raw) : [];
   } catch { state.groups = []; }
-  if (!state.groups.length) state.groups = [{ id: crypto.randomUUID().toUpperCase(), name: "Buddies", members: [], collapsed: false }];
+  if (!state.groups.length) state.groups = [{ id: crypto.randomUUID().toUpperCase(), name: "Homies", members: [], collapsed: false }];
+  renameOldGroup();
 
   const created = Date.parse(auth.currentUser.metadata?.creationTime || "") || null;
   await update(meRef, { signedOn: true, fg: document.visibilityState === "visible", lastSeen: serverTimestamp(), idleSince: null, onlineSince: serverTimestamp(),
@@ -107,11 +111,11 @@ export async function startChat() {
   window.addEventListener("pagehide", () => state.uid && update(ref(db, `users/${state.uid}`), { fg: false }).catch(() => {}));
   state.timers.push(setInterval(() => update(meRef, { lastSeen: serverTimestamp(), signedOn: true }), 60000));
   set(ref(db, `names/${uid}`), state.me.screenName || "").catch(() => {});
-  // Every 5 seconds: notice buddies whose connection quietly went away (closed the app without signing off)
+  // Every 5 seconds: notice homies whose connection quietly went away (closed the app without signing off)
   state.timers.push(setInterval(() => { checkPresenceChanges(); refreshBuddyList(); }, 5000));
   document.addEventListener("visibilitychange", onVisibility);
 
-  await syncBuddyOf();   // tell the database who my buddies are first, so their status is readable
+  await syncBuddyOf();   // tell the database who my homies are first, so their status is readable
   syncWatches();
   import("./social.js").then((m) => {
     social = m;
@@ -127,7 +131,7 @@ export async function startChat() {
     const was = state.connected;
     state.connected = v === true;
     if (state.connected && was === false) {
-      // Back online: re-announce presence and reload buddies' info
+      // Back online: re-announce presence and reload homies' info
       update(meRef, { signedOn: true, lastSeen: serverTimestamp(), fg: document.visibilityState === "visible" }).catch(() => {});
       onDisconnect(meRef).update({ signedOn: false, fg: false, lastSeen: serverTimestamp() });
       watches.forEach((refs) => refs.forEach((r) => off(r))); watches.clear(); retries.clear();
@@ -138,17 +142,17 @@ export async function startChat() {
   listen(`inbox/${uid}`, onInbox);
   listen(`blocks/${uid}`, (v) => { state.blocked = new Set(Object.keys(v || {})); refreshBuddyList(); });
   listen(`buddylists/${uid}`, (v) => {
-    try { if (v) { state.groups = JSON.parse(v); syncWatches(); refreshBuddyList(); } } catch {}
+    try { if (v) { state.groups = JSON.parse(v); renameOldGroup(); syncWatches(); refreshBuddyList(); } } catch {}
   });
 }
 
 // ---------- Only load info for people you're connected to ----------
 const watches = new Map();
-let social = null;               // social.js (Buddy Updates rings), loaded after sign-on
+let social = null;               // social.js (Homie Updates rings), loaded after sign-on
 const storyWatched = new Set();
 const retries = new Map();   // uid → how many times we've retried reading their status   // uid → [userRef, iconRef]
 
-/** You, your buddies, and anyone you have an IM conversation with. */
+/** You, your homies, and anyone you have an IM conversation with. */
 function peopleToWatch() {
   const set_ = new Set([state.uid, ...buddyIDs()]);
   Object.values(state.inbox || {}).forEach((e) => e.with && set_.add(e.with));
@@ -208,7 +212,7 @@ function onVisibility() {
   if (document.hidden) update(r, { fg: false, idleSince: serverTimestamp(), lastSeen: serverTimestamp() });
   else {
     update(r, { fg: true, idleSince: null, lastSeen: serverTimestamp(), signedOn: true });
-    // Coming back to the tab: if any buddy's info never loaded, try again
+    // Coming back to the tab: if any homie's info never loaded, try again
     if ([...buddyIDs()].some((b) => !state.users[b])) {
       [...buddyIDs()].filter((b) => !state.users[b]).forEach((b) => { const w = watches.get(b); if (w) { w.forEach((x) => off(x)); watches.delete(b); } });
       retries.clear();
@@ -275,7 +279,7 @@ async function syncBuddyOf() {
   localStorage.setItem("du.buddyof." + state.uid, JSON.stringify([...mine]));
 }
 
-// ---------- Buddies ----------
+// ---------- Homies ----------
 export function openBuddyList() {
   const desk = document.getElementById("desk");
   const wide = desk.clientWidth > desk.clientHeight;
@@ -308,7 +312,7 @@ function refreshBuddyList() {
     const conv = conversationID(state.uid, uid);
     const unread = state.inbox[conv] && state.inbox[conv].from !== state.uid && (state.inbox[conv].ts || 0) > Number(localStorage.getItem("du.read." + conv) || 0);
     return `<div class="buddy ${p}" data-buddy="${uid}" title="${p}">
-      <span class="dot"></span>${social?.hasStory(uid) ? `<span class="ring ${social.hasNewStory(uid) ? "new" : ""}" data-story="${uid}" title="See ${esc(name(uid))}'s Buddy Update">${iconHTML(uid, 20)}</span>` : iconHTML(uid, 20)}<span>${esc(name(uid))}</span>
+      <span class="dot"></span>${social?.hasStory(uid) ? `<span class="ring ${social.hasNewStory(uid) ? "new" : ""}" data-story="${uid}" title="See ${esc(name(uid))}'s Homie Update">${iconHTML(uid, 20)}</span>` : iconHTML(uid, 20)}<span>${esc(name(uid))}</span>
       ${p === "idle" ? `<span class="small">(idle ${idleMin(u)})</span>` : ""}
       ${p === "away" ? `<span class="small" title="${esc(u.away)}">📝</span>` : ""}
       ${unread ? `<span class="unread">✉️</span>` : ""}</div>`;
@@ -324,7 +328,7 @@ function refreshBuddyList() {
       ${g.collapsed ? "" : on.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>`;
   }).join("");
   const off_ = [...buddyIDs()].filter((m) => presence(state.users[m]) === "offline");
-  // IM Requests: people who aren't buddies that messaged you (last 7 days)
+  // IM Requests: people who aren't homies that messaged you (last 7 days)
   const weekAgo = Date.now() - 7 * 86400000;
   const entries = Object.values(state.inbox).filter((e) => e.with && e.with !== state.uid && !state.blocked.has(e.with));
   const strangers = [...new Set(entries.filter((e) => (e.ts || 0) > weekAgo && !buddyIDs().has(e.with) && e.from !== state.uid).map((e) => e.with))];
@@ -347,7 +351,7 @@ function refreshBuddyList() {
     <div class="bl-bottom">
       <button class="bl-icon" data-act="im"><span>💬</span>Send IM</button>
       <button class="bl-icon${state.away ? " on" : ""}" data-act="awaymenu" title="Away Message"><span>🌙<i class="bl-caret">▾</i></span>Away Message</button>
-      <button class="bl-icon" data-act="add"><span>➕</span>Add Buddy</button>
+      <button class="bl-icon" data-act="add"><span>➕</span>Add Homie</button>
       <button class="bl-icon" data-act="rooms"><span>🗨️</span>Chat Rooms</button>
       <button class="bl-icon" data-act="profile"><span>🪪</span>My Profile</button>
     </div>
@@ -362,8 +366,8 @@ function refreshBuddyList() {
     el.onclick = () => openIM(el.dataset.buddy);
     onMenu(el, (x, y) => el.dataset.recent ? contextMenu(x, y, [
       { label: "💬 Send IM", action: () => openIM(el.dataset.buddy) },
-      { label: "➕ Add Buddy", action: () => openAddBuddy(name(el.dataset.buddy)) },
-      { label: "🪪 Buddy Info", action: () => openInfo(el.dataset.buddy) },
+      { label: "➕ Add Homie", action: () => openAddBuddy(name(el.dataset.buddy)) },
+      { label: "🪪 Homie Info", action: () => openInfo(el.dataset.buddy) },
       "-",
       { label: "✖ Remove Request", action: () => forgetRecent(el.dataset.buddy) },
       { label: "⛔ Block", danger: true, action: () => { if (confirm(`Block ${name(el.dataset.buddy)}?`)) set(ref(db, `blocks/${state.uid}/${el.dataset.buddy}`), true); } },
@@ -391,12 +395,12 @@ function refreshBuddyList() {
     rooms: () => openPeoplePlaza(),
     profile: () => openProfile(),
     im: () => pickBuddy("Send an Instant Message", openIM),
-    info: () => pickBuddy("Get Buddy Info", openInfo),
+    info: () => pickBuddy("Get Homie Info", openInfo),
     chat: () => {
-      const room = prompt("Name a chat room to invite your online buddies to:", "Buddy Chat " + Math.floor(Math.random() * 900 + 100));
+      const room = prompt("Name a chat room to invite your online homies to:", "Homie Chat " + Math.floor(Math.random() * 900 + 100));
       if (!room) return;
       const online = [...buddyIDs()].filter((u) => presence(state.users[u]) !== "offline");
-      online.forEach((u) => push(ref(db, `invites/${u}`), { from: state.uid, room, message: "Join my Buddy Chat!", ts: serverTimestamp() }).catch(() => {}));
+      online.forEach((u) => push(ref(db, `invites/${u}`), { from: state.uid, room, message: "Join my Homie Chat!", ts: serverTimestamp() }).catch(() => {}));
       import("./people.js").then((m) => m.openRoom(room, "Member Rooms"));
     },
     awaymenu: (b) => {
@@ -408,8 +412,8 @@ function refreshBuddyList() {
       ]);
     },
     setup: (b) => contextMenu(...at(b), [
-      { label: "➕ Add a Buddy", action: () => openAddBuddy() },
-      { label: "➖ Remove a Buddy…", action: () => pickBuddyToRemove(...at(b)) },
+      { label: "➕ Add a Homie", action: () => openAddBuddy() },
+      { label: "➖ Remove a Homie…", action: () => pickBuddyToRemove(...at(b)) },
       { label: "📁 Add a Group", action: newGroup },
       { label: "🔎 Get Member Info…", action: () => openGetInfo() },
       { label: "🛠 Manage Homies List…", action: openEditGroups },
@@ -419,7 +423,7 @@ function refreshBuddyList() {
   body.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => acts[b.dataset.act](b)));
 }
 
-// ---------- Buddy Alerts ----------
+// ---------- Homie Alerts ----------
 export const alerts = () => JSON.parse(localStorage.getItem("du.alerts") || "{}");
 function saveAlerts(a) { localStorage.setItem("du.alerts", JSON.stringify(a)); }
 
@@ -431,7 +435,7 @@ function fireAlerts(uid, before, after) {
   if (!((signedOn && a.signOn) || (back && a.back))) return;
   sfx.alertBlip();
   openWindow("alert." + uid, {
-    title: "Buddy Alert!", icon: "🔔", width: 260, height: 170,
+    title: "Homie Alert!", icon: "🔔", width: 260, height: 170,
     render(body) {
       body.innerHTML = `<div style="display:flex;gap:8px;align-items:center">${iconHTML(uid, 40)}<p style="margin:0"><b>${esc(name(uid))}</b> ${signedOn ? "just signed on!" : "is back!"}</p></div>
         <div class="row" style="margin-top:10px"><span></span><button class="btn primary small-btn" data-x="im">Send IM</button></div>`;
@@ -444,7 +448,7 @@ function fireAlerts(uid, before, after) {
 
 export function openBuddyAlert(uid) {
   openWindow("alertset." + uid, {
-    title: `Buddy Alert: ${name(uid)}`, icon: "🔔", width: 320, height: 330,
+    title: `Homie Alert: ${name(uid)}`, icon: "🔔", width: 320, height: 330,
     render(body) {
       const a = alerts()[uid] || { signOn: true, back: false, message: "", once: false };
       body.innerHTML = `<p class="small">Tell me when <b>${esc(name(uid))}</b>…</p>
@@ -503,7 +507,7 @@ export function buddyMenu(uid, x, y) {
     { label: "📞 Talk", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid))) },
     { label: "📹 Video Chat", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid), { video: true })) },
     { label: "🪪 Get Info", action: () => openInfo(uid) },
-    { label: "🔔 Buddy Alert…", action: () => openBuddyAlert(uid) },
+    { label: "🔔 Homie Alert…", action: () => openBuddyAlert(uid) },
     { label: "📜 IM History", action: () => openHistory(uid) },
     { label: "📸 Photo Albums", action: () => import("./albums.js").then((m) => m.openAlbums(uid)) },
     { label: "✉️ Invite to Chat…", action: () => {
@@ -512,8 +516,8 @@ export function buddyMenu(uid, x, y) {
     } },
     "-",
     ...(isBuddy
-      ? [{ label: "📁 Move to Group…", action: () => moveToGroup(uid) }, { label: "🗑 Remove Buddy", danger: true, action: () => removeBuddy(uid) }]
-      : [{ label: "➕ Add Buddy", action: () => openAddBuddy(name(uid)) }]),
+      ? [{ label: "📁 Move to Group…", action: () => moveToGroup(uid) }, { label: "🗑 Remove Homie", danger: true, action: () => removeBuddy(uid) }]
+      : [{ label: "➕ Add Homie", action: () => openAddBuddy(name(uid)) }]),
     { label: state.blocked.has(uid) ? "✅ Unblock" : "⛔ Block", danger: !state.blocked.has(uid), action: () => toggleBlock(uid) },
   ]);
 }
@@ -544,10 +548,10 @@ function forgetRecent(uid) {
   remove(ref(db, `inbox/${state.uid}/${conversationID(state.uid, uid)}`)).catch(() => {});
 }
 
-/** Setup → Remove a Buddy: pick from your list. */
+/** Setup → Remove a Homie: pick from your list. */
 function pickBuddyToRemove(x, y) {
   const list = [...buddyIDs()].sort((a, b) => name(a).localeCompare(name(b)));
-  if (!list.length) { alert("You don't have any buddies yet."); return; }
+  if (!list.length) { alert("You don't have any homies yet."); return; }
   contextMenu(x, y, list.map((u) => ({ label: "➖ " + name(u), action: () => removeBuddy(u) })));
 }
 
@@ -626,7 +630,7 @@ function deleteGroup(gid) {
   if (state.groups.length === 1) { alert("You need at least one group. Rename this one instead."); return; }
   const others = state.groups.filter((x) => x.id !== gid);
   const dest = others[0];
-  if (g.members.length && !confirm(`Delete "${g.name}"? The ${g.members.length} buddy${g.members.length === 1 ? "" : "s"} in it will move to "${dest.name}".`)) return;
+  if (g.members.length && !confirm(`Delete "${g.name}"? The ${g.members.length} homie${g.members.length === 1 ? "" : "s"} in it will move to "${dest.name}".`)) return;
   if (!g.members.length && !confirm(`Delete the "${g.name}" group?`)) return;
   g.members.forEach((m) => { if (!dest.members.includes(m)) dest.members.push(m); });
   state.groups = others;
@@ -639,16 +643,16 @@ export function openEditGroups() {
       const paint = () => {
         const opts = (sel) => state.groups.map((g) => `<option value="${g.id}" ${g.id === sel ? "selected" : ""}>${esc(g.name)}</option>`).join("");
         body.innerHTML = `<div class="row" style="gap:4px;justify-content:flex-start;margin-bottom:8px">
-            <button class="btn primary small-btn" data-addb>➕ Add a Buddy</button><button class="btn small-btn" data-new>📁 Add a Group</button></div>
+            <button class="btn primary small-btn" data-addb>➕ Add a Homie</button><button class="btn small-btn" data-new>📁 Add a Group</button></div>
           ${state.groups.map((g, i) => `<div class="panel mg-group">
             <div class="row"><b>📁 ${esc(g.name)} <span class="small muted">(${g.members.length})</span></b>
               <span style="white-space:nowrap"><button class="btn small-btn" data-r="${g.id}" title="Rename group">✏️</button><button class="btn small-btn" data-u="${g.id}" ${i ? "" : "disabled"} title="Move group up">⬆️</button><button class="btn small-btn" data-d="${g.id}" ${i < state.groups.length - 1 ? "" : "disabled"} title="Move group down">⬇️</button><button class="btn danger small-btn" data-x="${g.id}" title="Delete group">🗑</button></span></div>
             ${g.members.length ? `<ul class="list mg-members">${[...g.members].sort((a, b) => name(a).localeCompare(name(b))).map((m) => `<li class="row">
               <span class="mg-name">${iconHTML(m, 18)} ${esc(name(m))}</span>
               <span style="white-space:nowrap"><select data-mv="${m}" title="Move to group">${opts(g.id)}</select>
-              <button class="btn small-btn" data-rm="${m}" title="Remove buddy">✖</button></span></li>`).join("")}</ul>`
-              : `<p class="small muted" style="margin:4px 0 0">No buddies in this group yet.</p>`}</div>`).join("")}
-          <p class="small muted">Tip: press and hold any buddy or group on your Homies List for quick options.</p>`;
+              <button class="btn small-btn" data-rm="${m}" title="Remove homie">✖</button></span></li>`).join("")}</ul>`
+              : `<p class="small muted" style="margin:4px 0 0">No homies in this group yet.</p>`}</div>`).join("")}
+          <p class="small muted">Tip: press and hold any homie or group on your Homies List for quick options.</p>`;
         body.querySelector("[data-addb]").onclick = () => openAddBuddy();
         body.querySelector("[data-new]").onclick = newGroup;
         body.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => renameGroup(b.dataset.r)));
@@ -674,7 +678,7 @@ function newGroup() {
   saveGroups();
 }
 
-/** Adds someone to your first buddy group (used by invite links). */
+/** Adds someone to your first homie group (used by invite links). */
 export async function addBuddyByUid(u) {
   if (!u || u === state.uid || buddyList().includes(u)) return;
   (state.groups[0] || state.groups.find(() => true))?.members.push(u);
@@ -683,13 +687,13 @@ export async function addBuddyByUid(u) {
 
 export function openAddBuddy(prefill = "") {
   openWindow("addbuddy", {
-    title: "Add a Buddy", icon: "➕", width: 300, height: 300,
+    title: "Add a Homie", icon: "➕", width: 300, height: 300,
     render(body) {
       body.innerHTML = `<form id="ab">
-        <label>Buddy's Screen Name <input id="ab-sn" value="${esc(typeof prefill === "string" ? prefill : "")}" required></label>
+        <label>Homie's Screen Name <input id="ab-sn" value="${esc(typeof prefill === "string" ? prefill : "")}" required></label>
         <label>Group <select id="ab-g">${state.groups.map((g) => `<option value="${g.id}">${esc(g.name)}</option>`).join("")}</select></label>
         <p class="error" id="ab-err"></p>
-        <div class="row"><span></span><button class="btn primary">Add Buddy</button></div></form>`;
+        <div class="row"><span></span><button class="btn primary">Add Homie</button></div></form>`;
       body.querySelector("#ab").onsubmit = async (e) => {
         e.preventDefault();
         const err = body.querySelector("#ab-err");
@@ -814,12 +818,12 @@ export function openIM(uid, { quiet = false } = {}) {
         try { await warn(uid); alert(`${name(uid)} has been warned.`); } catch { alert("Couldn't warn right now."); }
       };
       const imMenu = (x, y) => contextMenu(x, y, [
-        { label: "🪪 Buddy Info", action: () => openInfo(uid) },
+        { label: "🪪 Homie Info", action: () => openInfo(uid) },
         { label: "📎 Send a File", action: () => body.querySelector("[data-f=file]").click() },
         { label: "📞 Talk", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid))) },
         { label: "📹 Video Chat", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid), { video: true })) },
         { label: "📜 IM History", action: () => openHistory(uid) },
-        ...(buddyIDs().has(uid) ? [{ label: "🗑 Remove Buddy", action: () => removeBuddy(uid) }] : [{ label: "➕ Add Buddy", action: () => openAddBuddy(name(uid)) }]),
+        ...(buddyIDs().has(uid) ? [{ label: "🗑 Remove Homie", action: () => removeBuddy(uid) }] : [{ label: "➕ Add Homie", action: () => openAddBuddy(name(uid)) }]),
         "-",
         { label: "⚠️ Warn", action: doWarn },
         { label: state.blocked.has(uid) ? "✅ Unblock" : "⛔ Block", danger: !state.blocked.has(uid), action: () => toggleBlock(uid) },
@@ -1200,7 +1204,7 @@ function openKnock(uid, preview = "") {
   openWindow(id, {
     title: "Incoming IM", icon: "🚪", width: 300, height: 250,
     render(body) {
-      body.innerHTML = `<p style="margin-top:0"><b>${esc(name(uid))}</b> isn't one of your buddies and wants to send you an Instant Message.</p>
+      body.innerHTML = `<p style="margin-top:0"><b>${esc(name(uid))}</b> isn't one of your homies and wants to send you an Instant Message.</p>
         ${preview ? `<div class="panel small" style="font-style:italic">"${esc(preview)}"</div>` : ""}
         <div class="row" style="margin-top:10px;justify-content:flex-end;gap:6px">
           <button class="btn danger small-btn" data-k="block">Block</button>
@@ -1250,12 +1254,12 @@ export async function openInfo(uid) {
           <span class="small">${isPublic ? "🌍 Public profile" : { online: "🟢 Online", away: "🟠 Away", idle: "⚪ Idle", offline: `⚫ Offline${u.lastSeen ? " · last seen " + new Date(u.lastSeen).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}` }[p]}</span></div></div>
         <p class="small info-stats">${stats.join(" · ")}</p>
         ${!isPublic && u.away ? `<div class="panel"><h3>Away Message</h3>${formatText(u.away)}</div>` : ""}
-        ${!u.screenName ? `<div class="panel"><p style="margin:0">🔒 <b>This profile is private.</b> Only their buddies can see it. You can still send them an IM.</p></div>` : `<div class="info-profile"></div>`}
+        ${!u.screenName ? `<div class="panel"><p style="margin:0">🔒 <b>This profile is private.</b> Only their homies can see it. You can still send them an IM.</p></div>` : `<div class="info-profile"></div>`}
         <div class="row" style="flex-wrap:wrap;gap:4px">
           <button class="btn primary small-btn" data-x="im">Send IM</button>
           <button class="btn small-btn" data-x="file">📎 Send File</button>
           <a class="btn small-btn" href="home.html?u=${encodeURIComponent(normalize(u.screenName || name(uid) || ""))}" target="_blank">🌐 Home Page</a>
-          ${isBuddy ? `<button class="btn small-btn" data-x="remove">Remove Buddy</button>` : `<button class="btn small-btn" data-x="add">Add Buddy</button>`}
+          ${isBuddy ? `<button class="btn small-btn" data-x="remove">Remove Homie</button>` : `<button class="btn small-btn" data-x="add">Add Homie</button>`}
           <button class="btn danger small-btn" data-x="block">${state.blocked.has(uid) ? "Unblock" : "Block"}</button>
         </div>`;
       if (u.screenName) import("./profile.js").then((m) => m.renderProfile(body.querySelector(".info-profile"), u, uid, { viewer: state.me.screenName, openDirectory }));
@@ -1270,13 +1274,13 @@ export async function openInfo(uid) {
   });
 }
 
-/** Look up anyone's profile by screen name (shows it if they're your buddy or made it public). */
+/** Look up anyone's profile by screen name (shows it if they're your homie or made it public). */
 export function openGetInfo(prefill = "") {
   openWindow("getinfo", {
     title: "Get Member Info", icon: "🔎", width: 300, height: 200, keyword: "getinfo",
     render(body) {
       body.innerHTML = `<form id="gi"><label>Screen name<input id="gi-n" value="${esc(prefill)}" autocapitalize="off" required></label>
-        <p class="error" id="gi-e"></p><div class="row"><span class="small muted">Public profiles and your buddies' profiles.</span><button class="btn primary">Get Info</button></div></form>`;
+        <p class="error" id="gi-e"></p><div class="row"><span class="small muted">Public profiles and your homies' profiles.</span><button class="btn primary">Get Info</button></div></form>`;
       body.querySelector("#gi").onsubmit = async (e) => {
         e.preventDefault();
         const n = body.querySelector("#gi-n").value.trim();

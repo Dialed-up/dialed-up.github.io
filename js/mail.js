@@ -130,7 +130,7 @@ function renderMailbox(body) {
         ${tree("spam", "🚫", "Spam", counts.spam)}
         ${tree("deleted", "🗑", "Recently Deleted", counts.deleted)}
         <li class="tree-head" style="margin-top:8px">Mail Controls</li>
-        <li><label class="check" style="margin:0;font-size:11px"><input type="checkbox" id="mc-buddies" ${buddiesOnly() ? "checked" : ""}> Only buddies can mail me</label></li>
+        <li><label class="check" style="margin:0;font-size:11px"><input type="checkbox" id="mc-buddies" ${buddiesOnly() ? "checked" : ""}> Only homies can mail me</label></li>
       </ul>
       <div class="mb-list">
         <table>

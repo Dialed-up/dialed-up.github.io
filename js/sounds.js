@@ -152,9 +152,9 @@ function thump(start, vol = 0.5) {
   src.connect(lp).connect(g2).connect(c.destination);
   src.start(t);
 }
-/** A buddy signed on: latch click, then the door creaks open. */
+/** A homie signed on: latch click, then the door creaks open. */
 export function doorOpen() { if (quiet()) return; latch(0); creak(0.06, 0.75, 260, 520); }
-/** A buddy signed off: a short creak, then the door shuts. */
+/** A homie signed off: a short creak, then the door shuts. */
 export function doorClose() { if (quiet()) return; thump(0); latch(0.02, 0.22); creak(0.05, 0.25, 420, 300, 0.035); }
 
 export function buddyIn() { if (!quiet()) { tone(660, 0, 0.12, { type: "triangle" }); tone(990, 0.1, 0.18, { type: "triangle" }); } }

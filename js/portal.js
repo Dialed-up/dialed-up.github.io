@@ -34,7 +34,7 @@ export function openWelcome() {
   openWindow("welcome", {
     title: "Welcome to DialedUp", icon: "🏠", keyword: "home",
     onClose: () => { if (qotdRef) off(qotdRef); qotdRef = null; welcomeFeed?.(); welcomeFeed = null; },
-    // in landscape, fill the space left of the Buddies window
+    // in landscape, fill the space left of the Homies window
     ...(() => {
       const d = document.getElementById("desk");
       const wide = d.clientWidth > d.clientHeight && d.clientHeight < 500;
@@ -53,10 +53,10 @@ export function openWelcome() {
           <div class="small muted">${new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · online ${onlineFor()}</div></div>
         </div>
         ${alertsAsk() ? `<div class="alerts-ask"><span>🔔 <b>Get alerts</b> for new IMs and mail, even when DialedUp is closed.</span><button class="btn primary small-btn" id="w-alerts">Turn On Alerts</button><button class="alerts-x" id="w-alerts-x" title="Don't show this again" aria-label="Close">✕</button></div>` : ""}
-        <div class="panel w-feed"><h3>📰 Buddy Feed <a href="#" data-kw="feed" class="small" style="float:right">Open Feed ›</a></h3><div id="w-feed"></div></div>
+        <div class="panel w-feed"><h3>📰 Homie Feed <a href="#" data-kw="feed" class="small" style="float:right">Open Feed ›</a></h3><div id="w-feed"></div></div>
         <div id="w-top" class="top-story"><div class="muted small" style="padding:30px;text-align:center">📡 Getting today's top story…</div></div>
         <div class="grid2">
-          <div class="panel" id="w-online"><h3>🟢 Buddies Online</h3><span class="muted small">Checking…</span></div>
+          <div class="panel" id="w-online"><h3>🟢 Homies Online</h3><span class="muted small">Checking…</span></div>
           <div class="panel" id="w-rooms"><h3>🔥 Hot Rooms Right Now</h3><span class="muted small">Checking…</span></div>
         </div>
         <div class="panel"><h3>📰 Today's Headlines <a href="#" data-kw="news" class="small" style="float:right">More news ›</a></h3><ul class="list headlines" id="w-news"><li class="muted small">Loading…</li></ul></div>
@@ -127,11 +127,11 @@ function paintOnline(body) {
   const el = body.querySelector("#w-online");
   if (!el) return;
   const on = onlineMembers();
-  el.innerHTML = `<h3>🟢 Buddies Online</h3>
+  el.innerHTML = `<h3>🟢 Homies Online</h3>
     <div class="big-temp" style="font-size:24px">${on.length}</div>
-    <div class="small muted">of ${memberCount()} ${memberCount() === 1 ? "buddy" : "buddies"} signed on now</div>
+    <div class="small muted">of ${memberCount()} ${memberCount() === 1 ? "homie" : "homies"} signed on now</div>
     <div class="small" style="margin-top:4px">${on.slice(0, 8).map((u) => `<a href="#" data-im="${u}">${esc(userName(u))}</a>`).join(", ")
-      || (memberCount() ? "None of your buddies are on right now." : "Add buddies to see who's on!")}</div>`;
+      || (memberCount() ? "None of your homies are on right now." : "Add homies to see who's on!")}</div>`;
   el.querySelectorAll("[data-im]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openIM(a.dataset.im); }));
 }
 
@@ -217,7 +217,7 @@ export function openChannels() {
         ${tile("🔎 Locate", "Find a member online", "#00a68c", "locate")}
         ${tile("🎙 Podcasts", "Top shows, new episodes", "#7b1fa2", "podcasts")}
         ${tile("▶️ YouTube", "Watch right here", "#e53935", "youtube")}
-        ${tile("🤖 DialBot", "Always-online chat buddy", "#21a0fd", "dialbot")}
+        ${tile("🤖 DialBot", "Always-online chat homie", "#21a0fd", "dialbot")}
       </div>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = () => runKeyword(b.dataset.kw)));
     },
@@ -250,7 +250,7 @@ const keywords = {
   trending: () => import("./engage.js").then((m) => m.openTrending()), hot: () => import("./engage.js").then((m) => m.openTrending()), whatshot: () => import("./engage.js").then((m) => m.openTrending()),
   pymk: () => import("./engage.js").then((m) => m.openPYMK()), peopleyoumayknow: () => import("./engage.js").then((m) => m.openPYMK()), suggestions: () => import("./engage.js").then((m) => m.openPYMK()),
   invite: () => import("./engage.js").then((m) => m.openInvite()), invitefriends: () => import("./engage.js").then((m) => m.openInvite()),
-  buddy: openBuddyList, buddies: openBuddyList, im: openBuddyList, add: openAddBuddy,
+  buddy: openBuddyList, buddies: openBuddyList, homie: openBuddyList, homies: openBuddyList, homieslist: openBuddyList, im: openBuddyList, add: openAddBuddy,
   away: openAway, profile: openProfile, people: openDirectory, directory: openDirectory, members: openDirectory,
   homepage: openMyPage, mypage: openMyPage, page: openMyPage,
   mail: openMail, inbox: openMail, write: () => writeMail(), email: openMail,
@@ -285,8 +285,8 @@ function openSounds() {
   import("./sounds.js").then((sfx) => openWindow("sounds", {
     title: "Sounds", icon: "🔊", width: 300, height: 340, keyword: "sounds",
     render(body) {
-      const list = [["👋 \"Welcome!\" (signing on)", "welcome"], ["📬 \"You have mail!\"", "youHaveMail"], ["🚪 Door opens (buddy signs on)", "doorOpen"],
-        ["🚪 Door closes (buddy signs off)", "doorClose"], ["💬 IM received", "imIn"], ["👋 Goodbye (signing off)", "goodbye"]];
+      const list = [["👋 \"Welcome!\" (signing on)", "welcome"], ["📬 \"You have mail!\"", "youHaveMail"], ["🚪 Door opens (homie signs on)", "doorOpen"],
+        ["🚪 Door closes (homie signs off)", "doorClose"], ["💬 IM received", "imIn"], ["👋 Goodbye (signing off)", "goodbye"]];
       body.innerHTML = `<ul class="list">${list.map(([l, f]) => `<li class="row"><span>${l}</span><button class="btn small-btn" data-s="${f}">▶ Play</button></li>`).join("")}</ul>
         <label class="check" style="margin-top:8px"><input type="checkbox" id="snd-mute" ${sfx.isMuted() ? "checked" : ""}> Mute all sounds</label>
         <p class="small muted">The voice is your phone or computer's built-in voice. Turn your ringer on (iPhone side switch) to hear sounds.</p>`;
@@ -303,7 +303,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.2049) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.2051) · Still connecting since '96.</p>
         <p class="small muted">DialedUp is an independent, fan-made throwback. Not affiliated with, endorsed by, or connected to AOL, AIM, Yahoo or Bending Spoons. All trademarks belong to their owners.</p></div>`;
     },
   });
@@ -477,7 +477,7 @@ export const signs = [
 const openers = ["The stars are buffering in your favor today.", "Your aura is running at full bandwidth.", "Mercury is fine, actually — no excuses.",
   "The universe left you an away message.", "Today's signal strength: five bars.", "A cosmic pop-up is heading your way.",
   "Your vibe just got a firmware update.", "The moon is reading your profile."];
-const middles = ["One of your buddies is thinking about you", "a surprise IM brings good news", "a playlist will fix your mood",
+const middles = ["One of your homies is thinking about you", "a surprise IM brings good news", "a playlist will fix your mood",
   "an old friend signs back on", "your best idea arrives around lunchtime", "a small risk pays off big", "a group chat gets legendary",
   "a stranger's compliment makes your day"];
 const advice = ["Say yes to the late-night plan.", "Drink some water, superstar.", "Update your away message — it's time.",

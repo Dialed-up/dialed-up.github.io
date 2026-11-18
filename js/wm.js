@@ -276,7 +276,7 @@ export function refit() {
   wins.forEach((w) => {
     const el = w.el;
     if (w.id === "buddies") {
-      // the Buddies window stays docked on the right, full height
+      // the Homies window stays docked on the right, full height
       const bw = Math.min(Math.max(el.offsetWidth, 190), Math.round(dw * (dw > dh ? 0.32 : 0.5)), 260);
       Object.assign(el.style, { width: bw + "px", height: dh - 12 + "px", left: dw - bw - 6 + "px", top: "6px" });
       return;

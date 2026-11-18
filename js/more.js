@@ -31,7 +31,7 @@ export function openLocate(prefill = "") {
     render(body) {
       body.innerHTML = `<form class="row" id="lf"><input placeholder="Screen name" value="${esc(prefill)}" style="flex:1" autocapitalize="off"><button class="btn primary small-btn">Locate</button></form>
         <div id="lr" style="margin-top:10px"></div>
-        <p class="small muted">Shows if someone is online and which public chat room they're in. Only your buddies can see your full status.</p>`;
+        <p class="small muted">Shows if someone is online and which public chat room they're in. Only your homies can see your full status.</p>`;
       const out = body.querySelector("#lr");
       const find = async (n) => {
         out.innerHTML = `<p class="muted">🔎 Looking for ${esc(n)}…</p>`;
@@ -59,7 +59,7 @@ export function openLocate(prefill = "") {
           <p style="margin:0 0 6px"><b>${esc(who)}</b> ${online ? `is <b style="color:#2e7d32">online</b>` : status === "offline" ? "is <b>not signed on</b> right now." : "can't be located right now."}
           ${status === "away" ? " (away)" : status === "idle" ? " (idle)" : ""}</p>
           ${rooms.length ? `<p class="small" style="margin:0 0 6px">💬 In chat room: ${rooms.map((r) => `<a href="#" data-room="${esc(r)}">${esc(r)}</a>`).join(", ")}</p>` : ""}
-          ${!online && status === null ? `<p class="small muted" style="margin:0 0 6px">They're not your buddy and not in a public chat room, so their status is private.</p>` : ""}
+          ${!online && status === null ? `<p class="small muted" style="margin:0 0 6px">They're not your homie and not in a public chat room, so their status is private.</p>` : ""}
           <div class="row" style="justify-content:flex-start;gap:4px"><button class="btn small-btn" data-x="im">💬 Send IM</button><button class="btn small-btn" data-x="mail">✉️ Mail</button></div></div>`;
         out.querySelectorAll("[data-room]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openRoom(a.dataset.room); }));
         out.querySelector("[data-x=im]").onclick = () => openIM(target);

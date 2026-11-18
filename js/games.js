@@ -14,7 +14,7 @@ export function openArcade() {
         ["❓", "Trivia Night", "10 questions, beat your best", "#ff5ec4", openTrivia],
         ["🔤", "Word Scramble", "Unscramble before time runs out", "#00a68c", openScramble],
         ["🃏", "Memory Match", "Flip and find the pairs", "#ff8a3d", openMemory],
-        ["⭕", "Tic-Tac-Toe Online", "Challenge a buddy live", "#2b59ff", openTicTacToeLobby],
+        ["⭕", "Tic-Tac-Toe Online", "Challenge a homie live", "#2b59ff", openTicTacToeLobby],
       ];
       body.innerHTML = `<div class="grid2">${games.map(([ic, n, sub, c], i) =>
         `<button class="tile" data-g="${i}" style="background:linear-gradient(135deg, ${c}, #5b2a86)"><span style="font-size:26px">${ic}</span><br>${n}<small>${sub}</small></button>`).join("")}</div>`;
@@ -101,7 +101,7 @@ function openTrivia() {
 }
 
 // ---------- Word Scramble ----------
-const words = ["MODEM", "BUDDY", "SIGNAL", "CHATROOM", "PROFILE", "KEYWORD", "MAILBOX", "GLITTER", "TURNTABLE", "SUBWAY", "BROOKLYN",
+const words = ["MODEM", "HOMIE", "SIGNAL", "CHATROOM", "PROFILE", "KEYWORD", "MAILBOX", "GLITTER", "TURNTABLE", "SUBWAY", "BROOKLYN",
   "PIXEL", "DOWNLOAD", "SCREEN", "MIXTAPE", "SPEAKER", "WEEKEND", "MIDNIGHT", "PLAYLIST", "BASKETBALL", "CONNECT", "MESSAGE",
   "EMOTICON", "HOMEPAGE", "WALLPAPER", "KEYBOARD", "SNEAKERS", "BOOMBOX", "PAGER", "WEBSITE"];
 
