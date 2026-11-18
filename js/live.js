@@ -77,13 +77,13 @@ const NEWS_URL = "https://raw.githubusercontent.com/dialed-up/dialed-up.github.i
 const sourceColors = {
   CNN: "#cc0000", "NBC News": "#5b2a86", "CBS News": "#1a1a1a", "ABC News": "#0047ab", NPR: "#d62021", "Fox News": "#003366",
   BBC: "#bb1919", NYT: "#333333", CNBC: "#005594", Variety: "#7b1fa2", Billboard: "#e91e63", Gothamist: "#ff5722",
-  "The Verge": "#e2127a", "Ars Technica": "#ff4e00",
+  "The Verge": "#e2127a", "Ars Technica": "#ff4e00", Deadline: "#111111", IndieWire: "#c62828",
 };
 const colorFor = (src) => sourceColors[src] || (src.startsWith("ESPN") ? "#d00" : "#5b2a86");
 
 /** Headlines by category: top, us, world, nyc, business, entertainment, tech, sports, space. */
 export async function getHeadlines() {
-  const cached = cacheGet("du.news2", 5 * 60 * 1000);
+  const cached = cacheGet("du.news3", 5 * 60 * 1000);
   if (cached) return cached;
   let robot = null;
   try { robot = await getJSON(NEWS_URL + "?t=" + Math.floor(Date.now() / 300000)); } catch {}
@@ -96,7 +96,7 @@ export async function getHeadlines() {
   const world = robot?.world?.length ? tidy(robot.world) : await wikipediaNews();
   const out = {
     top: tidy(robot?.top), us: tidy(robot?.us), world, nyc: tidy(robot?.nyc), business: tidy(robot?.business),
-    entertainment: tidy(robot?.entertainment), tech: robot?.tech?.length ? tidy(robot.tech) : tech2,
+    entertainment: tidy(robot?.entertainment), movies: tidy(robot?.movies), tech: robot?.tech?.length ? tidy(robot.tech) : tech2,
     sports: robot?.sports?.length ? tidy(robot.sports) : fallbackSports, space,
     updated: robot?.updated || 0,
   };
@@ -105,7 +105,7 @@ export async function getHeadlines() {
     const pools = [out.world, out.sports, out.tech, out.space].map((p) => [...p]);
     while (out.top.length < 14 && pools.some((p) => p.length)) pools.forEach((p) => p.length && out.top.push(p.shift()));
   }
-  if (out.top.length) cacheSet("du.news2", out);
+  if (out.top.length) cacheSet("du.news3", out);
   return out;
 }
 

@@ -8,7 +8,7 @@ const hash = async (pin) => {
 export const kidMode = () => !!localStorage.getItem("du.kidpin");
 
 // What kids can't open while Kid-Safe Mode is on.
-const blockedKeywords = ["browser", "web", "internet", "www", "cnn", "espn", "youtube", "wikipedia", "chat", "plaza", "peopleplaza",
+const blockedKeywords = ["classifieds", "forsale", "ads", "buyandsell", "lottery", "lotto", "powerball", "megamillions", "events", "live", "liveevents", "auditorium", "locate", "find", "whereis", "browser", "web", "internet", "www", "cnn", "espn", "youtube", "wikipedia", "chat", "plaza", "peopleplaza",
   "chatrooms", "rooms", "lobby", "boards", "forums", "messageboards", "people", "directory", "members", "stocks", "news", "radio"];
 export const isBlockedForKids = (k) => kidMode() && (blockedKeywords.includes(k) || k.includes("."));
 

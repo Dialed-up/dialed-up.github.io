@@ -59,7 +59,7 @@ export const memberCount = () => buddyIDs().size;
 export const buddyList = () => [...new Set(state.groups.flatMap((g) => g.members))];
 
 // ---------- Presence ----------
-function presence(u, now = Date.now()) {
+export function presence(u, now = Date.now()) {
   if (!u || !u.signedOn || u.invisible) return "offline";
   const age = now - (u.lastSeen || 0);
   if (!u.idleSince && age < 150000) return u.away ? "away" : "online";
@@ -178,6 +178,7 @@ function onInbox(v) {
       if (e.from === state.uid || state.blocked.has(e.from) || (e.ts || 0) <= (old[conv]?.ts || 0)) continue;
       sfx.imIn();
       const existed = !!getWindow("im." + e.from);
+      if (!existed && needsKnock(e.from)) { openKnock(e.from, e.preview); continue; }
       openIM(e.from, { quiet: true });
       if (existed) flash("im." + e.from);
       autoReply(e.from, conv);
@@ -659,6 +660,7 @@ async function sendIM(uid, text, style, { auto = false, file = null } = {}) {
   if (auto) msg.auto = true;
   if (file) msg.file = file;
   await push(ref(db, `messages/${conv}`), msg);
+  if (!auto) acceptFrom(uid);
   const preview = text.slice(0, 80);
   await set(ref(db, `inbox/${uid}/${conv}`), { with: state.uid, from: state.uid, ts: serverTimestamp(), preview }).catch(() => {});
   await set(ref(db, `inbox/${state.uid}/${conv}`), { with: uid, from: state.uid, ts: serverTimestamp(), preview }).catch(() => {});
@@ -756,6 +758,43 @@ async function acceptFile(el, conv, tid, meta) {
   remove(ref(db, `filechunks/${conv}/${tid}`));
   progress(1, "Done! Tap 💾 Save in the IM window to keep it.", true);
   sfx.imIn();
+}
+
+// ---------- "Accept IMs from strangers?" ----------
+const acceptedKey = () => "du.accepted." + state.uid;
+const accepted = () => new Set(JSON.parse(localStorage.getItem(acceptedKey()) || "[]"));
+function acceptFrom(uid) {
+  const a = accepted();
+  if (a.has(uid)) return;
+  a.add(uid);
+  localStorage.setItem(acceptedKey(), JSON.stringify([...a]));
+}
+export const askStrangers = () => localStorage.getItem("du.knock") !== "0";
+function needsKnock(uid) {
+  return askStrangers() && !buddyIDs().has(uid) && !accepted().has(uid);
+}
+function openKnock(uid, preview = "") {
+  const id = "knock." + uid;
+  openWindow(id, {
+    title: "Incoming IM", icon: "🚪", width: 300, height: 250,
+    render(body) {
+      body.innerHTML = `<p style="margin-top:0"><b>${esc(name(uid))}</b> isn't on your Buddy List and wants to send you an Instant Message.</p>
+        ${preview ? `<div class="panel small" style="font-style:italic">"${esc(preview)}"</div>` : ""}
+        <div class="row" style="margin-top:10px;justify-content:flex-end;gap:6px">
+          <button class="btn danger small-btn" data-k="block">Block</button>
+          <button class="btn small-btn" data-k="ignore">Ignore</button>
+          <button class="btn primary small-btn" data-k="accept">Accept</button></div>
+        <label class="check small" style="margin-top:8px"><input type="checkbox" data-k="always"> Always accept IMs from everyone</label>`;
+      body.querySelector("[data-k=always]").onchange = (e) => localStorage.setItem("du.knock", e.target.checked ? "0" : "1");
+      body.querySelector("[data-k=accept]").onclick = () => { acceptFrom(uid); closeWindow(id); openIM(uid); };
+      body.querySelector("[data-k=ignore]").onclick = () => closeWindow(id);
+      body.querySelector("[data-k=block]").onclick = async () => {
+        if (!confirm(`Block ${name(uid)}? They won't be able to IM or mail you.`)) return;
+        await set(ref(db, `blocks/${state.uid}/${uid}`), true).catch(() => {});
+        closeWindow(id);
+      };
+    },
+  });
 }
 
 // ---------- Info / block ----------

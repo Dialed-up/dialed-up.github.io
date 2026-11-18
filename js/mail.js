@@ -73,10 +73,10 @@ export function openMail() {
 
 function rowsFor(f) {
   if (f === "sent") {
-    return Object.entries(sent).map(([id, m]) => ({ id, sent: true, who: m.toName, subject: m.subject, ts: m.ts, read: !!m.readAt, readAt: m.readAt }));
+    return Object.entries(sent).map(([id, m]) => ({ id, sent: true, who: m.toName, subject: m.subject, ts: m.ts, read: !!m.readAt, readAt: m.readAt, unsent: !!m.unsent, files: !!m.files }));
   }
   const all = Object.entries(mail).map(([id, m]) => ({ id, who: m.fromName, subject: m.subject, ts: m.ts, read: m.read, saved: m.saved,
-    deleted: m.deleted, body: m.body, card: !!m.card, spam: isSpam(m) }));
+    deleted: m.deleted, body: m.body, card: !!m.card, spam: isSpam(m), files: !!m.files?.length }));
   const pick = {
     new: (m) => !m.read && !m.deleted && !m.spam,
     old: (m) => m.read && !m.deleted && !m.saved && !m.spam,
@@ -142,7 +142,7 @@ function renderMailbox(body) {
             <th data-sort="who">${sentView ? "To" : "From"}${arrow("who")}</th><th data-sort="subject">Subject${arrow("subject")}</th>
           </tr></thead>
           <tbody>${rows.map((r) => `<tr data-id="${r.id}" class="${r.id === selected ? "sel" : ""} ${!r.read && !sentView ? "unread" : ""}">
-            <td>${sentView ? (r.read ? "📖" : "📤") : r.card ? "💌" : r.read ? "✉️" : "📩"}</td>
+            <td>${sentView ? (r.unsent ? "↩️" : r.read ? "📖" : "📤") : r.card ? "💌" : r.read ? "✉️" : "📩"}${r.files ? "📎" : ""}</td>
             <td>${r.ts ? new Date(r.ts).toLocaleDateString([], { month: "numeric", day: "numeric", year: "2-digit" }) : ""}</td>
             <td>${esc(r.who || "")}</td><td>${esc(r.subject || "(no subject)")}</td></tr>`).join("")}</tbody>
         </table>
@@ -184,7 +184,7 @@ function renderMailbox(body) {
     keepnew: () => update(ref(db, `mail/${uid()}/${selected}`), { read: false }),
     status: () => showStatus(selected),
     delete: async () => {
-      if (folder === "deleted") { if (confirm("Delete this message forever?")) await remove(ref(db, `mail/${uid()}/${selected}`)); }
+      if (folder === "deleted") { if (confirm("Delete this message forever?")) { await removeFiles(uid(), mail[selected]?.files); await remove(ref(db, `mail/${uid()}/${selected}`)); } }
       else await update(ref(db, `mail/${uid()}/${selected}`), { deleted: true });
       selected = null;
     },
@@ -219,9 +219,20 @@ function showStatus(id) {
     render(body) {
       body.innerHTML = s
         ? `<p><b>To:</b> ${esc(s.toName)}<br><b>Subject:</b> ${esc(s.subject || "(no subject)")}<br><b>Sent:</b> ${s.ts ? new Date(s.ts).toLocaleString() : ""}</p>
-           <p>${s.readAt ? `📖 <b>Read</b> on ${new Date(s.readAt).toLocaleString()}` : "📤 <b>Not read yet</b>"}</p>`
+           <p>${s.unsent ? "↩️ <b>Unsent</b> — it was pulled back before they read it." : s.readAt ? `📖 <b>Read</b> on ${new Date(s.readAt).toLocaleString()}` : "📤 <b>Not read yet</b>"}</p>
+           ${!s.unsent && !s.readAt && s.mailId ? `<button class="btn danger small-btn" data-x="unsend">↩️ Unsend</button> <span class="small muted">Pull it back before they open it.</span>` : ""}`
         : `<p><b>From:</b> ${esc(m?.fromName || "")}<br><b>Received:</b> ${m?.ts ? new Date(m.ts).toLocaleString() : ""}<br>
            <b>Status:</b> ${m?.deleted ? "Deleted" : m?.saved ? "Saved" : m?.read ? "Read" : "New"}</p>`;
+      body.querySelector("[data-x=unsend]")?.addEventListener("click", async () => {
+        if (!confirm(`Unsend "${s.subject || "(no subject)"}"? It disappears from ${s.toName}'s mailbox.`)) return;
+        try {
+          await remove(ref(db, `mail/${s.to}/${s.mailId}`));
+          await removeFiles(s.to, s.files);
+          await update(ref(db, `mailsent/${uid()}/${id}`), { unsent: true });
+          closeWindow("mailstatus." + id);
+          alert("Unsent! They'll never see it.");
+        } catch { alert("Too late — they already opened it."); }
+      });
     },
   });
 }
@@ -242,11 +253,14 @@ function readMail(id) {
         </div>
         ${m.card ? `<div class="mail-card" style="margin-top:8px"></div>` : ""}
         <div class="panel" style="margin-top:8px;white-space:pre-wrap;min-height:${m.card ? 0 : 120}px">${esc(m.body)}</div>
+        ${m.files?.length ? `<div class="panel small mail-files"><b>📎 Attachments</b>${m.files.map((f, i) =>
+          `<div class="row"><span>📄 ${esc(f.name)} <span class="muted">(${sizeLabel(f.size)})</span></span><button class="btn small-btn" data-dl="${i}">⬇ Download</button></div>`).join("")}</div>` : ""}
         <div class="row">
           <span><button class="btn small-btn" data-x="save">💾 Save</button> <button class="btn danger small-btn" data-x="del">Delete</button></span>
           <span><button class="btn small-btn" data-x="fwd">Forward</button> <button class="btn primary small-btn" data-x="reply">Reply</button></span>
         </div>`;
       if (m.card) renderCard(body.querySelector(".mail-card"), { ...m.card, fromName: m.fromName });
+      body.querySelectorAll("[data-dl]").forEach((b) => (b.onclick = () => downloadFile(m.files[b.dataset.dl], b)));
       const quoted = "\n\n----- " + m.fromName + " wrote -----\n" + m.body;
       body.querySelector("[data-x=reply]").onclick = () => writeMail(m.fromName, "Re: " + (m.subject || "").replace(/^Re: /, ""), quoted);
       body.querySelector("[data-x=fwd]").onclick = () => writeMail("", "Fwd: " + (m.subject || ""), quoted);
@@ -264,9 +278,35 @@ export function writeMail(to = "", subject = "", text = "") {
         <label>Send To (screen names, separated by commas) <span style="display:flex;gap:4px"><input id="to" value="${esc(to)}" required>
           <button type="button" class="btn small-btn" id="pick-ab" title="Address Book">📇</button></span></label>
         <label>Subject <input id="subj" value="${esc(subject)}"></label>
-        <label>Message <textarea id="mbody" rows="9">${esc(text)}</textarea></label>
+        <label>Message <textarea id="mbody" rows="9" spellcheck="true" autocorrect="on">${esc(text)}</textarea></label>
+        <div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap">
+          <label class="btn small-btn" style="margin:0;font-weight:normal">📎 Attach<input type="file" id="att" multiple hidden></label>
+          <button type="button" class="btn small-btn" id="spell">🔤 Spell Check</button>
+          <button type="button" class="btn small-btn" id="sigbtn">✍️ Signature</button>
+        </div>
+        <div id="attlist" class="small"></div>
+        <div id="spellbox" class="small"></div>
         <p class="error" id="werr"></p>
         <div class="row"><span class="small muted">Mail goes to their DialedUp mailbox.</span><button class="btn primary">Send Now</button></div></form>`;
+      const ta = body.querySelector("#mbody");
+      const sig = signature();
+      if (sig && !ta.value.includes(sig)) { ta.value = (ta.value ? "\n\n" + sig + ta.value : "\n\n" + sig); }
+      let files = [];
+      const paintFiles = () => {
+        body.querySelector("#attlist").innerHTML = files.map((f, i) =>
+          `<div class="row"><span>📄 ${esc(f.name)} <span class="muted">(${sizeLabel(f.size)})</span></span><a href="#" data-rm="${i}">remove</a></div>`).join("");
+        body.querySelectorAll("[data-rm]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); files.splice(Number(a.dataset.rm), 1); paintFiles(); }));
+      };
+      body.querySelector("#att").onchange = (e) => {
+        const add = [...e.target.files];
+        e.target.value = "";
+        const total = [...files, ...add].reduce((n, f) => n + f.size, 0);
+        if (total > MAX_ATTACH) { alert(`Attachments can add up to ${sizeLabel(MAX_ATTACH)} per email.`); return; }
+        files = [...files, ...add].slice(0, 5);
+        paintFiles();
+      };
+      body.querySelector("#spell").onclick = () => spellCheck(ta, body.querySelector("#spellbox"));
+      body.querySelector("#sigbtn").onclick = () => editSignature();
       body.querySelector("#pick-ab").onclick = () => openAddressBook({ pick: (sn) => {
         const box = body.querySelector("#to");
         box.value = box.value.trim() ? box.value.replace(/,?\s*$/, ", ") + sn : sn;
@@ -284,8 +324,16 @@ export function writeMail(to = "", subject = "", text = "") {
           if (!target) { missing.push(toName); continue; }
           try {
             const sentItem = await push(ref(db, `mailsent/${uid()}`), { to: target, toName: userName(target) || toName, subject: subj, ts: serverTimestamp() });
-            await push(ref(db, `mail/${target}`), { from: uid(), fromName: me().screenName, subject: subj, body: text_,
-              ts: serverTimestamp(), read: false, sentId: sentItem.key });
+            const attached = [];
+            for (const f of files) {
+              err.textContent = `Uploading ${f.name} to ${toName}…`;
+              attached.push(await uploadFile(target, f));
+            }
+            err.textContent = "";
+            const item = { from: uid(), fromName: me().screenName, subject: subj, body: text_, ts: serverTimestamp(), read: false, sentId: sentItem.key };
+            if (attached.length) item.files = attached;
+            const mailItem = await push(ref(db, `mail/${target}`), item);
+            await update(ref(db, `mailsent/${uid()}/${sentItem.key}`), { mailId: mailItem.key, ...(attached.length ? { files: attached } : {}) });
             okCount++;
           } catch { missing.push(toName + " (blocked?)"); }
         }
@@ -308,4 +356,97 @@ export async function sendCard(toName, card) {
       card: { design: card.design, headline: card.headline, text: card.text }, ts: serverTimestamp(), read: false, sentId: sentItem.key });
   } catch { throw new Error("Couldn't send the card. They may have blocked you."); }
   sfx.imOut();
+}
+
+// ---------- Attachments ----------
+const MAX_ATTACH = 5 * 1024 * 1024;
+const CHUNK = 196608;
+const sizeLabel = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
+
+function toBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+  return btoa(bin);
+}
+
+async function uploadFile(target, file) {
+  const b64 = toBase64(await file.arrayBuffer());
+  const n = Math.ceil(b64.length / CHUNK) || 1;
+  const metaRef = push(ref(db, `mailfiles/${target}`));
+  const meta = { from: uid(), name: file.name.slice(0, 100), size: file.size, type: file.type || "application/octet-stream", n, ts: serverTimestamp() };
+  await set(metaRef, meta);
+  for (let i = 0; i < n; i++) await set(ref(db, `mailchunks/${target}/${metaRef.key}/${i}`), b64.slice(i * CHUNK, (i + 1) * CHUNK));
+  return { fid: metaRef.key, name: meta.name, size: meta.size, type: meta.type };
+}
+
+async function removeFiles(owner, files) {
+  for (const f of files || []) {
+    await remove(ref(db, `mailchunks/${owner}/${f.fid}`)).catch(() => {});
+    await remove(ref(db, `mailfiles/${owner}/${f.fid}`)).catch(() => {});
+  }
+}
+
+async function downloadFile(f, btn) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Downloading…";
+  try {
+    const chunks = (await get(ref(db, `mailchunks/${uid()}/${f.fid}`))).val();
+    if (!chunks) throw new Error("gone");
+    const b64 = (Array.isArray(chunks) ? chunks : Object.keys(chunks).sort((a, b) => a - b).map((k) => chunks[k])).join("");
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([bytes], { type: f.type }));
+    const a = document.createElement("a");
+    a.href = url; a.download = f.name; a.target = "_blank";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    btn.textContent = "✅ Saved";
+  } catch { btn.textContent = "Not available"; }
+  setTimeout(() => { btn.disabled = false; btn.textContent = label; }, 3000);
+}
+
+// ---------- Signature ----------
+const sigKey = () => "du.sig." + uid();
+const signature = () => localStorage.getItem(sigKey()) || "";
+export function editSignature() {
+  openWindow("mail.sig", {
+    title: "Mail Signature", icon: "✍️", width: 320, height: 260,
+    render(body) {
+      body.innerHTML = `<p class="small" style="margin-top:0">This gets added to the bottom of every email you write.</p>
+        <textarea rows="4" style="width:100%" placeholder="e.g. — Pat · thedjtoolbox.com">${esc(signature())}</textarea>
+        <div class="row" style="margin-top:8px"><button class="btn small-btn" data-s="clear">No Signature</button><button class="btn primary small-btn" data-s="save">Save</button></div>`;
+      const ta = body.querySelector("textarea");
+      body.querySelector("[data-s=save]").onclick = () => { localStorage.setItem(sigKey(), ta.value.trim().slice(0, 300)); closeWindow("mail.sig"); };
+      body.querySelector("[data-s=clear]").onclick = () => { localStorage.removeItem(sigKey()); closeWindow("mail.sig"); };
+    },
+  });
+}
+
+// ---------- Spell check (free Datamuse word list) ----------
+async function spellCheck(ta, box) {
+  const words = [...new Set((ta.value.match(/[A-Za-z']{3,}/g) || [])
+    .filter((w) => !/^[A-Z]/.test(w) || w === w.toLowerCase())
+    .map((w) => w.toLowerCase().replace(/^'+|'+$/g, ""))
+    .filter((w) => w.length > 2 && !w.includes("'")))].slice(0, 80);
+  if (!words.length) { box.innerHTML = `<p class="muted">Nothing to check yet.</p>`; return; }
+  box.innerHTML = `<p class="muted">🔤 Checking ${words.length} words…</p>`;
+  const bad = [];
+  await Promise.all(words.map(async (w) => {
+    try {
+      const r = await (await fetch(`https://api.datamuse.com/sug?s=${encodeURIComponent(w)}&max=4`)).json();
+      if (!r.length || r[0].word.toLowerCase() !== w) bad.push({ w, sug: r.map((x) => x.word).filter((x) => x !== w).slice(0, 3) });
+    } catch {}
+  }));
+  if (!bad.length) { box.innerHTML = `<p>✅ No spelling mistakes found!</p>`; return; }
+  box.innerHTML = `<div class="panel"><b>Check these words:</b>${bad.map((b, i) => `<div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap">
+      <span style="color:#c62828;text-decoration:underline wavy">${esc(b.w)}</span> →
+      ${b.sug.map((s) => `<button type="button" class="btn small-btn" data-fix="${i}" data-to="${esc(s)}">${esc(s)}</button>`).join("") || `<span class="muted">no ideas</span>`}
+    </div>`).join("")}</div>`;
+  box.querySelectorAll("[data-fix]").forEach((btn) => (btn.onclick = () => {
+    const from = bad[btn.dataset.fix].w;
+    ta.value = ta.value.replace(new RegExp(`\\b${from}\\b`, "gi"), (m) => (m[0] === m[0].toUpperCase() ? btn.dataset.to[0].toUpperCase() + btn.dataset.to.slice(1) : btn.dataset.to));
+    btn.parentElement.remove();
+  }));
 }

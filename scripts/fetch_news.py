@@ -42,6 +42,12 @@ FEEDS = {
         ("NYT", "https://rss.nytimes.com/services/xml/rss/nyt/Arts.xml"),
         ("Billboard", "https://www.billboard.com/feed/"),
     ],
+    "movies": [
+        ("Variety", "https://variety.com/v/film/feed/"),
+        ("NYT", "https://rss.nytimes.com/services/xml/rss/nyt/Movies.xml"),
+        ("Deadline", "https://deadline.com/category/film/feed/"),
+        ("IndieWire", "https://www.indiewire.com/c/film/feed/"),
+    ],
     "tech": [
         ("The Verge", "https://www.theverge.com/rss/index.xml"),
         ("NYT", "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"),

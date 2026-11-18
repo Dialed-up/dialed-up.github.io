@@ -518,3 +518,22 @@ html, body, #app, #desk, #signon, #connecting, .win, .win-body, .transcript, .mb
 .install-overlay { position: fixed; inset: 0; z-index: 100000; background: rgba(20,0,50,.55); display: grid; place-items: end center; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
 .install-box { width: min(380px, 100%); border-radius: 18px; padding: 16px; }
 .install-box h3 { margin: 0 0 8px; color: var(--grape); text-align: center; }
+
+/* ---------- 2026 extras: polls, TV, recipes, classifieds, events, lottery ---------- */
+.poll-opt { display: block; width: 100%; margin: 4px 0; text-align: left; }
+.poll-bar { position: relative; display: flex; justify-content: space-between; align-items: center; margin: 4px 0; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; font-size: 13px; }
+.poll-bar span { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #e6dcff, #d4c2ff); z-index: 0; }
+.poll-bar.mine span { background: linear-gradient(90deg, #ffe08a, #ffc94d); }
+.poll-bar em, .poll-bar b { position: relative; z-index: 1; font-style: normal; }
+.tv-time { margin: 10px 0 2px; color: var(--grape); border-bottom: 1px solid var(--line); }
+.recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.recipe-tile { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 0 0 6px; cursor: pointer; overflow: hidden; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.recipe-tile img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.recipe-tile span { padding: 0 6px; }
+.ad-price { background: #2e7d32; color: #fff; border-radius: 10px; padding: 1px 8px; font-weight: bold; font-size: 12px; }
+.ev.live { border-color: #e53935; box-shadow: 0 0 0 2px #ffcdd2; }
+.lotto-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.lotto-row.latest { font-weight: bold; }
+.ball { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2px solid #5b2a86; margin: 0 1px; font-style: normal; font-size: 11px; font-weight: bold; }
+.ball.bonus { background: #e53935; border-color: #e53935; color: #fff; }
+.mail-files .row { margin-top: 4px; }

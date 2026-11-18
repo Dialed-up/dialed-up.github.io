@@ -11,7 +11,7 @@ import { openAlbums } from "./albums.js";
 import { openStocks } from "./money.js";
 import { openKidSafe, isBlockedForKids } from "./kids.js";
 import { openArcade } from "./games.js";
-import { db, ref, get } from "./firebase.js";
+import { db, ref, get, off } from "./firebase.js";
 import { me, openBuddyList, openChatRooms, openAway, openDirectory, openProfile, openAddBuddy, onlineMembers, userName, openIM, memberCount } from "./chat.js";
 import { openMyPage } from "./homepage.js";
 import { openGame } from "./game.js";
@@ -19,13 +19,16 @@ import { openMail, writeMail } from "./mail.js";
 import { openBoards } from "./boards.js";
 import { openPeoplePlaza } from "./people.js";
 import { openFavorites, openClock, onlineFor } from "./extras.js";
+import { mountQotd, openLocate, openPolls, openMovies, openTV, openDictionary, openRecipes, openReminders, openClassifieds, openEvents, openToday, openLottery } from "./more.js";
 
 const city = () => JSON.parse(localStorage.getItem("du.city") || "null") || { name: "New York", lat: 40.71, lon: -74.01 };
 
 // ---------- Welcome window ----------
+let qotdRef = null;
 export function openWelcome() {
   openWindow("welcome", {
     title: "Welcome to DialedUp", icon: "🏠", keyword: "home",
+    onClose: () => { if (qotdRef) off(qotdRef); qotdRef = null; },
     // in landscape, fill the space left of the Buddy List
     ...(() => {
       const d = document.getElementById("desk");
@@ -52,20 +55,25 @@ export function openWelcome() {
           <div class="panel" id="w-weather"><h3>🌤 Weather</h3><span class="muted small">Loading…</span></div>
           <div class="panel" id="w-horo"><h3>🔮 Your Horoscope</h3></div>
         </div>
+        <div class="panel"><h3>❓ Question of the Day <a href="#" data-kw="polls" class="small" style="float:right">More polls ›</a></h3><div id="w-qotd"></div></div>
         <div class="panel"><h3>✨ Today's Hot Spots</h3>
           <div class="grid2">
             ${tile("💬 People Plaza", "Chat rooms by category", "#ff5ec4", "chat")}
             ${tile("📬 Mail", "Check your mailbox", "#00a68c", "mail")}
             ${tile("📌 Message Boards", "Post & reply", "#e53935", "boards")}
             ${tile("🌐 Home Pages", "Build yours — glitter included", "#8a4dff", "homepage")}
-            ${tile("🏀 Sports", "Live scores", "#ff8a3d", "sports")}
-            ${tile("🎮 Games", "Play Byte Snake", "#21a0fd", "games")}
+            ${tile("🎤 Live Events", "Scheduled live chats", "#d81b60", "events")}
+            ${tile("📺 TV Tonight", "What's on", "#3949ab", "tv")}
+            ${tile("🎬 Movies", "News & showtimes", "#c62828", "movies")}
+            ${tile("🎮 Games", "Trivia, Tic-Tac-Toe & more", "#21a0fd", "games")}
           </div>
         </div>
         <p class="small muted">Tip: type a word in the <b>Keyword</b> box up top — try <i>weather</i>, <i>news</i>, <i>chat</i> or <i>help</i>.</p>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); runKeyword(b.dataset.kw); }));
       loadWeather(body.querySelector("#w-weather"), true);
       renderHoroscope(body.querySelector("#w-horo"), true);
+      if (qotdRef) off(qotdRef);
+      qotdRef = mountQotd(body.querySelector("#w-qotd"));
       fillWelcomeLive(body);
     },
   });
@@ -182,6 +190,17 @@ export function openChannels() {
         ${tile("🗺 Maps", "Find places", "#3949ab", "maps")}
         ${tile("📸 Photo Albums", "Share your pics", "#ff8a3d", "albums")}
         ${tile("🌍 Web", "DialedUp Browser", "#21a0fd", "browser")}
+        ${tile("📊 Polls", "Question of the Day", "#ff5ec4", "polls")}
+        ${tile("🎬 Movies", "News, reviews, showtimes", "#c62828", "movies")}
+        ${tile("📺 TV Listings", "What's on tonight", "#3949ab", "tv")}
+        ${tile("🎤 Live Events", "Scheduled live chats", "#d81b60", "events")}
+        ${tile("🏷 Classifieds", "Buy, sell, trade", "#ff8a3d", "classifieds")}
+        ${tile("🍳 Recipes", "What's for dinner", "#2e7d32", "recipes")}
+        ${tile("📖 Dictionary", "Words & thesaurus", "#5b2a86", "dictionary")}
+        ${tile("⏰ Reminders", "Birthdays & holidays", "#00897b", "reminders")}
+        ${tile("📅 Today", "History & photo of the day", "#21a0fd", "today")}
+        ${tile("🎰 Lottery", "Powerball & Mega Millions", "#ffb300", "lottery")}
+        ${tile("🔎 Locate", "Find a member online", "#00a68c", "locate")}
       </div>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = () => runKeyword(b.dataset.kw)));
     },
@@ -215,6 +234,17 @@ const keywords = {
   browser: () => openBrowser(), web: () => openBrowser(), internet: () => openBrowser(), www: () => openBrowser(),
   cnn: () => openBrowser("https://www.cnn.com"), espn: () => openBrowser("https://www.espn.com"),
   youtube: () => openBrowser("https://www.youtube.com"), wikipedia: () => openBrowser("https://en.wikipedia.org"),
+  locate: () => openLocate(), find: () => openLocate(), whereis: () => openLocate(),
+  polls: openPolls, poll: openPolls, vote: openPolls, qotd: openPolls, question: openPolls,
+  movies: openMovies, movie: openMovies, showtimes: openMovies, film: openMovies,
+  tv: openTV, tvlistings: openTV, listings: openTV, television: openTV,
+  dictionary: () => openDictionary(), define: () => openDictionary(), thesaurus: () => openDictionary(), words: () => openDictionary(), wordoftheday: () => openDictionary(),
+  recipes: openRecipes, recipe: openRecipes, food: openRecipes, cooking: openRecipes,
+  reminders: openReminders, reminder: openReminders, birthdays: openReminders, holidays: openReminders, calendar: openReminders,
+  classifieds: openClassifieds, forsale: openClassifieds, ads: openClassifieds, buyandsell: openClassifieds,
+  events: openEvents, live: openEvents, liveevents: openEvents, auditorium: openEvents,
+  today: openToday, history: openToday, todayinhistory: openToday, potd: openToday,
+  lottery: openLottery, lotto: openLottery, powerball: openLottery, megamillions: openLottery,
   help: openHelp,
 };
 
@@ -225,7 +255,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.0558) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.0609) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });

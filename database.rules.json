@@ -112,7 +112,7 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         "$id": {
-          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))"
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || (data.exists() && !newData.exists() && data.child('from').val() === auth.uid && data.child('read').val() !== true))"
         }
       }
     },
@@ -237,6 +237,62 @@
         "$viewer": {
           ".write": "auth != null && auth.uid === $viewer"
         }
+      }
+    },
+    "mailfiles": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$fid": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || (data.exists() && !newData.exists() && data.child('from').val() === auth.uid))",
+          ".validate": "!newData.exists() || (newData.child('size').isNumber() && newData.child('size').val() <= 5242880)"
+        }
+      }
+    },
+    "mailchunks": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$fid": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('mailfiles/' + $uid + '/' + $fid + '/from').val() === auth.uid)",
+          "$i": {
+            ".validate": "newData.isString() && newData.val().length <= 196608"
+          }
+        }
+      }
+    },
+    "polls": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('from').val() === auth.uid))",
+        ".validate": "!newData.exists() || (newData.child('q').isString() && newData.child('q').val().length <= 120)"
+      }
+    },
+    "pollvotes": {
+      ".read": "auth != null",
+      "$pid": {
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 6"
+        }
+      }
+    },
+    "reminders": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "classifieds": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('from').val() === auth.uid))",
+        ".validate": "!newData.exists() || (newData.child('title').isString() && newData.child('title').val().length <= 80 && newData.child('body').isString() && newData.child('body').val().length <= 1000)"
+      }
+    },
+    "events": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid) || (data.exists() && data.child('host').val() === auth.uid))",
+        ".validate": "!newData.exists() || (newData.child('title').isString() && newData.child('title').val().length <= 60 && newData.child('start').isNumber())"
       }
     }
   }

@@ -19,6 +19,7 @@ import { userName } from "./chat.js";
 import { addToHomeScreen, refreshButtons } from "./install.js";
 import { me } from "./chat.js";
 import { writeMail } from "./mail.js";
+import { watchReminders, stopReminders, watchEvents, stopEvents } from "./more.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id) => ["signon", "connecting", "app"].forEach((s) => ($(s).hidden = s !== id));
@@ -150,6 +151,8 @@ async function enterDesktop(fresh) {
   watchAddressBook();
   watchGameInvites();
   watchCalls(userName);
+  watchReminders();
+  watchEvents();
   mountMiniPlayer();
   openWelcome();
   openBuddyList();
@@ -171,6 +174,8 @@ function leaveDesktop() {
   stopAddressBook();
   stopGameInvites();
   stopCalls();
+  stopReminders();
+  stopEvents();
   stopRadio();
   closeAll();
   $("pw").value = "";
