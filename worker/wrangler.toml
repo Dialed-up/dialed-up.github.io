@@ -8,4 +8,4 @@ VAPID_PUBLIC = "BFk3S49eezM1VA09c-2mfLO8Im1Qvew7PH1CdLkWNhlCbsQOrtd8O2VG0leGU9Ky
 
 [[kv_namespaces]]
 binding = "SUBS"
-id = "64722de6f0554ef3b965bdd146948015"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"

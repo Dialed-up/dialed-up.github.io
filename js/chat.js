@@ -95,8 +95,8 @@ export async function startChat() {
   state.timers.push(setInterval(refreshBuddyList, 10000));
   document.addEventListener("visibilitychange", onVisibility);
 
+  await syncBuddyOf();   // tell the database who my buddies are first, so their status is readable
   syncWatches();
-  syncBuddyOf();
   setTimeout(() => { state.loadedUsers = true; }, 4000);
   listen(`inbox/${uid}`, onInbox);
   listen(`blocks/${uid}`, (v) => { state.blocked = new Set(Object.keys(v || {})); refreshBuddyList(); });
@@ -106,7 +106,8 @@ export async function startChat() {
 }
 
 // ---------- Only load info for people you're connected to ----------
-const watches = new Map();   // uid → [userRef, iconRef]
+const watches = new Map();
+const retries = new Map();   // uid → how many times we've retried reading their status   // uid → [userRef, iconRef]
 
 /** You, your buddies, and anyone you have an IM conversation with. */
 function peopleToWatch() {
@@ -134,7 +135,14 @@ function syncWatches() {
       refreshBuddyList();
       if (getWindow("im." + uid)) renderIMStatus(uid);
       document.dispatchEvent(new CustomEvent("du:users"));
-    }, () => {});
+    }, () => {
+      // Not allowed yet (e.g. they were just added): drop this watch and try again shortly.
+      const w = watches.get(uid);
+      if (w) { w.forEach((r) => off(r)); watches.delete(uid); }
+      const tries = (retries.get(uid) || 0) + 1;
+      retries.set(uid, tries);
+      if (tries <= 6) setTimeout(() => { if (state.uid) syncWatches(); }, 4000 * tries);
+    });
     onValue(ir, (s) => {
       if (s.val()) state.icons[uid] = s.val(); else delete state.icons[uid];
       refreshBuddyList();
@@ -197,7 +205,7 @@ function onInbox(v) {
 async function saveGroups() {
   document.dispatchEvent(new CustomEvent("du:groups"));
   await set(ref(db, `buddylists/${state.uid}`), JSON.stringify(state.groups));
-  syncBuddyOf();
+  await syncBuddyOf();
   syncWatches();
   refreshBuddyList();
 }
@@ -206,8 +214,10 @@ async function saveGroups() {
 async function syncBuddyOf() {
   const mine = buddyIDs();
   const prev = new Set(JSON.parse(localStorage.getItem("du.buddyof." + state.uid) || "[]"));
-  for (const b of mine) if (!prev.has(b)) set(ref(db, `buddyof/${b}/${state.uid}`), true).catch(() => {});
-  for (const b of prev) if (!mine.has(b)) remove(ref(db, `buddyof/${b}/${state.uid}`)).catch(() => {});
+  await Promise.all([
+    ...[...mine].map((b) => set(ref(db, `buddyof/${b}/${state.uid}`), true).catch(() => {})),
+    ...[...prev].filter((b) => !mine.has(b)).map((b) => remove(ref(db, `buddyof/${b}/${state.uid}`)).catch(() => {})),
+  ]);
   localStorage.setItem("du.buddyof." + state.uid, JSON.stringify([...mine]));
 }
 
@@ -948,14 +958,16 @@ async function acceptFile(el, conv, tid, meta) {
 // ---------- Photos, videos & voice notes in IMs ----------
 async function sendMediaIM(uid, file, opts, tx) {
   const conv = conversationID(state.uid, uid);
-  const label = opts.kind === "audio" || file.type?.startsWith("audio/") ? "🎙 Voice note" : file.type?.startsWith("video/") ? "🎬 Video" : "📷 Photo";
+  const isVoice = opts.kind === "audio" && !file.name;
+  const label = isVoice ? "🎙 Voice note" : file.type?.startsWith("audio/") ? `🎵 ${file.name || "Audio"}` : file.type?.startsWith("video/") ? "🎬 Video" : "📷 Photo";
   const note = document.createElement("div");
   note.className = "small muted sending-note";
-  note.textContent = `Sending ${label.toLowerCase().slice(2)}… 0%`;
+  const what = isVoice ? "voice note" : file.type?.startsWith("audio/") ? file.name || "audio" : file.type?.startsWith("video/") ? "video" : "photo";
+  note.textContent = `Sending ${what}… 0%`;
   tx?.appendChild(note);
   if (tx) tx.scrollTop = tx.scrollHeight;
   try {
-    const media = await uploadMedia(conv, state.uid, file, { ...opts, name: file.name || "" }, (f) => (note.textContent = `Sending ${label.toLowerCase().slice(2)}… ${Math.round(f * 100)}%`));
+    const media = await uploadMedia(conv, state.uid, file, { ...opts, name: file.name || "" }, (f) => (note.textContent = `Sending ${what}… ${Math.round(f * 100)}%`));
     await sendIM(uid, label, { font: "Verdana", size: 14, color: "#000000" }, { media });
     sfx.imOut();
   } catch (e) {

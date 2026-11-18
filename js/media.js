@@ -72,22 +72,24 @@ export async function paintMedia(el, conv) {
   el.dataset.painted = "1";
   const info = JSON.parse(el.dataset.media);
   const show = async () => {
-    el.innerHTML = `<span class="small muted">${info.kind === "photo" ? "📷 Loading photo…" : info.kind === "video" ? "🎬 Loading video…" : "🎙 Loading voice note…"}</span>`;
+    el.innerHTML = `<span class="small muted">${info.kind === "photo" ? "📷 Loading photo…" : info.kind === "video" ? "🎬 Loading video…" : info.name ? `🎵 Loading ${esc(info.name)}…` : "🎙 Loading voice note…"}</span>`;
     try {
       const url = await load(conv, info);
       if (info.kind === "photo") {
         el.innerHTML = `<img src="${url}" alt="Photo" class="im-photo" ${info.w ? `width="${info.w}" height="${info.h}"` : ""}>`;
         el.querySelector("img").onclick = () => openViewer(url, "photo");
       } else if (info.kind === "video") {
-        el.innerHTML = `<video src="${url}" controls playsinline preload="metadata" class="im-video"></video>`;
+        el.innerHTML = `${info.name ? `<div class="media-name small">🎬 <b>${esc(info.name)}</b> <span class="muted">${sizeLabel(info.size)}</span></div>` : ""}<video src="${url}" controls playsinline preload="metadata" class="im-video"></video>`;
       } else {
-        el.innerHTML = `<div class="voice-note">🎙 <audio src="${url}" controls preload="metadata"></audio>${info.dur ? `<span class="small muted">${fmtDur(info.dur)}</span>` : ""}</div>`;
+        const label = info.name ? `🎵 <b>${esc(info.name)}</b> <span class="muted">${sizeLabel(info.size)}</span>`
+          : `🎙 <b>Voice note</b>${info.dur ? ` <span class="muted">${fmtDur(info.dur)}</span>` : ""}`;
+        el.innerHTML = `<div class="media-name small">${label}</div><div class="voice-note"><audio src="${url}" controls preload="metadata"></audio></div>`;
       }
       el.insertAdjacentHTML("beforeend", `<a class="small media-save" href="${url}" download="${esc(info.name || (info.kind === "photo" ? "photo.jpg" : info.kind === "video" ? "video" : "voice-note"))}">💾 Save</a>`);
     } catch { el.innerHTML = `<span class="small muted">This ${info.kind === "audio" ? "voice note" : info.kind} isn't available anymore.</span>`; }
   };
   if (info.kind === "video" && !cache.has(info.mid)) {
-    el.innerHTML = `<button class="media-tap">🎬 Tap to play video <span class="small muted">(${sizeLabel(info.size)})</span></button>`;
+    el.innerHTML = `<button class="media-tap">🎬 Tap to play ${info.name ? `<b>${esc(info.name)}</b>` : "video"} <span class="small muted">(${sizeLabel(info.size)})</span></button>`;
     el.querySelector("button").onclick = show;
   } else show();
 }

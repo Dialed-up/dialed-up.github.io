@@ -680,3 +680,4 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 .rt-edit { transition: background .2s; }
 .profile-save { position: sticky; bottom: -10px; background: var(--paper); padding: 8px 0; margin-top: 8px; border-top: 1px solid var(--line); z-index: 2; }
 .update-bar { position: fixed; left: 50%; transform: translateX(-50%); top: max(8px, env(safe-area-inset-top)); z-index: 200000; border: 0; border-radius: 20px; padding: 10px 16px; background: linear-gradient(180deg, #ff5ec4, #8a4dff); color: #fff; font-size: 14px; box-shadow: 0 6px 20px rgba(40,10,80,.35); cursor: pointer; white-space: nowrap; }
+.media-name { margin: 2px 0 3px; overflow-wrap: anywhere; }
