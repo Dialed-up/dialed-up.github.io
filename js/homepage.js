@@ -88,7 +88,7 @@ export function openMyPage() {
           </div>
           <div class="row"><a class="btn" href="home.html?u=${encodeURIComponent(key)}" target="_blank">👀 View my page</a>
             <button class="btn primary" id="hp-save">Save</button></div>
-          <p class="small muted" id="hp-msg">Your page lives at <b>dialed-up.github.io/home.html?u=${esc(key)}</b> — share it!</p>
+          <p class="small muted" id="hp-msg">Your page lives at <b>${location.host}/home.html?u=${esc(key)}</b> — share it!</p>
         </div>
         <div class="panel"><h3>👀 Preview</h3><div id="hp-preview"></div></div>`;
       const read = () => {
@@ -104,7 +104,7 @@ export function openMyPage() {
         const visits = (await get(ref(db, `homepages/${key}/visits`))).val() || 0;
         try {
           await set(ref(db, `homepages/${key}`), { ...data, owner: uid, screenName: me.screenName, visits, updated: serverTimestamp() });
-          body.querySelector("#hp-msg").innerHTML = `✅ Saved! Share <b>dialed-up.github.io/home.html?u=${esc(key)}</b>`;
+          body.querySelector("#hp-msg").innerHTML = `✅ Saved! Share <b>${location.host}/home.html?u=${esc(key)}</b>`;
         } catch {
           body.querySelector("#hp-msg").innerHTML = `<span class="error">Couldn't save. (The site's database rules may need updating.)</span>`;
         }

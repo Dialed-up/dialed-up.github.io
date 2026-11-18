@@ -24,7 +24,7 @@ export async function addToHomeScreen() {
   const steps = isIOS()
     ? notSafari
       ? `<p><b>Open this page in Safari first</b> — iPhone only allows Home Screen apps from Safari.</p>
-         <p class="small">Copy this address and paste it into Safari:<br><b>dialed-up.github.io</b></p>`
+         <p class="small">Copy this address and paste it into Safari:<br><b>${location.host}</b></p>`
       : `<ol class="install-steps">
           <li>Tap the <b>Share</b> button <span class="share-ic">⬆︎</span> — at the bottom of Safari (or top right on iPad).
             If you don't see it, tap the <b>···</b> button first.</li>
