@@ -673,3 +673,9 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 @keyframes du-sparkle { to { background-position: -200% 0, 0 0; } }
 .profile-card, .rt-edit { overflow-x: hidden; }
 @media (prefers-reduced-motion: reduce) { .du-blink, .du-scroll, .du-sparkle { animation: none; } }
+.look-preview { border-radius: 12px; padding: 12px; margin-bottom: 8px; min-height: 54px; }
+.look-colors { justify-content: flex-start; gap: 6px; flex-wrap: wrap; }
+.color-pick { position: relative; display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 4px 10px; border: 1px solid var(--line); border-radius: 14px; background: #fff; cursor: pointer; font-size: 13px; font-weight: bold; color: var(--grape); }
+.color-pick input { width: 26px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; }
+.rt-edit { transition: background .2s; }
+.profile-save { position: sticky; bottom: -10px; background: var(--paper); padding: 8px 0; margin-top: 8px; border-top: 1px solid var(--line); z-index: 2; }

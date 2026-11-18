@@ -83,8 +83,9 @@ export const LOOKS = {
 };
 const BORDERS = { "None": "none", "Simple": "2px solid #b79bff", "Dotted": "3px dotted #ff5ec4", "Double": "5px double #5b2a86", "Glow": "2px solid #fff;box-shadow:0 0 12px #ff5ec4" };
 const lookCSS = (look = {}) => {
-  const L = LOOKS[look.theme] || LOOKS["Classic White"];
-  return `background:${L.bg};color:${look.ink || L.ink};border:${(BORDERS[look.border] || "none").split(";")[0]};${(BORDERS[look.border] || "").split(";")[1] || ""};font-family:'${FONTS.includes(look.font) ? look.font : "Verdana"}',Verdana,sans-serif;`;
+  const L = look.theme === "Custom" && okColor(look.bgColor || "") ? { bg: look.bgColor, ink: "#222222" } : LOOKS[look.theme] || LOOKS["Classic White"];
+  const ink = okColor(look.ink || "") ? look.ink : L.ink;
+  return `background:${L.bg};color:${ink};border:${(BORDERS[look.border] || "none").split(";")[0]};${(BORDERS[look.border] || "").split(";")[1] || ""};font-family:'${FONTS.includes(look.font) ? look.font : "Verdana"}',Verdana,sans-serif;`;
 };
 
 // ---------- Member Info ----------
@@ -176,7 +177,13 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
           <p class="small muted">Leave anything blank to keep it private.</p>
         </section>
         <section data-p="look" hidden>
-          <h4 style="margin:4px 0">Background</h4><div class="look-grid">${Object.entries(LOOKS).map(([n, L]) => `<button data-look="${esc(n)}" style="background:${L.bg};color:${L.ink}" class="${look.theme === n ? "on" : ""}">${esc(n)}</button>`).join("")}</div>
+          <div class="look-preview"><b>👀 Live preview</b><br>This is how your profile box will look. <span class="du-rainbow">✨</span></div>
+          <div class="row look-colors">
+            <label class="color-pick">🎨 Any background color<input type="color" id="lbg" value="${okColor(look.bgColor || "") && look.bgColor.startsWith("#") ? look.bgColor : "#ffe3f3"}"></label>
+            <label class="color-pick">🖋 Text color<input type="color" id="link" value="${okColor(look.ink || "") && look.ink.startsWith("#") ? look.ink : "#222222"}"></label>
+            <button class="btn small-btn" id="lreset" title="Use the background's own text color">Auto text</button>
+          </div>
+          <h4 style="margin:8px 0 4px">Or pick a style</h4><div class="look-grid">${Object.entries(LOOKS).map(([n, L]) => `<button data-look="${esc(n)}" style="background:${L.bg};color:${L.ink}" class="${look.theme === n ? "on" : ""}">${esc(n)}</button>`).join("")}</div>
           <h4 style="margin:10px 0 4px">Border</h4><div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap">${Object.keys(BORDERS).map((b) => `<button class="btn small-btn ${look.border === b ? "primary" : ""}" data-border="${b}">${b}</button>`).join("")}</div>
           <label style="margin-top:10px">Main font<select id="lf">${FONTS.map((f) => `<option ${look.font === f ? "selected" : ""} style="font-family:'${f}'">${f}</option>`).join("")}</select></label>
         </section>
@@ -193,7 +200,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
             <span class="small muted" id="pf-msg"></span></div></div>
         </section>
         <section data-p="preview" hidden><div id="pv"></div></section>
-        <div class="row" style="margin-top:8px"><span class="small muted">Your buddies see this in Buddy Info.</span><button class="btn primary" id="ps">💾 Save Profile</button></div>`;
+        <div class="row profile-save"><span class="small muted">Your buddies see this in Buddy Info.</span><button class="btn primary" id="ps">💾 Save Profile</button></div>`;
 
       const ed = body.querySelector(".rt-edit");
       ed.innerHTML = u.profileHtml ? sanitize(u.profileHtml) : esc(u.profile || "").replace(/\n/g, "<br>");
@@ -239,9 +246,21 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
       };
       tabs.forEach((b) => (b.onclick = () => showTab(b.dataset.t)));
 
-      body.querySelectorAll("[data-look]").forEach((b) => (b.onclick = () => { look.theme = b.dataset.look; body.querySelectorAll("[data-look]").forEach((x) => x.classList.toggle("on", x === b)); }));
-      body.querySelectorAll("[data-border]").forEach((b) => (b.onclick = () => { look.border = b.dataset.border; body.querySelectorAll("[data-border]").forEach((x) => x.classList.toggle("primary", x === b)); }));
-      body.querySelector("#lf").onchange = (e) => (look.font = e.target.value);
+      // Live look: the preview box and the editor change as soon as you pick something.
+      const paintLook = () => {
+        const css = lookCSS(look);
+        body.querySelector(".look-preview").setAttribute("style", css);
+        ed.setAttribute("style", css);
+        body.querySelectorAll("[data-look]").forEach((x) => x.classList.toggle("on", x.dataset.look === look.theme));
+        body.querySelectorAll("[data-border]").forEach((x) => x.classList.toggle("primary", x.dataset.border === look.border));
+      };
+      body.querySelectorAll("[data-look]").forEach((b) => (b.onclick = () => { look.theme = b.dataset.look; paintLook(); }));
+      body.querySelectorAll("[data-border]").forEach((b) => (b.onclick = () => { look.border = b.dataset.border; paintLook(); }));
+      body.querySelector("#lf").onchange = (e) => { look.font = e.target.value; paintLook(); };
+      body.querySelector("#lbg").oninput = (e) => { look.theme = "Custom"; look.bgColor = e.target.value; paintLook(); };
+      body.querySelector("#link").oninput = (e) => { look.ink = e.target.value; paintLook(); };
+      body.querySelector("#lreset").onclick = () => { delete look.ink; paintLook(); };
+      paintLook();
 
       const paintSong = () => (body.querySelector("#song-now").innerHTML = song?.title ? `🎵 <b>${esc(song.title)}</b><br><span class="small muted">${esc(song.url)}</span>` : `<span class="muted small">No profile song yet.</span>`);
       body.querySelector("#sg-radio").onclick = () => {
