@@ -424,3 +424,49 @@ label.check input { width: auto; margin: 0; }
   .br-bar { flex-wrap: wrap; }
   .br-form { order: 10; flex-basis: 100%; }
 }
+
+/* ===== Preferences swatches ===== */
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatches button { border: 2px solid transparent; border-radius: 10px; padding: 8px 10px; color: #fff; font-weight: bold; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.swatches button.on { border-color: var(--ink); box-shadow: 0 0 0 2px #fff inset; }
+
+/* ===== Buddy icons ===== */
+.bicon { border-radius: 6px; object-fit: cover; flex-shrink: 0; vertical-align: middle; }
+.bicon.letter { display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; }
+
+/* ===== Radio mini player ===== */
+#radio-mini { display: flex; align-items: center; gap: 2px; background: #1d1033; color: #fff; border-radius: 12px; padding: 2px 6px; max-width: 150px; }
+#radio-mini[hidden] { display: none; }
+#radio-mini button { background: none; border: 0; color: #fff; cursor: pointer; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ===== E-Greetings ===== */
+.ecard { position: relative; overflow: hidden; border-radius: 14px; min-height: 220px; display: grid; place-items: center; color: #fff; text-align: center; box-shadow: var(--shadow); }
+.ecard-inner { position: relative; z-index: 1; padding: 22px; text-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.ecard h2 { margin: 0 0 8px; font: italic 900 30px/1.1 "Trebuchet MS", Verdana, sans-serif; }
+.ecard p { margin: 0; font-size: 15px; white-space: pre-wrap; }
+.ecard .ecard-from { margin-top: 10px; font-weight: bold; }
+.floater { position: absolute; bottom: -40px; font-size: 26px; animation: floatup linear infinite; opacity: .9; }
+@keyframes floatup { to { transform: translateY(-320px) rotate(25deg); opacity: 0; } }
+.im-status { flex-wrap: wrap; }
+.im-status > span:last-child { display: flex; flex-wrap: wrap; gap: 3px; justify-content: flex-end; }
+.album-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.album { display: flex; flex-direction: column; gap: 3px; align-items: center; padding: 6px; border-radius: 10px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+.album img, .album-empty { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: grid; place-items: center; font-size: 36px; background: var(--panel); }
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+.photo-grid figure { margin: 0; cursor: pointer; }
+.photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.photo-grid figcaption { font-size: 11px; text-align: center; }
+.mm-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.mm-card { aspect-ratio: 1; border-radius: 10px; border: 0; cursor: pointer; font-size: 28px; background: linear-gradient(135deg, var(--grape-2), var(--pink)); }
+.mm-card span { visibility: hidden; }
+.mm-card.up { background: #fff; box-shadow: inset 0 0 0 2px var(--line); }
+.mm-card.up span { visibility: visible; }
+.ttt { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 240px; margin: 0 auto; }
+.ttt button { aspect-ratio: 1; font-size: 34px; border-radius: 10px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+.ttt button:disabled { cursor: default; color: inherit; }
+table.stocks { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.stocks td { padding: 4px; border-bottom: 1px solid #f0eaf9; }
+.star { background: none; border: 0; cursor: pointer; font-size: 15px; }
+body.kid-mode #toolbar [data-open=chatrooms], body.kid-mode #toolbar [data-open=boards], body.kid-mode #toolbar [data-open=browser],
+body.kid-mode #toolbar [data-open=news], body.kid-mode #navbar .search { display: none !important; }
+body.kid-mode #titlestrip::after { content: "🧒 Kid-Safe"; margin-left: 8px; background: #fff; color: var(--grape); border-radius: 8px; padding: 0 6px; font-size: 10px; }

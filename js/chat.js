@@ -6,16 +6,36 @@ import {
 import { openWindow, closeWindow, getWindow, setTitle, flash, esc, contextMenu, onMenu } from "./wm.js";
 import * as sfx from "./sounds.js";
 import { warningLevel, warn, alreadyWarned } from "./extras.js";
+import { imBackgroundFor } from "./prefs.js";
 import { openPeoplePlaza, openRoom as openPlazaRoom } from "./people.js";
 
 const state = {
   uid: null, me: { screenName: "" }, users: {}, groups: [], inbox: {}, blocked: new Set(),
-  away: "", listeners: [], timers: [], known: {}, loadedUsers: false, loadedInbox: false, lastAuto: {},
+  away: "", listeners: [], timers: [], icons: {}, known: {}, loadedUsers: false, loadedInbox: false, lastAuto: {},
 };
 
 export const me = () => state.me;
 const name = (uid) => state.users[uid]?.screenName ?? "…";
 export const userName = name;
+/** A buddy's icon as an <img>, or a colored letter if they haven't picked one. */
+export function iconHTML(uid, size = 22) {
+  const b64 = state.icons[uid];
+  if (b64) return `<img class="bicon" src="data:image/jpeg;base64,${b64}" width="${size}" height="${size}" alt="">`;
+  const n = name(uid);
+  const hue = [...n].reduce((h, c) => h + c.charCodeAt(0), 0) % 360;
+  return `<span class="bicon letter" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.55)}px;background:hsl(${hue} 65% 55%)">${esc((n[0] || "?").toUpperCase())}</span>`;
+}
+
+/** Shrink a picture to a 96×96 square and save it as your Buddy Icon. */
+export async function setMyIcon(file) {
+  const img = await createImageBitmap(file);
+  const side = Math.min(img.width, img.height);
+  const c = document.createElement("canvas");
+  c.width = c.height = 96;
+  c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 96, 96);
+  const b64 = c.toDataURL("image/jpeg", 0.75).split(",")[1];
+  await set(ref(db, `icons/${state.uid}`), b64);
+}
 /** Everyone signed on right now (not just buddies), newest activity first. */
 export const onlineMembers = () => Object.entries(state.users)
   .filter(([id, u]) => id !== state.uid && presence(u) !== "offline")
@@ -67,6 +87,7 @@ export async function startChat() {
     document.dispatchEvent(new CustomEvent("du:users"));
   });
   listen(`inbox/${uid}`, onInbox);
+  listen("icons", (v) => { state.icons = v || {}; refreshBuddyList(); document.dispatchEvent(new CustomEvent("du:icons")); });
   listen(`blocks/${uid}`, (v) => { state.blocked = new Set(Object.keys(v || {})); refreshBuddyList(); });
   listen(`buddylists/${uid}`, (v) => {
     try { if (v) { state.groups = JSON.parse(v); refreshBuddyList(); } } catch {}
@@ -97,6 +118,7 @@ function checkPresenceChanges() {
     if (!state.loadedUsers || !before || before === p) continue;
     if (before === "offline") sfx.buddyIn();
     else if (p === "offline") sfx.buddyOut();
+    fireAlerts(uid, before, p);
   }
 }
 
@@ -145,7 +167,7 @@ function refreshBuddyList() {
     const conv = conversationID(state.uid, uid);
     const unread = state.inbox[conv] && state.inbox[conv].from !== state.uid && (state.inbox[conv].ts || 0) > Number(localStorage.getItem("du.read." + conv) || 0);
     return `<div class="buddy ${p}" data-buddy="${uid}" title="${p}">
-      <span class="dot"></span><span>${esc(name(uid))}</span>
+      <span class="dot"></span>${iconHTML(uid, 20)}<span>${esc(name(uid))}</span>
       ${p === "idle" ? `<span class="small">(idle ${idleMin(u)})</span>` : ""}
       ${p === "away" ? `<span class="small" title="${esc(u.away)}">📝</span>` : ""}
       ${unread ? `<span class="unread">✉️</span>` : ""}</div>`;
@@ -169,7 +191,7 @@ function refreshBuddyList() {
         <option value="online" ${show === "online" ? "selected" : ""}>Online Only</option>
         <option value="available" ${show === "available" ? "selected" : ""}>Hide Away & Idle</option>
       </select></div>
-    <div class="bl-me"><img src="img/logo.svg" width="34" height="34" alt="">
+    <div class="bl-me">${state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="img/logo.svg" width="34" height="34" alt="">`}
       <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
     ${groupsHTML}
     ${strangers.length ? `<div class="group"><button>▾ Recent IMs (${strangers.length})</button>${[...new Set(strangers)].map(row).join("")}</div>` : ""}
@@ -230,12 +252,91 @@ function refreshBuddyList() {
   body.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => acts[b.dataset.act](b)));
 }
 
+// ---------- Buddy Alerts ----------
+export const alerts = () => JSON.parse(localStorage.getItem("du.alerts") || "{}");
+function saveAlerts(a) { localStorage.setItem("du.alerts", JSON.stringify(a)); }
+
+function fireAlerts(uid, before, after) {
+  const a = alerts()[uid];
+  if (!a) return;
+  const signedOn = before === "offline" && after !== "offline";
+  const back = (before === "away" || before === "idle") && after === "online";
+  if (!((signedOn && a.signOn) || (back && a.back))) return;
+  sfx.alertBlip();
+  openWindow("alert." + uid, {
+    title: "Buddy Alert!", icon: "🔔", width: 260, height: 170,
+    render(body) {
+      body.innerHTML = `<div style="display:flex;gap:8px;align-items:center">${iconHTML(uid, 40)}<p style="margin:0"><b>${esc(name(uid))}</b> ${signedOn ? "just signed on!" : "is back!"}</p></div>
+        <div class="row" style="margin-top:10px"><span></span><button class="btn primary small-btn" data-x="im">Send IM</button></div>`;
+      body.querySelector("[data-x=im]").onclick = () => { closeWindow("alert." + uid); openIM(uid); };
+    },
+  });
+  if (a.message) sendIM(uid, a.message, { font: "Verdana", size: 14, color: "#000000" }).catch(() => {});
+  if (a.once) { const all = alerts(); delete all[uid]; saveAlerts(all); }
+}
+
+export function openBuddyAlert(uid) {
+  openWindow("alertset." + uid, {
+    title: `Buddy Alert: ${name(uid)}`, icon: "🔔", width: 320, height: 330,
+    render(body) {
+      const a = alerts()[uid] || { signOn: true, back: false, message: "", once: false };
+      body.innerHTML = `<p class="small">Tell me when <b>${esc(name(uid))}</b>…</p>
+        <label class="check"><input type="checkbox" id="al-on" ${a.signOn ? "checked" : ""}> signs on</label>
+        <label class="check"><input type="checkbox" id="al-back" ${a.back ? "checked" : ""}> comes back from away or idle</label>
+        <label>…and automatically send this IM (optional)<input id="al-msg" value="${esc(a.message || "")}" placeholder="Yo! Call me when you see this"></label>
+        <label class="check"><input type="checkbox" id="al-once" ${a.once ? "checked" : ""}> Only alert me once</label>
+        <div class="row"><button class="btn small-btn" data-x="off">Remove Alert</button><button class="btn primary small-btn" data-x="save">Save Alert</button></div>`;
+      body.querySelector("[data-x=save]").onclick = () => {
+        const all = alerts();
+        all[uid] = { signOn: body.querySelector("#al-on").checked, back: body.querySelector("#al-back").checked,
+          message: body.querySelector("#al-msg").value.trim(), once: body.querySelector("#al-once").checked };
+        saveAlerts(all);
+        closeWindow("alertset." + uid);
+      };
+      body.querySelector("[data-x=off]").onclick = () => { const all = alerts(); delete all[uid]; saveAlerts(all); closeWindow("alertset." + uid); };
+    },
+  });
+}
+
+// ---------- IM History ----------
+export function openHistory(uid) {
+  const conv = conversationID(state.uid, uid);
+  openWindow("history." + uid, {
+    title: `IM History: ${name(uid)}`, icon: "📜", width: 420, height: 480,
+    async render(body) {
+      body.innerHTML = `<div class="row" style="margin-bottom:6px"><input id="h-q" placeholder="Search this conversation…" style="flex:1">
+          <button class="btn small-btn" id="h-save">💾 Save as file</button></div><div class="transcript" id="h-list" style="height:calc(100% - 44px)">Loading…</div>`;
+      const snap = await get(query(ref(db, `messages/${conv}`), orderByKey(), limitToLast(1000)));
+      const msgs = [];
+      snap.forEach((c) => { msgs.push(c.val()); });
+      const line = (m) => `${m.ts ? new Date(m.ts).toLocaleString() : ""} — ${m.from === state.uid ? state.me.screenName : m.name || name(uid)}: ${m.text}`;
+      const paint = () => {
+        const q = body.querySelector("#h-q").value.toLowerCase();
+        const shown = msgs.filter((m) => !q || (m.text || "").toLowerCase().includes(q));
+        body.querySelector("#h-list").innerHTML = shown.map((m) =>
+          `<div class="msg"><time>${m.ts ? new Date(m.ts).toLocaleString() : ""}</time> <span class="who ${m.from === state.uid ? "me" : "them"}">${esc(m.from === state.uid ? state.me.screenName : m.name || name(uid))}</span>: ${formatText(m.text)}</div>`).join("")
+          || `<p class="muted">${q ? "No matches." : "No messages yet."}</p>`;
+      };
+      paint();
+      body.querySelector("#h-q").oninput = paint;
+      body.querySelector("#h-save").onclick = () => {
+        const blob = new Blob([msgs.map(line).join("\n")], { type: "text/plain" });
+        const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `IMs with ${name(uid)}.txt` });
+        a.click();
+      };
+    },
+  });
+}
+
 export function buddyMenu(uid, x, y) {
   const isBuddy = buddyIDs().has(uid);
   contextMenu(x, y, [
     { label: "💬 Send Instant Message", action: () => openIM(uid) },
     { label: "📎 Send File…", action: () => sendFileTo(uid) },
     { label: "🪪 Get Info", action: () => openInfo(uid) },
+    { label: "🔔 Buddy Alert…", action: () => openBuddyAlert(uid) },
+    { label: "📜 IM History", action: () => openHistory(uid) },
+    { label: "📸 Photo Albums", action: () => import("./albums.js").then((m) => m.openAlbums(uid)) },
     { label: "✉️ Invite to Chat…", action: () => {
       const room = prompt(`Invite ${name(uid)} to which chat room?`, "Lobby");
       if (room) push(ref(db, `invites/${uid}`), { from: state.uid, room, message: "Come chat with me!", ts: serverTimestamp() }).catch(() => {});
@@ -371,8 +472,8 @@ export function openIM(uid, { quiet = false } = {}) {
     render(body) {
       body.innerHTML = `<div class="im" data-im="${uid}">
         <div class="im-status"><span class="st"></span>
-          <span><button class="btn small-btn" data-a="info">Info</button> <button class="btn small-btn" data-a="warn">Warn</button> <button class="btn small-btn" data-a="block"></button></span></div>
-        <div class="transcript"></div>
+          <span><button class="btn small-btn" data-a="info">Info</button> <button class="btn small-btn" data-a="warn">Warn</button> <button class="btn small-btn" data-a="hist">History</button> <button class="btn small-btn" data-a="talk">📞 Talk</button> <button class="btn small-btn" data-a="block"></button></span></div>
+        <div class="transcript" data-conv="${conv}" style="background:${imBackgroundFor(conv)}"></div>
         <div class="typing"></div>
         <div class="fmt">
           <select data-f="font">${["Verdana", "Arial", "Georgia", "Courier New", "Trebuchet MS", "Times New Roman", "Comic Sans MS", "Impact"]
@@ -401,6 +502,8 @@ export function openIM(uid, { quiet = false } = {}) {
       body.querySelector("[data-f=smiley]").onclick = () => { ta.value += " :) "; ta.focus(); };
       body.querySelector("[data-f=file]").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) sendFile(uid, f, body); };
       body.querySelector("[data-a=info]").onclick = () => openInfo(uid);
+      body.querySelector("[data-a=hist]").onclick = () => openHistory(uid);
+      body.querySelector("[data-a=talk]").onclick = () => import("./voice.js").then((m) => m.startCall(uid, name(uid)));
       body.querySelector("[data-a=block]").onclick = () => toggleBlock(uid);
       body.querySelector("[data-a=warn]").onclick = async () => {
         if (alreadyWarned(uid)) { alert(`You already warned ${name(uid)} today.`); return; }
@@ -482,7 +585,7 @@ function renderIMStatus(uid) {
   const u = state.users[uid];
   const p = presence(u);
   const st = win.body.querySelector(".st");
-  if (st) st.innerHTML = { online: "🟢 Online", away: `🟠 Away: ${esc(u?.away || "")}`, idle: `⚪ Idle ${idleMin(u)} min`,
+  if (st) st.innerHTML = iconHTML(uid, 26) + " " + { online: "🟢 Online", away: `🟠 Away: ${esc(u?.away || "")}`, idle: `⚪ Idle ${idleMin(u)} min`,
     offline: "⚫ Offline — they'll get it when they sign on" }[p] + (warningLevel(uid) ? ` · ⚠️ ${warningLevel(uid)}%` : "");
   const b = win.body.querySelector("[data-a=block]");
   if (b) b.textContent = state.blocked.has(uid) ? "Unblock" : "Block";
@@ -609,7 +712,7 @@ export function openInfo(uid) {
       const u = state.users[uid] || {};
       const p = presence(u);
       const isBuddy = buddyIDs().has(uid);
-      body.innerHTML = `<h2 style="margin:0 0 4px;color:var(--grape)">${esc(u.screenName || "…")}</h2>
+      body.innerHTML = `<div style="display:flex;gap:10px;align-items:center">${iconHTML(uid, 56)}<h2 style="margin:0 0 4px;color:var(--grape)">${esc(u.screenName || "…")}</h2></div>
         <p class="small">${{ online: "🟢 Online", away: "🟠 Away", idle: `⚪ Idle ${idleMin(u)} min`, offline: `⚫ Offline${u.lastSeen ? " · last seen " + new Date(u.lastSeen).toLocaleString() : ""}` }[p]}</p>
         ${u.away ? `<div class="panel"><h3>Away Message</h3>${formatText(u.away)}</div>` : ""}
         <div class="panel"><h3>Profile</h3>${u.profile ? formatText(u.profile) : "<span class='muted'>(no profile)</span>"}</div>
@@ -678,10 +781,21 @@ export function openProfile() {
     title: "My Profile", icon: "🪪", width: 340, height: 460,
     render(body) {
       const u = state.users[state.uid] || state.me;
-      body.innerHTML = `<label>About me<textarea id="pf" rows="6">${esc(u.profile || "")}</textarea></label>
+      body.innerHTML = `<div class="panel" style="display:flex;gap:10px;align-items:center"><span id="pf-icon">${iconHTML(state.uid, 56)}</span>
+          <div><b>Buddy Icon</b><br><label class="btn small-btn" style="margin:4px 0 0;display:inline-block;font-weight:normal">Choose a picture<input type="file" accept="image/*" id="pf-file" hidden></label>
+          <span class="small muted" id="pf-msg"></span></div></div>
+        <label>About me<textarea id="pf" rows="6">${esc(u.profile || "")}</textarea></label>
         <label>Interests (for the Member Directory)<input id="pi" value="${esc(u.interests || "")}" placeholder="music, sneakers, basketball"></label>
         <label>Location<input id="pl" value="${esc(u.location || "")}" placeholder="Brooklyn, NY"></label>
         <div class="row"><span class="small muted">Buddies see this in Info.</span><button class="btn primary" id="ps">Save</button></div>`;
+      body.querySelector("#pf-file").onchange = async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        body.querySelector("#pf-msg").textContent = "Saving…";
+        try { await setMyIcon(f); body.querySelector("#pf-msg").textContent = "Saved!"; }
+        catch { body.querySelector("#pf-msg").textContent = "Couldn't use that picture."; }
+      };
+      document.addEventListener("du:icons", () => { const el = body.querySelector("#pf-icon"); if (el) el.innerHTML = iconHTML(state.uid, 56); });
       body.querySelector("#ps").onclick = async () => {
         await update(ref(db, `users/${state.uid}`), {
           profile: body.querySelector("#pf").value, interests: body.querySelector("#pi").value, location: body.querySelector("#pl").value,

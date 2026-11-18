@@ -20,11 +20,12 @@ export function go(keyword) {
     pos = history.length - 1;
   }
   skipHistory = false;
+  if ((looksLikeURL(k) || k.startsWith("home.html")) && document.body.classList.contains("kid-mode")) { alert("The web browser is turned off by Kid-Safe Mode."); return; }
   if (looksLikeURL(k) || k.startsWith("home.html")) openBrowser(k);
   else run(k);
 }
 
-export function setupChrome({ runKeyword, screenName, signOff, actions }) {
+export function setupChrome({ runKeyword, screenName, signOff, actions, switchScreenName }) {
   run = runKeyword;
   const $ = (id) => document.getElementById(id);
   $("status-text").textContent = `DialedUp — Connected · Signed on as ${screenName}`;
@@ -35,20 +36,22 @@ export function setupChrome({ runKeyword, screenName, signOff, actions }) {
 
   // Menu bar
   const menus = {
-    File: [["Open Keyword…", () => $("keyword").focus()], ["Favorite Places", () => openFavorites(go)], "-", ["Sign Off", signOff]],
+    File: [["Open Keyword…", () => $("keyword").focus()], ["Favorite Places", () => openFavorites(go)], ["Preferences…", () => go("preferences")],
+      "-", ["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
     Edit: [["Copy", () => document.execCommand("copy")], ["Paste into Keyword", async () => { try { $("keyword").value = await navigator.clipboard.readText(); } catch {} }]],
-    Mail: [["Read Mail", () => go("mail")], ["Write Mail", () => go("write")], ["Old Mail", () => go("mail")], ["Sent Mail", () => go("mail")]],
+    Mail: [["Read Mail", () => go("mail")], ["Write Mail", () => go("write")], ["Send an E-Greeting", () => go("greetings")], ["Address Book", () => go("addressbook")]],
     People: [["Buddy List", () => go("buddies")], ["People Plaza (Chat)", () => go("chat")], ["Member Directory", () => go("people")],
-      ["My Profile", () => go("profile")], ["Away Message", () => go("away")]],
+      ["My Profile & Buddy Icon", () => go("profile")], ["Away Message", () => go("away")], ["Photo Albums", () => go("albums")], ["Address Book", () => go("addressbook")]],
     Channels: [["All Channels", () => go("channels")], ["News", () => go("news")], ["Weather", () => go("weather")], ["Sports", () => go("sports")],
-      ["Tech", () => go("tech")], ["Horoscopes", () => go("horoscopes")], ["NYC", () => go("nyc")], ["Message Boards", () => go("boards")]],
-    Games: [["Byte Snake", () => go("games")]],
+      ["Tech", () => go("tech")], ["Stocks & Finance", () => go("stocks")], ["Radio", () => go("radio")], ["Maps", () => go("maps")],
+      ["Horoscopes", () => go("horoscopes")], ["NYC", () => go("nyc")], ["Message Boards", () => go("boards")]],
+    Games: [["Games Arcade", () => go("games")], ["Trivia Night", () => go("games")], ["Byte Snake", () => go("snake")]],
     Internet: [["DialedUp Browser", () => openBrowser()], ["CNN", () => go("cnn.com")], ["ESPN", () => go("espn.com")],
       ["YouTube", () => go("youtube.com")], ["Wikipedia", () => go("en.wikipedia.org")]],
     Window: null,   // built when opened
     Keyword: [["Go to Keyword…", () => $("keyword").focus()], ["Keyword List", () => go("help")]],
-    "Sign Off": [["Sign Off", signOff]],
-    Help: [["Keyword Help", () => go("help")], ["Online Clock", openClock], ["About DialedUp", () => go("about")]],
+    "Sign Off": [["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
+    Help: [["Preferences (Themes)", () => go("preferences")], ["Kid-Safe Mode", () => go("kids")], ["Keyword Help", () => go("help")], ["Online Clock", openClock], ["About DialedUp", () => go("about")]],
   };
   const holder = $("menus");
   holder.innerHTML = Object.keys(menus).map((m) => `<button class="menu-item" data-menu="${m}">${m}</button>`).join("");

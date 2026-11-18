@@ -2,7 +2,9 @@
 import { auth, db, ref, get, set, push, remove, update, onValue, off, serverTimestamp, normalize } from "./firebase.js";
 import { openWindow, closeWindow, getWindow, esc } from "./wm.js";
 import * as sfx from "./sounds.js";
-import { me, userName } from "./chat.js";
+import { me, userName, buddyList } from "./chat.js";
+import { renderCard } from "./greetings.js";
+import { openAddressBook } from "./addressbook.js";
 
 let mailRef = null, sentRef = null;
 let mail = {}, sent = {};
@@ -14,7 +16,9 @@ let findText = "";
 
 const uid = () => auth.currentUser.uid;
 const badge = () => document.querySelector('#toolbar [data-open="mail"] .badge');
-const isNew = (m) => !m.read && !m.deleted;
+const buddiesOnly = () => localStorage.getItem("du.mailBuddiesOnly") === "1";
+const isSpam = (m) => !m.deleted && (m.spam || (buddiesOnly() && m.from && !buddyList().includes(m.from)));
+const isNew = (m) => !m.read && !m.deleted && !isSpam(m);
 const unreadCount = () => Object.values(mail).filter(isNew).length;
 
 export function watchMail() {
@@ -71,12 +75,14 @@ function rowsFor(f) {
   if (f === "sent") {
     return Object.entries(sent).map(([id, m]) => ({ id, sent: true, who: m.toName, subject: m.subject, ts: m.ts, read: !!m.readAt, readAt: m.readAt }));
   }
-  const all = Object.entries(mail).map(([id, m]) => ({ id, who: m.fromName, subject: m.subject, ts: m.ts, read: m.read, saved: m.saved, deleted: m.deleted, body: m.body }));
+  const all = Object.entries(mail).map(([id, m]) => ({ id, who: m.fromName, subject: m.subject, ts: m.ts, read: m.read, saved: m.saved,
+    deleted: m.deleted, body: m.body, card: !!m.card, spam: isSpam(m) }));
   const pick = {
-    new: (m) => !m.read && !m.deleted,
-    old: (m) => m.read && !m.deleted && !m.saved,
+    new: (m) => !m.read && !m.deleted && !m.spam,
+    old: (m) => m.read && !m.deleted && !m.saved && !m.spam,
     saved: (m) => m.saved && !m.deleted,
     deleted: (m) => m.deleted,
+    spam: (m) => m.spam,
     search: (m) => !m.deleted,
   }[f];
   return all.filter(pick);
@@ -85,7 +91,7 @@ function rowsFor(f) {
 function renderMailbox(body) {
   const counts = {
     new: rowsFor("new").length, old: rowsFor("old").length, saved: rowsFor("saved").length,
-    deleted: rowsFor("deleted").length, sent: Object.keys(sent).length,
+    deleted: rowsFor("deleted").length, spam: rowsFor("spam").length, sent: Object.keys(sent).length,
   };
   let rows = rowsFor(folder);
   const q = findText.toLowerCase();
@@ -114,7 +120,7 @@ function renderMailbox(body) {
     </div>
     <div class="mb-filter">
       <span class="small">${folder === "search" ? "Search every message:" : "Showing:"} <b>${
-        { new: "New Mail", old: "Old Mail", sent: "Sent Mail", saved: "Saved", deleted: "Recently Deleted", search: "All Mail" }[folder]}</b></span>
+        { new: "New Mail", old: "Old Mail", sent: "Sent Mail", saved: "Saved", deleted: "Recently Deleted", spam: "Spam", search: "All Mail" }[folder]}</b></span>
       <label class="quickfind">${folder === "search" ? "Search" : "Quick Find"}: <input id="qf" value="${esc(findText)}"></label>
     </div>
     <div class="mb-main">
@@ -124,7 +130,10 @@ function renderMailbox(body) {
         ${tree("old", "📂", "Old Mail", 0)}
         ${tree("sent", "📤", "Sent", 0)}
         ${tree("saved", "💾", "Saved", counts.saved)}
+        ${tree("spam", "🚫", "Spam", counts.spam)}
         ${tree("deleted", "🗑", "Recently Deleted", counts.deleted)}
+        <li class="tree-head" style="margin-top:8px">Mail Controls</li>
+        <li><label class="check" style="margin:0;font-size:11px"><input type="checkbox" id="mc-buddies" ${buddiesOnly() ? "checked" : ""}> Only buddies can mail me</label></li>
       </ul>
       <div class="mb-list">
         <table>
@@ -133,13 +142,13 @@ function renderMailbox(body) {
             <th data-sort="who">${sentView ? "To" : "From"}${arrow("who")}</th><th data-sort="subject">Subject${arrow("subject")}</th>
           </tr></thead>
           <tbody>${rows.map((r) => `<tr data-id="${r.id}" class="${r.id === selected ? "sel" : ""} ${!r.read && !sentView ? "unread" : ""}">
-            <td>${sentView ? (r.read ? "📖" : "📤") : r.read ? "✉️" : "📩"}</td>
+            <td>${sentView ? (r.read ? "📖" : "📤") : r.card ? "💌" : r.read ? "✉️" : "📩"}</td>
             <td>${r.ts ? new Date(r.ts).toLocaleDateString([], { month: "numeric", day: "numeric", year: "2-digit" }) : ""}</td>
             <td>${esc(r.who || "")}</td><td>${esc(r.subject || "(no subject)")}</td></tr>`).join("")}</tbody>
         </table>
         ${rows.length ? "" : `<p class="muted small" style="padding:10px">${
           { new: "No new mail. You're all caught up!", old: "No old mail.", sent: "You haven't sent anything yet.",
-            saved: "Nothing saved. Select a message and tap Save.", deleted: "Nothing in Recently Deleted.", search: "Type above to search." }[folder]}</p>`}
+            saved: "Nothing saved. Select a message and tap Save.", deleted: "Nothing in Recently Deleted.", spam: "No spam. Nice!", search: "Type above to search." }[folder]}</p>`}
       </div>
     </div>
     <div class="mb-actions">
@@ -148,6 +157,8 @@ function renderMailbox(body) {
       <button class="btn small-btn" data-x="keepnew" ${selected ? "" : "disabled"}>Keep As New</button>`}
       <button class="btn small-btn" data-x="status" ${selected ? "" : "disabled"}>Status</button>
       <span style="flex:1"></span>
+      ${sentView || folder === "spam" ? "" : `<button class="btn small-btn" data-x="spam" ${selected ? "" : "disabled"}>Report Spam</button>`}
+      ${folder === "spam" && selected ? `<button class="btn small-btn" data-x="notspam">Not Spam</button>` : ""}
       ${sentView ? "" : `<button class="btn danger small-btn" data-x="delete" ${selected ? "" : "disabled"}>${folder === "deleted" ? "Delete Forever" : "Delete"}</button>`}
       ${folder === "deleted" && selected ? `<button class="btn small-btn" data-x="undelete">Restore</button>` : ""}
     </div>
@@ -178,7 +189,15 @@ function renderMailbox(body) {
       selected = null;
     },
     undelete: () => update(ref(db, `mail/${uid()}/${selected}`), { deleted: false }),
+    spam: async () => {
+      const m = mail[selected];
+      await update(ref(db, `mail/${uid()}/${selected}`), { spam: true, read: true });
+      if (m?.from && confirm(`Also block ${m.fromName} from mailing and IMing you?`)) await set(ref(db, `blocks/${uid()}/${m.from}`), true);
+      selected = null;
+    },
+    notspam: () => update(ref(db, `mail/${uid()}/${selected}`), { spam: false }),
   };
+  body.querySelector("#mc-buddies")?.addEventListener("change", (e) => { localStorage.setItem("du.mailBuddiesOnly", e.target.checked ? "1" : "0"); paintBadge(); renderMailbox(body); });
   body.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => act[b.dataset.x]?.()));
 }
 
@@ -221,11 +240,13 @@ function readMail(id) {
           <div><b>From:</b> ${esc(m.fromName)}</div><div><b>To:</b> ${esc(me().screenName)}</div>
           <div><b>Date:</b> ${m.ts ? new Date(m.ts).toLocaleString() : ""}</div><div><b>Subject:</b> ${esc(m.subject || "(no subject)")}</div>
         </div>
-        <div class="panel" style="margin-top:8px;white-space:pre-wrap;min-height:120px">${esc(m.body)}</div>
+        ${m.card ? `<div class="mail-card" style="margin-top:8px"></div>` : ""}
+        <div class="panel" style="margin-top:8px;white-space:pre-wrap;min-height:${m.card ? 0 : 120}px">${esc(m.body)}</div>
         <div class="row">
           <span><button class="btn small-btn" data-x="save">💾 Save</button> <button class="btn danger small-btn" data-x="del">Delete</button></span>
           <span><button class="btn small-btn" data-x="fwd">Forward</button> <button class="btn primary small-btn" data-x="reply">Reply</button></span>
         </div>`;
+      if (m.card) renderCard(body.querySelector(".mail-card"), { ...m.card, fromName: m.fromName });
       const quoted = "\n\n----- " + m.fromName + " wrote -----\n" + m.body;
       body.querySelector("[data-x=reply]").onclick = () => writeMail(m.fromName, "Re: " + (m.subject || "").replace(/^Re: /, ""), quoted);
       body.querySelector("[data-x=fwd]").onclick = () => writeMail("", "Fwd: " + (m.subject || ""), quoted);
@@ -240,11 +261,16 @@ export function writeMail(to = "", subject = "", text = "") {
     title: "Write Mail", icon: "✏️", width: 420, height: 460, keyword: "write",
     render(body) {
       body.innerHTML = `<form id="wm">
-        <label>Send To (screen names, separated by commas) <input id="to" value="${esc(to)}" required></label>
+        <label>Send To (screen names, separated by commas) <span style="display:flex;gap:4px"><input id="to" value="${esc(to)}" required>
+          <button type="button" class="btn small-btn" id="pick-ab" title="Address Book">📇</button></span></label>
         <label>Subject <input id="subj" value="${esc(subject)}"></label>
         <label>Message <textarea id="mbody" rows="9">${esc(text)}</textarea></label>
         <p class="error" id="werr"></p>
         <div class="row"><span class="small muted">Mail goes to their DialedUp mailbox.</span><button class="btn primary">Send Now</button></div></form>`;
+      body.querySelector("#pick-ab").onclick = () => openAddressBook({ pick: (sn) => {
+        const box = body.querySelector("#to");
+        box.value = box.value.trim() ? box.value.replace(/,?\s*$/, ", ") + sn : sn;
+      } });
       body.querySelector("#wm").onsubmit = async (e) => {
         e.preventDefault();
         const err = body.querySelector("#werr");
@@ -269,4 +295,17 @@ export function writeMail(to = "", subject = "", text = "") {
       };
     },
   });
+}
+
+/** Sends an E-Greeting card to a screen name through Mail. */
+export async function sendCard(toName, card) {
+  const target = (await get(ref(db, `screennames/${normalize(toName)}`))).val();
+  if (!target) throw new Error(`No one has the screen name "${toName}".`);
+  const subject = "💌 " + card.headline;
+  const sentItem = await push(ref(db, `mailsent/${uid()}`), { to: target, toName: userName(target) || toName, subject, ts: serverTimestamp() });
+  try {
+    await push(ref(db, `mail/${target}`), { from: uid(), fromName: me().screenName, subject, body: card.text ? "" : "(You got a card!)",
+      card: { design: card.design, headline: card.headline, text: card.text }, ts: serverTimestamp(), read: false, sentId: sentItem.key });
+  } catch { throw new Error("Couldn't send the card. They may have blocked you."); }
+  sfx.imOut();
 }

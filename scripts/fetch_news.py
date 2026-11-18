@@ -136,6 +136,30 @@ def espn_sports():
     return out[:40]
 
 
+MARKETS = [("^GSPC", "S&P 500"), ("^DJI", "Dow Jones"), ("^IXIC", "Nasdaq"), ("BTC-USD", "Bitcoin"),
+           ("AAPL", "Apple"), ("MSFT", "Microsoft"), ("NVDA", "Nvidia"), ("AMZN", "Amazon"), ("GOOGL", "Alphabet"),
+           ("META", "Meta"), ("TSLA", "Tesla"), ("NFLX", "Netflix"), ("DIS", "Disney"), ("NKE", "Nike"),
+           ("SPOT", "Spotify"), ("SONY", "Sony"), ("JPM", "JPMorgan"), ("KO", "Coca-Cola")]
+
+
+def markets():
+    """Latest prices and daily change for a set of market indexes and popular stocks."""
+    out = []
+    for sym, label in MARKETS:
+        try:
+            data = json.loads(fetch(f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.request.quote(sym)}?range=1d&interval=1d"))
+            meta = data["chart"]["result"][0]["meta"]
+            price, prev = meta.get("regularMarketPrice"), meta.get("chartPreviousClose") or meta.get("previousClose")
+            if price is None or not prev:
+                continue
+            out.append({"symbol": sym.lstrip("^"), "name": label, "price": round(price, 2), "change": round(price - prev, 2),
+                        "pct": round((price - prev) / prev * 100, 2)})
+        except Exception as e:
+            print(f"markets {sym:10} error: {type(e).__name__}")
+    print(f"markets: {len(out)} quotes")
+    return out
+
+
 def main():
     now = time.time() * 1000
     result = {"updated": int(now), "sources": {}}
@@ -160,6 +184,7 @@ def main():
         stories.sort(key=lambda i: i["ts"], reverse=True)
         result[cat] = stories[:40]
     result["sports"] = espn_sports()
+    result["markets"] = markets()
     for k, v in sorted(result["sources"].items()):
         print(f"{k:28} {v}")
     with open(sys.argv[1] if len(sys.argv) > 1 else "news.json", "w") as f:

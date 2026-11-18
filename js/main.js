@@ -9,11 +9,21 @@ import { openBoards } from "./boards.js";
 import { watchInvites, stopInvites } from "./people.js";
 import { startClock, openClock, watchWarnings, stopWarnings } from "./extras.js";
 import { setupChrome, go } from "./chrome.js";
+import { mountMiniPlayer, stop as stopRadio } from "./radio.js";
+import { watchAddressBook, stopAddressBook } from "./addressbook.js";
+import { watchGameInvites, stopGameInvites } from "./games.js";
+import { watchCalls, stopCalls } from "./voice.js";
+import { applyPrefs } from "./prefs.js";
+import { applyKidMode } from "./kids.js";
+import { userName } from "./chat.js";
 import { me } from "./chat.js";
 import { writeMail } from "./mail.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id) => ["signon", "connecting", "app"].forEach((s) => ($(s).hidden = s !== id));
+
+applyPrefs();
+applyKidMode();
 
 let connectingNow = false;   // true while the dial-up show is running for a fresh sign-on
 let started = false;
@@ -75,20 +85,41 @@ $("signup-form").onsubmit = async (e) => {
   }
 };
 
+function rememberName(n) {
+  const names = JSON.parse(localStorage.getItem("du.names") || "[]").filter((x) => x.toLowerCase() !== n.toLowerCase());
+  names.unshift(n);
+  localStorage.setItem("du.names", JSON.stringify(names.slice(0, 7)));
+}
+
+/** Sign off, then show the sign-on box with another screen name filled in. */
+export async function switchScreenName() {
+  const names = JSON.parse(localStorage.getItem("du.names") || "[]").filter((n) => n !== me().screenName);
+  const pick = prompt(`Switch to which screen name?${names.length ? "\n\nYour other screen names:\n" + names.join("\n") : ""}`, names[0] || "");
+  if (pick === null) return;
+  await doSignOff();
+  $("sn").value = pick.trim();
+  $("pw").focus();
+}
+
 async function enterDesktop(fresh) {
   if (started) return;
   started = true;
   show("app");
   await startChat();
+  rememberName(me().screenName);
   startClock();
   setupChrome({
-    runKeyword, screenName: me().screenName, signOff: () => document.getElementById("signoff").click(),
+    runKeyword, screenName: me().screenName, signOff: () => document.getElementById("signoff").click(), switchScreenName,
     actions: { mail: openMail, write: () => writeMail(), buddies: openBuddyList, chatrooms: openChatRooms, boards: openBoards,
       channels: openChannels, mypage: openMyPage, away: openAway, welcome: openWelcome },
   });
   watchMail();
   watchInvites();
   watchWarnings();
+  watchAddressBook();
+  watchGameInvites();
+  watchCalls(userName);
+  mountMiniPlayer();
   openWelcome();
   openBuddyList();
   if (fresh) sfx.welcome();
@@ -106,6 +137,10 @@ function leaveDesktop() {
   stopMail();
   stopInvites();
   stopWarnings();
+  stopAddressBook();
+  stopGameInvites();
+  stopCalls();
+  stopRadio();
   closeAll();
   $("pw").value = "";
   $("signup-form").hidden = true;
@@ -113,6 +148,12 @@ function leaveDesktop() {
   show("signon");
 }
 
+async function doSignOff() {
+  sfx.goodbye();
+  stopChat();
+  await signOff();
+  leaveDesktop();
+}
 $("signoff").onclick = async () => {
   sfx.goodbye();
   stopChat();

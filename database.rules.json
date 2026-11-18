@@ -159,6 +159,64 @@
           ".write": "auth != null && auth.uid === $warner && $target !== auth.uid"
         }
       }
+    },
+    "icons": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.isString() && newData.val().length < 30000)"
+      }
+    },
+    "addressbook": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "albumlist": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "photos": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        "$album": {
+          "$pid": {
+            ".validate": "!newData.exists() || newData.child('data').val().length < 400000"
+          }
+        }
+      }
+    },
+    "games": {
+      "$gid": {
+        ".read": "auth != null && (data.child('x').val() === auth.uid || data.child('o').val() === auth.uid)",
+        ".write": "auth != null && (!data.exists() ? newData.child('x').val() === auth.uid : (data.child('x').val() === auth.uid || data.child('o').val() === auth.uid))"
+      }
+    },
+    "gameinvites": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$id": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid))"
+        }
+      }
+    },
+    "calls": {
+      "$conv": {
+        ".read": "auth != null && $conv.contains(auth.uid)",
+        ".write": "auth != null && $conv.contains(auth.uid)"
+      }
+    },
+    "callring": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$conv": {
+          ".write": "auth != null && $conv.contains(auth.uid) && $conv.contains($uid)"
+        }
+      }
     }
   }
 }

@@ -1,6 +1,16 @@
 import { openWindow, getWindow, esc } from "./wm.js";
 import { getHeadlines, getScores, scoreText, timeAgo } from "./live.js";
 import { openBrowser } from "./browser.js";
+import { openRadio } from "./radio.js";
+import { openAddressBook } from "./addressbook.js";
+import { openPreferences } from "./prefs.js";
+import { openGreetings } from "./greetings.js";
+import { sendCard } from "./mail.js";
+import { openMaps } from "./maps.js";
+import { openAlbums } from "./albums.js";
+import { openStocks } from "./money.js";
+import { openKidSafe, isBlockedForKids } from "./kids.js";
+import { openArcade } from "./games.js";
 import { db, ref, get } from "./firebase.js";
 import { me, openBuddyList, openChatRooms, openAway, openDirectory, openProfile, openAddBuddy, onlineMembers, userName, openIM, memberCount } from "./chat.js";
 import { openMyPage } from "./homepage.js";
@@ -165,6 +175,12 @@ export function openChannels() {
         ${tile("📬 Mail", "Your mailbox", "#00a68c", "mail")}
         ${tile("📌 Boards", "Message boards", "#e53935", "boards")}
         ${tile("🌐 Home Pages", "Make your own", "#5b2a86", "homepage")}
+        ${tile("📻 Radio", "Free stations by genre", "#00897b", "radio")}
+        ${tile("📈 Stocks", "Markets & watch list", "#2e7d32", "stocks")}
+        ${tile("💌 E-Greetings", "Send a card", "#ff5e8a", "greetings")}
+        ${tile("🗺 Maps", "Find places", "#3949ab", "maps")}
+        ${tile("📸 Photo Albums", "Share your pics", "#ff8a3d", "albums")}
+        ${tile("🌍 Web", "DialedUp Browser", "#21a0fd", "browser")}
       </div>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = () => runKeyword(b.dataset.kw)));
     },
@@ -176,7 +192,14 @@ const keywords = {
   home: openWelcome, welcome: openWelcome, channels: openChannels,
   news: openNews, weather: openWeather, sports: openSports, scores: openSports, tech: openTech,
   horoscope: openHoroscopes, horoscopes: openHoroscopes, stars: openHoroscopes,
-  games: openGame, game: openGame, snake: openGame, play: openGame,
+  games: openArcade, game: openArcade, arcade: openArcade, play: openArcade, snake: openGame, trivia: openArcade,
+  radio: openRadio, music: openRadio, addressbook: () => openAddressBook(), contacts: () => openAddressBook(),
+  preferences: openPreferences, prefs: openPreferences, themes: openPreferences, settings: openPreferences, wallpaper: openPreferences,
+  greetings: () => openGreetings(sendCard), cards: () => openGreetings(sendCard), ecard: () => openGreetings(sendCard),
+  maps: () => openMaps(), directions: () => openMaps(), map: () => openMaps(),
+  albums: () => openAlbums(), photos: () => openAlbums(), pictures: () => openAlbums(),
+  stocks: openStocks, finance: openStocks, money: openStocks, markets: openStocks,
+  kids: openKidSafe, kidsafe: openKidSafe, parental: openKidSafe, parentalcontrols: openKidSafe,
   nyc: openNYC, newyork: openNYC,
   chat: openChatRooms, rooms: openChatRooms, lobby: openChatRooms,
   buddy: openBuddyList, buddies: openBuddyList, im: openBuddyList, add: openAddBuddy,
@@ -210,6 +233,7 @@ function openAbout() {
 export function runKeyword(raw) {
   const k = String(raw || "").toLowerCase().replace(/[^a-z]/g, "");
   if (!k) return;
+  if (isBlockedForKids(k)) { alert("That area is turned off by Kid-Safe Mode."); return; }
   (keywords[k] || (() => openHelp(k)))();
 }
 
