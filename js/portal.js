@@ -255,6 +255,7 @@ const keywords = {
   podcasts: () => import("./podcasts.js").then((m) => m.openPodcasts()), podcast: () => import("./podcasts.js").then((m) => m.openPodcasts()),
   bot: () => import("./bot.js").then((m) => m.openBot()), dialbot: () => import("./bot.js").then((m) => m.openBot()),
   notifications: () => import("./notify.js").then((m) => m.enableNotifications()),
+  testalert: () => import("./notify.js").then((m) => m.sendTestAlert()), pushtest: () => import("./notify.js").then((m) => m.sendTestAlert()),
   sounds: openSounds, sound: openSounds, voices: openSounds,
   lottery: openLottery, lotto: openLottery, powerball: openLottery, megamillions: openLottery,
   help: openHelp,
@@ -282,7 +283,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.1828) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.1838) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });

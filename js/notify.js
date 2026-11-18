@@ -37,7 +37,9 @@ export async function subscribePush() {
   try {
     let sub = await r.pushManager.getSubscription();
     if (!sub) sub = await r.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) });
-    const res = await post("/subscribe", { sub: sub.toJSON() });
+    const standaloneApp = window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
+    const device = `${standaloneApp ? "app" : "browser"}-${/iPhone|iPad/.test(navigator.userAgent) ? "ios" : /Android/.test(navigator.userAgent) ? "android" : "computer"}`;
+    const res = await post("/subscribe", { sub: sub.toJSON(), device });
     startOnScreen();
     return !!res?.ok;
   } catch { return false; }
@@ -120,3 +122,14 @@ async function markOnScreen() {
 document.addEventListener("visibilitychange", markOnScreen);
 window.addEventListener("pagehide", () => { if (markedHere && auth.currentUser) update(ref(db, `users/${auth.currentUser.uid}`), { fgDev: null }).catch(() => {}); });
 export const startOnScreen = () => { myDev = null; markOnScreen(); };
+
+/** Sends a test alert to your own phone(s) 10 seconds from now. */
+export async function sendTestAlert() {
+  if (!notifyOn()) { alert("Turn on notifications first (🔔 Turn On Notifications), then try the test."); return; }
+  await subscribePush();
+  const res = await post("/test", {});
+  if (!res?.ok) { alert("Couldn't reach the alert sender. Check your connection and try again."); return; }
+  alert(res.phones
+    ? `✅ Test alert on its way!\n\nClose DialedUp now (swipe it away or lock your phone). It arrives in about 10 seconds.`
+    : "This device isn't signed up for alerts yet. Open DialedUp from the Home Screen icon and tap 🔔 Turn On Notifications.");
+}

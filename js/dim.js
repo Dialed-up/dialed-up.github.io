@@ -123,6 +123,7 @@ $("start").onclick = () => {
     "-",
     { label: "🖼 Change Backdrop", action: changeBackdrop },
     { label: "🔔 Turn On Notifications", action: () => import("./notify.js").then((m) => m.enableNotifications()) },
+    { label: "🔔 Send Me a Test Alert", action: () => import("./notify.js").then((m) => m.sendTestAlert()) },
     { label: "🎙 Podcasts", action: () => import("./podcasts.js").then((m) => m.openPodcasts()) },
     { label: sfx.isMuted() ? "🔈 Sounds On" : "🔇 Sounds Off", action: () => sfx.setMuted(!sfx.isMuted()) },
     "-",

@@ -65,7 +65,7 @@ async function overLimit(env, uid) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors(req) });
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/") return json(req, { ok: true, service: "DialedUp push" });
@@ -84,8 +84,26 @@ export default {
       if (!check.ok) return json(req, { error: "not signed in" }, 401);
       const key = `sub:${me}:${await hash(sub.endpoint)}`;
       if (url.pathname === "/unsubscribe") { await env.SUBS.delete(key); return json(req, { ok: true }); }
-      await env.SUBS.put(key, JSON.stringify({ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }), { expirationTtl: 60 * 60 * 24 * 90 });
+      // One phone per site per person: drop older sign-ups from this same site (e.g. a deleted Home Screen app)
+      const site = req.headers.get("origin") || "";
+      const mine = await env.SUBS.list({ prefix: `sub:${me}:` });
+      for (const k of mine.keys) if (k.name !== key && k.metadata?.site === site && k.metadata?.device === String(body.device || "")) await env.SUBS.delete(k.name);
+      await env.SUBS.put(key, JSON.stringify({ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }),
+        { expirationTtl: 60 * 60 * 24 * 90, metadata: { site, device: String(body.device || "").slice(0, 40), at: Date.now() } });
       return json(req, { ok: true });
+    }
+
+    // ----- "Send me a test alert" (arrives 10 seconds later so there's time to close the app) -----
+    if (url.pathname === "/test") {
+      const check = await dbGet(`users/${me}/screenName`, token);
+      if (!check.ok) return json(req, { error: "not signed in" }, 401);
+      if (await overLimit(env, me)) return json(req, { error: "slow down" }, 429);
+      const phones = (await env.SUBS.list({ prefix: `sub:${me}:` })).keys.length;
+      ctx.waitUntil(new Promise((r) => setTimeout(r, 10000)).then(async () => {
+        const out = await sendTo(env, me, { title: "🔔 DialedUp test alert", body: "It works! You'll get alerts like this for new IMs and mail.", tag: "test", url: "./" });
+        await env.SUBS.put(`last:${me}`, JSON.stringify({ at: new Date().toISOString(), kind: "test", ...out }), { expirationTtl: 86400 * 3 });
+      }));
+      return json(req, { ok: true, phones });
     }
 
     // ----- Someone sent an IM or mail: alert the recipient -----
