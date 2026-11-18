@@ -26,8 +26,21 @@ applyPrefs();
 applyKidMode();
 
 // No zooming: block pinch and double-tap zoom (iPhone ignores the page setting on its own).
-["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
-document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+["gesturestart", "gesturechange", "gestureend"].forEach((ev) => {
+  window.addEventListener(ev, (e) => e.preventDefault(), { passive: false, capture: true });
+  document.addEventListener(ev, (e) => e.preventDefault(), { passive: false, capture: true });
+});
+// If the page ever gets zoomed anyway, snap it back.
+if (window.visualViewport) {
+  const vp = document.querySelector('meta[name="viewport"]');
+  window.visualViewport.addEventListener("resize", () => {
+    if (window.visualViewport.scale > 1.01) {
+      vp.setAttribute("content", "width=device-width, initial-scale=1.0001, maximum-scale=1, user-scalable=no, viewport-fit=cover");
+      setTimeout(() => vp.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"), 50);
+    }
+  });
+}
+document.addEventListener("touchmove", (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false, capture: true });
 let lastTouchEnd = 0;
 document.addEventListener("touchend", (e) => {
   const now = Date.now();

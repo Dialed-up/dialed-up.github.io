@@ -489,3 +489,9 @@ html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-si
 @media (pointer: coarse) {
   input, textarea, select { font-size: 16px !important; }
 }
+
+/* Only allow scrolling, never pinch-zoom (Safari honors this even when it ignores the viewport setting) */
+html, body, #app, #desk, #signon, #connecting, .win, .win-body, .transcript, .mb-list, .br-view, #toolbar, #navbar, #taskbar, #menubar {
+  touch-action: pan-x pan-y;
+}
+.win-title, .win-resize { touch-action: none; }
