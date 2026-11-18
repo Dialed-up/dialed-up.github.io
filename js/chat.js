@@ -257,10 +257,10 @@ function refreshBuddyList() {
     ${show === "everyone" ? `<div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
     <div class="bl-bottom">
       <button class="bl-icon" data-act="im"><span>💬</span>Send IM</button>
+      <button class="bl-icon${state.away ? " on" : ""}" data-act="awaymenu" title="Away Message"><span>🌙<i class="bl-caret">▾</i></span>Away Message</button>
       <button class="bl-icon" data-act="add"><span>➕</span>Add Buddy</button>
     </div>
     <div class="bl-bottom2">
-      <button class="btn small-btn" data-act="awaymenu">Away Message ▾</button>
       <button class="btn small-btn" data-act="setup">Setup</button>
     </div>`;
   body.scrollTop = scroll;
