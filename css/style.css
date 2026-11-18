@@ -701,3 +701,4 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 #menubar .fs-btn { margin-left: auto; font-weight: bold; color: var(--grape); border: 1px solid var(--line); border-radius: 10px; background: #fff; margin-right: 4px; flex-shrink: 0; }
 #menubar .fs-btn:not([hidden]) + .install-btn { margin-left: 0; }
 body.dim #taskbar .fs-btn { color: #1e5fc8; font-weight: bold; }
+.bl-offline { background: #fff4d6; border: 1px solid #f0c040; color: #7a5200; border-radius: 8px; padding: 4px 8px; margin-bottom: 6px; font-size: 12px; text-align: center; }

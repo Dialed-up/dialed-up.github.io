@@ -23,9 +23,10 @@ const fetching = new Set();
 function lookUpName(uid) {
   if (!uid || fetching.has(uid) || nameCache[uid]) return;
   fetching.add(uid);
-  get(ref(db, `names/${uid}`)).then((s) => {
+  const timeout = new Promise((_, bad) => setTimeout(() => bad(new Error("slow")), 8000));
+  Promise.race([get(ref(db, `names/${uid}`)), timeout]).then((s) => {
     if (s.val()) { nameCache[uid] = s.val(); document.dispatchEvent(new CustomEvent("du:users")); refreshBuddyList(); }
-  }).catch(() => {}).finally(() => fetching.delete(uid));
+  }).catch(() => {}).finally(() => setTimeout(() => fetching.delete(uid), 3000));
 }
 const name = (uid) => {
   const n = state.users[uid]?.screenName || nameCache[uid];
@@ -111,6 +112,18 @@ export async function startChat() {
   await syncBuddyOf();   // tell the database who my buddies are first, so their status is readable
   syncWatches();
   setTimeout(() => { state.loadedUsers = true; }, 4000);
+  listen(".info/connected", (v) => {
+    const was = state.connected;
+    state.connected = v === true;
+    if (state.connected && was === false) {
+      // Back online: re-announce presence and reload buddies' info
+      update(meRef, { signedOn: true, lastSeen: serverTimestamp(), fg: document.visibilityState === "visible" }).catch(() => {});
+      onDisconnect(meRef).update({ signedOn: false, fg: false, lastSeen: serverTimestamp() });
+      watches.forEach((refs) => refs.forEach((r) => off(r))); watches.clear(); retries.clear();
+      syncBuddyOf().then(syncWatches);
+    }
+    refreshBuddyList();
+  });
   listen(`inbox/${uid}`, onInbox);
   listen(`blocks/${uid}`, (v) => { state.blocked = new Set(Object.keys(v || {})); refreshBuddyList(); });
   listen(`buddylists/${uid}`, (v) => {
@@ -178,7 +191,15 @@ function onVisibility() {
   if (!state.uid) return;
   const r = ref(db, `users/${state.uid}`);
   if (document.hidden) update(r, { fg: false, idleSince: serverTimestamp(), lastSeen: serverTimestamp() });
-  else update(r, { fg: true, idleSince: null, lastSeen: serverTimestamp(), signedOn: true });
+  else {
+    update(r, { fg: true, idleSince: null, lastSeen: serverTimestamp(), signedOn: true });
+    // Coming back to the tab: if any buddy's info never loaded, try again
+    if ([...buddyIDs()].some((b) => !state.users[b])) {
+      [...buddyIDs()].filter((b) => !state.users[b]).forEach((b) => { const w = watches.get(b); if (w) { w.forEach((x) => off(x)); watches.delete(b); } });
+      retries.clear();
+      syncBuddyOf().then(syncWatches);
+    }
+  }
 }
 
 const buddyIDs = () => new Set(state.groups.flatMap((g) => g.members));
@@ -284,6 +305,7 @@ function refreshBuddyList() {
   const off_ = [...buddyIDs()].filter((m) => presence(state.users[m]) === "offline");
   const strangers = Object.values(state.inbox).map((e) => e.with).filter((u) => u && !buddyIDs().has(u) && u !== state.uid);
   body.innerHTML = `
+    ${state.connected === false ? `<div class="bl-offline">📡 Reconnecting to DialedUp…</div>` : ""}
     <div class="bl-top"><b class="bl-title">Buddy List</b>
       <select id="bl-show" title="Who to show">
         <option value="everyone" ${show === "everyone" ? "selected" : ""}>Show Everyone</option>
