@@ -16,6 +16,11 @@ const state = {
 export const me = () => state.me;
 const name = (uid) => state.users[uid]?.screenName ?? "…";
 export const userName = name;
+/** Everyone signed on right now (not just buddies), newest activity first. */
+export const onlineMembers = () => Object.entries(state.users)
+  .filter(([id, u]) => id !== state.uid && presence(u) !== "offline")
+  .sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0)).map(([id]) => id);
+export const memberCount = () => Object.keys(state.users).length;
 export const buddyList = () => [...new Set(state.groups.flatMap((g) => g.members))];
 
 // ---------- Presence ----------
@@ -59,6 +64,7 @@ export async function startChat() {
     state.loadedUsers = true;
     refreshBuddyList();
     document.querySelectorAll("[data-im]").forEach((el) => renderIMStatus(el.dataset.im));
+    document.dispatchEvent(new CustomEvent("du:users"));
   });
   listen(`inbox/${uid}`, onInbox);
   listen(`blocks/${uid}`, (v) => { state.blocked = new Set(Object.keys(v || {})); refreshBuddyList(); });

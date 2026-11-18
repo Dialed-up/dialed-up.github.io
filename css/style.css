@@ -352,3 +352,31 @@ label.check input { width: auto; margin: 0; }
   .wb { height: 18px; }
   .win-body { padding: 6px; }
 }
+
+/* ===== Live ticker ===== */
+#ticker { display: flex; align-items: center; height: 24px; background: #1d1033; color: #fff; font-size: 12px; overflow: hidden; border-bottom: 1px solid #000; }
+.ticker-label { background: #ff3b6b; color: #fff; font-weight: bold; padding: 0 8px; height: 100%; display: flex; align-items: center; letter-spacing: 1px; flex-shrink: 0; animation: blink 1.6s steps(2) infinite; }
+@keyframes blink { 50% { background: #c2185b; } }
+.ticker-track { flex: 1; overflow: hidden; white-space: nowrap; }
+#ticker-text { display: inline-block; padding-left: 100%; animation: marquee 60s linear infinite; }
+#ticker:hover #ticker-text { animation-play-state: paused; }
+.tick-sep { color: var(--pink); margin: 0 14px; }
+
+/* ===== News ===== */
+.src-tag { display: inline-block; color: #fff; font-size: 9.5px; font-weight: bold; padding: 1px 6px; border-radius: 6px; text-transform: uppercase; letter-spacing: .5px; vertical-align: middle; }
+.headlines li { line-height: 1.45; }
+.top-story { margin-bottom: 10px; border-radius: 12px; overflow: hidden; background: #1d1033; box-shadow: var(--shadow); }
+.top-story-link { display: block; position: relative; color: #fff; text-decoration: none; }
+.top-story img { width: 100%; height: 180px; object-fit: cover; display: block; opacity: .9; }
+.top-story-text { position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 10px; background: linear-gradient(transparent, rgba(0,0,0,.85)); font-size: 15px; }
+.top-story-text .src-tag { margin-right: 6px; }
+.top-story-link:not(:has(img)) .top-story-text { position: static; background: none; }
+.news-card { display: flex; gap: 10px; align-items: flex-start; padding: 8px; border-radius: 10px; background: #fff; border: 1px solid var(--line); margin-bottom: 8px; color: var(--ink); text-decoration: none; }
+.news-card:hover { border-color: var(--grape-2); }
+.news-card img { width: 96px; height: 64px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+@media (orientation: landscape) and (max-height: 500px) {
+  #app { grid-template-rows: auto auto auto 1fr auto; }
+  #ticker { grid-column: 1 / -1; grid-row: 3; height: 20px; }
+  #desk { grid-row: 4; }
+  #taskbar { grid-row: 5; }
+}

@@ -1,5 +1,7 @@
-import { openWindow, esc } from "./wm.js";
-import { me, openBuddyList, openChatRooms, openAway, openDirectory, openProfile, openAddBuddy } from "./chat.js";
+import { openWindow, getWindow, esc } from "./wm.js";
+import { getHeadlines, getScores, scoreText, timeAgo } from "./live.js";
+import { db, ref, get } from "./firebase.js";
+import { me, openBuddyList, openChatRooms, openAway, openDirectory, openProfile, openAddBuddy, onlineMembers, userName, openIM, memberCount } from "./chat.js";
 import { openMyPage } from "./homepage.js";
 import { openGame } from "./game.js";
 import { openMail, writeMail } from "./mail.js";
@@ -28,12 +30,18 @@ export function openWelcome() {
           <div><h2>${hello}, ${esc(me().screenName)}!</h2>
           <div class="small muted">${new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · online ${onlineFor()}</div></div>
         </div>
+        <div id="w-top" class="top-story"><div class="muted small" style="padding:30px;text-align:center">📡 Getting today's top story…</div></div>
+        <div class="grid2">
+          <div class="panel" id="w-online"><h3>🟢 Who's Online</h3><span class="muted small">Checking…</span></div>
+          <div class="panel" id="w-rooms"><h3>🔥 Hot Rooms Right Now</h3><span class="muted small">Checking…</span></div>
+        </div>
+        <div class="panel"><h3>📰 Today's Headlines <a href="#" data-kw="news" class="small" style="float:right">More news ›</a></h3><ul class="list headlines" id="w-news"><li class="muted small">Loading…</li></ul></div>
+        <div class="panel"><h3>🏟 Live Scores <a href="#" data-kw="sports" class="small" style="float:right">All scores ›</a></h3><ul class="list" id="w-scores"><li class="muted small">Loading…</li></ul></div>
         <div class="grid2">
           <div class="panel" id="w-weather"><h3>🌤 Weather</h3><span class="muted small">Loading…</span></div>
           <div class="panel" id="w-horo"><h3>🔮 Your Horoscope</h3></div>
         </div>
-        <div class="panel"><h3>📰 In The News</h3><ul class="list" id="w-news"><li class="muted small">Loading…</li></ul></div>
-        <div class="panel"><h3>🔥 Today's Hot Spots</h3>
+        <div class="panel"><h3>✨ Today's Hot Spots</h3>
           <div class="grid2">
             ${tile("💬 People Plaza", "Chat rooms by category", "#ff5ec4", "chat")}
             ${tile("📬 Mail", "Check your mailbox", "#00a68c", "mail")}
@@ -44,13 +52,96 @@ export function openWelcome() {
           </div>
         </div>
         <p class="small muted">Tip: type a word in the <b>Keyword</b> box up top — try <i>weather</i>, <i>news</i>, <i>chat</i> or <i>help</i>.</p>`;
-      body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = () => runKeyword(b.dataset.kw)));
+      body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); runKeyword(b.dataset.kw); }));
       loadWeather(body.querySelector("#w-weather"), true);
       renderHoroscope(body.querySelector("#w-horo"), true);
-      loadNews(body.querySelector("#w-news"), 5);
+      fillWelcomeLive(body);
     },
   });
 }
+
+// ---------- Live pieces of the Welcome screen ----------
+const tag = (h) => `<span class="src-tag" style="background:${h.color}">${esc(h.source)}</span>`;
+const headlineItem = (h) =>
+  `<li>${tag(h)} <a href="${esc(h.url || "#")}" target="_blank" rel="noopener">${esc(h.title)}</a>${h.ts ? ` <span class="small muted">${timeAgo(h.ts)}</span>` : ""}</li>`;
+
+async function fillWelcomeLive(body) {
+  paintOnline(body);
+  paintRooms(body);
+  try {
+    const news = await getHeadlines();
+    const lead = [...news.sports, ...news.space, ...news.world].find((h) => h.image) || news.top[0];
+    const topEl = body.querySelector("#w-top");
+    if (lead && topEl) {
+      topEl.innerHTML = `<a href="${esc(lead.url || "#")}" target="_blank" rel="noopener" class="top-story-link">
+        ${lead.image ? `<img src="${esc(lead.image)}" alt="" loading="lazy">` : ""}
+        <div class="top-story-text">${tag(lead)}<b>${esc(lead.title)}</b></div></a>`;
+    } else if (topEl) topEl.remove();
+    const list = news.top.filter((h) => h !== lead).slice(0, 8);
+    const el = body.querySelector("#w-news");
+    if (el) el.innerHTML = list.map(headlineItem).join("") || `<li class="muted small">Headlines are on their way — try again in a minute.</li>`;
+  } catch {}
+  try {
+    const games = (await getScores()).slice(0, 6);
+    const el = body.querySelector("#w-scores");
+    if (el) el.innerHTML = games.map((g) => `<li class="small">${esc(scoreText(g))}</li>`).join("") || `<li class="muted small">No games on the schedule right now.</li>`;
+  } catch {}
+}
+
+document.addEventListener("du:users", () => { const w = getWindow("welcome"); if (w) paintOnline(w.body); });
+
+function paintOnline(body) {
+  const el = body.querySelector("#w-online");
+  if (!el) return;
+  const on = onlineMembers();
+  el.innerHTML = `<h3>🟢 Who's Online</h3>
+    <div class="big-temp" style="font-size:24px">${on.length + 1}</div>
+    <div class="small muted">member${on.length ? "s" : ""} online now · ${memberCount()} total</div>
+    <div class="small" style="margin-top:4px">${on.slice(0, 8).map((u) => `<a href="#" data-im="${u}">${esc(userName(u))}</a>`).join(", ") || "Just you so far — invite your friends!"}</div>`;
+  el.querySelectorAll("[data-im]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openIM(a.dataset.im); }));
+}
+
+const hotRooms = ["Lobby", "NYC", "DJ Booth", "Late Night Talk", "Hoops Talk", "Gamers Hangout", "Hip Hop Corner"];
+async function paintRooms(body) {
+  const el = body.querySelector("#w-rooms");
+  if (!el) return;
+  const counts = await Promise.all(hotRooms.map(async (r) => {
+    try {
+      const m = (await get(ref(db, `rooms/${r.toLowerCase().replace(/[^a-z0-9]/g, "")}/members`))).val() || {};
+      return [r, Object.values(m).filter((t) => Date.now() - t < 120000).length];
+    } catch { return [r, 0]; }
+  }));
+  counts.sort((a, b) => b[1] - a[1]);
+  el.innerHTML = `<h3>🔥 Hot Rooms Right Now</h3><ul class="list">${counts.slice(0, 5).map(([r, n]) =>
+    `<li class="row"><a href="#" data-room="${esc(r)}">💬 ${esc(r)}</a><span class="small muted">${n ? `${n} here` : "be first!"}</span></li>`).join("")}</ul>`;
+  el.querySelectorAll("[data-room]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openChatRooms(a.dataset.room); }));
+}
+
+// ---------- Ticker ----------
+let tickerTimer = null;
+export function startTicker() {
+  const paint = async () => {
+    const parts = [];
+    try {
+      const news = await getHeadlines();
+      parts.push(...news.top.slice(0, 10).map((h) => `<span class="tick"><b style="color:${h.color}">${esc(h.source.toUpperCase())}</b> ${esc(h.title)}</span>`));
+    } catch {}
+    try {
+      const games = (await getScores()).filter((g) => g.state !== "pre").slice(0, 8);
+      parts.push(...games.map((g) => `<span class="tick">🏟 ${esc(scoreText(g))}</span>`));
+    } catch {}
+    parts.push(`<span class="tick">🟢 ${onlineMembers().length + 1} members online now</span>`);
+    const t = document.getElementById("ticker-text");
+    if (t) {
+      t.innerHTML = parts.join('<span class="tick-sep">◆</span>');
+      t.style.animationDuration = Math.max(40, parts.length * 7) + "s";
+    }
+  };
+  paint();
+  clearInterval(tickerTimer);
+  tickerTimer = setInterval(paint, 5 * 60 * 1000);
+}
+export function stopTicker() { clearInterval(tickerTimer); }
 
 const tile = (title, sub, color, kw) =>
   `<button class="tile" style="background:linear-gradient(135deg, ${color}, #5b2a86)" data-kw="${kw}">${title}<small>${sub}</small></button>`;
@@ -200,10 +291,22 @@ async function loadNews(el, max = 10) {
 
 function openNews() {
   openWindow("news", {
-    title: "News", icon: "📰", width: 420, height: 480,
+    title: "DialedUp News", icon: "📰", width: 480, height: 520, keyword: "news",
     render(body) {
-      body.innerHTML = `<div class="panel"><h3>📰 In The News</h3><ul class="list" id="n-list"><li class="muted">Loading…</li></ul></div>`;
-      loadNews(body.querySelector("#n-list"), 12);
+      const tabs = [["top", "Top Stories"], ["world", "World"], ["sports", "Sports"], ["tech", "Tech"], ["space", "Space"]];
+      body.innerHTML = `<div class="mb-tabs">${tabs.map(([k, l], i) => `<button class="mtab ${i ? "" : "on"}" data-t="${k}">${l}</button>`).join("")}</div>
+        <div id="n-out" style="margin-top:8px"><p class="muted">📡 Loading the latest…</p></div>`;
+      let news = null;
+      const show = (k) => {
+        body.querySelectorAll("[data-t]").forEach((b) => b.classList.toggle("on", b.dataset.t === k));
+        const list = (news?.[k] || []).slice(0, 20);
+        body.querySelector("#n-out").innerHTML = list.length ? list.map((h) => `<a class="news-card" href="${esc(h.url || "#")}" target="_blank" rel="noopener">
+            ${h.image ? `<img src="${esc(h.image)}" alt="" loading="lazy">` : ""}
+            <div>${tag(h)} <b>${esc(h.title)}</b>${h.ts ? `<div class="small muted">${timeAgo(h.ts)}</div>` : ""}</div></a>`).join("")
+          : `<p class="muted">Nothing here right now — check back soon.</p>`;
+      };
+      body.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => show(b.dataset.t)));
+      getHeadlines().then((n) => { news = n; show("top"); }).catch(() => (body.querySelector("#n-out").innerHTML = `<p class="muted">The news wire is down. Try again soon.</p>`));
     },
   });
 }
