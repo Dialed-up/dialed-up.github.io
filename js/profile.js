@@ -162,7 +162,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
             <label title="Text color" class="rt-color">A<input type="color" data-c="foreColor" value="#d81b60"></label>
             <label title="Highlight" class="rt-color">🖍<input type="color" data-c="hiliteColor" value="#fff59d"></label>
             <button data-c="justifyLeft" title="Left">⬅</button><button data-c="justifyCenter" title="Center">↔</button><button data-c="justifyRight" title="Right">➡</button>
-            <button data-c="link" title="Add a link">🔗</button><button data-c="hr" title="Line">➖</button><button data-c="emoji" title="Emoji">😀</button>
+            <button data-c="link" title="Add a link">🔗</button><button data-c="hr" title="Line">➖</button><button data-c="emoji" title="Emoji">😀</button><button data-c="bucket" title="Background color">🪣</button>
             <select data-c="effect" title="Effects"><option value="">✨ Effects…</option><option value="du-glow">Glow</option><option value="du-rainbow">Rainbow</option><option value="du-sparkle">Sparkle</option><option value="du-blink">Blink</option><option value="du-scroll">Scrolling</option><option value="du-shadow">Shadow</option><option value="none">Remove effect</option></select>
           </div>
           <div class="rt-edit" contenteditable="true" spellcheck="true"></div>
@@ -218,6 +218,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         else if (c === "link") el.onclick = () => { const url = prompt("Link address (https://…):", "https://"); if (url && /^https?:\/\/\S+\.\S+/.test(url)) cmd("createLink", url); };
         else if (c === "hr") el.onclick = () => cmd("insertHorizontalRule");
         else if (c === "emoji") el.onclick = () => pickEmoji(el, (e) => cmd("insertText", e));
+        else if (c === "bucket") el.onclick = () => pickBackground(el, (color) => { look.theme = "Custom"; look.bgColor = color; paintLook(); });
         else if (c === "effect") el.onchange = () => {
           restoreSel();
           const s = getSelection();
@@ -306,4 +307,38 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
       };
     },
   });
+}
+
+// ---------- Paint bucket: a grid of background colors ----------
+const PALETTE = [
+  "#ffffff", "#f2f2f2", "#d9d9d9", "#a6a6a6", "#595959", "#000000",
+  "#ffd6d6", "#ff8a8a", "#ff3b3b", "#c40000", "#7a0000", "#3d0000",
+  "#ffe6cc", "#ffb870", "#ff8c1a", "#d96600", "#8a4100", "#4a2300",
+  "#fff8cc", "#fff06b", "#ffe11a", "#d4b800", "#8a7700", "#4a4000",
+  "#e3ffd6", "#a6f58a", "#4cd137", "#2e9e1f", "#1a5c12", "#0d2e09",
+  "#d6fff6", "#8af5e0", "#1ad9b8", "#0f9e85", "#0a5c4e", "#052e27",
+  "#d6f0ff", "#8ad4ff", "#1aa3ff", "#0072c4", "#00437a", "#00213d",
+  "#e3dcff", "#b79bff", "#8a4dff", "#5b2a86", "#3a1563", "#1d0b32",
+  "#ffdcf3", "#ff9de2", "#ff5ec4", "#d81b8a", "#8a0f57", "#45072b",
+];
+let bucketPop = null;
+function pickBackground(anchor, onPick) {
+  if (bucketPop) { bucketPop.remove(); bucketPop = null; return; }
+  bucketPop = document.createElement("div");
+  bucketPop.className = "color-pop";
+  bucketPop.innerHTML = `<b class="small">🪣 Profile background</b>
+    <div class="color-grid">${PALETTE.map((c) => `<button style="background:${c}" data-col="${c}" title="${c}"></button>`).join("")}</div>
+    <label class="color-pick" style="margin-top:6px">🎨 More colors…<input type="color" value="#ffe3f3"></label>`;
+  document.body.appendChild(bucketPop);
+  const r = anchor.getBoundingClientRect();
+  const w = Math.min(260, innerWidth - 12);
+  bucketPop.style.width = w + "px";
+  bucketPop.style.left = Math.max(6, Math.min(r.left, innerWidth - w - 6)) + "px";
+  const h = bucketPop.offsetHeight;
+  bucketPop.style.top = (r.bottom + h + 6 < innerHeight ? r.bottom + 6 : Math.max(6, r.top - h - 6)) + "px";
+  const close = () => { bucketPop?.remove(); bucketPop = null; document.removeEventListener("pointerdown", away, true); };
+  const away = (e) => { if (bucketPop && !bucketPop.contains(e.target) && e.target !== anchor) close(); };
+  setTimeout(() => document.addEventListener("pointerdown", away, true), 0);
+  bucketPop.querySelectorAll("[data-col]").forEach((b) => (b.onclick = () => { onPick(b.dataset.col); close(); }));
+  bucketPop.querySelector("input").oninput = (e) => onPick(e.target.value);
 }

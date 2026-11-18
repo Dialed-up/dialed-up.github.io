@@ -681,3 +681,7 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 .profile-save { position: sticky; bottom: -10px; background: var(--paper); padding: 8px 0; margin-top: 8px; border-top: 1px solid var(--line); z-index: 2; }
 .update-bar { position: fixed; left: 50%; transform: translateX(-50%); top: max(8px, env(safe-area-inset-top)); z-index: 200000; border: 0; border-radius: 20px; padding: 10px 16px; background: linear-gradient(180deg, #ff5ec4, #8a4dff); color: #fff; font-size: 14px; box-shadow: 0 6px 20px rgba(40,10,80,.35); cursor: pointer; white-space: nowrap; }
 .media-name { margin: 2px 0 3px; overflow-wrap: anywhere; }
+.color-pop { position: fixed; z-index: 100001; background: #fff; border: 1px solid #c9b6f2; border-radius: 12px; padding: 8px; box-shadow: 0 8px 24px rgba(40,10,80,.28); display: flex; flex-direction: column; gap: 6px; }
+.color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.color-grid button { aspect-ratio: 1; border: 1px solid rgba(0,0,0,.18); border-radius: 6px; cursor: pointer; padding: 0; }
+.color-grid button:hover { transform: scale(1.12); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--grape-2); }
