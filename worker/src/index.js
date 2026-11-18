@@ -37,6 +37,7 @@ const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
 
 async function sendTo(env, uid, note) {
   const list = await env.SUBS.list({ prefix: `sub:${uid}:` });
+  const results = [];
   const vapid = { subject: "https://dialedup.lol", publicKey: env.VAPID_PUBLIC, privateKey: env.VAPID_PRIVATE };
   let sent = 0;
   await Promise.all(list.keys.map(async ({ name }) => {
@@ -45,11 +46,12 @@ async function sendTo(env, uid, note) {
     try {
       const payload = await buildPushPayload({ data: JSON.stringify(note), options: { ttl: 3600, urgency: "high", topic: note.tag?.slice(0, 32) } }, sub, vapid);
       const r = await fetch(sub.endpoint, payload);
+      results.push(`${new URL(sub.endpoint).host}:${r.status}`);
       if (r.status === 404 || r.status === 410) await env.SUBS.delete(name);
       else if (r.ok) sent++;
-    } catch {}
+    } catch (e) { results.push("error:" + String(e?.message || e).slice(0, 60)); }
   }));
-  return sent;
+  return { sent, phones: list.keys.length, results };
 }
 
 /** Simple per-sender limit: 30 alerts a minute. */
@@ -107,12 +109,15 @@ export default {
         note = { title: "📬 You have mail!", body: `From ${clip(name, 24)}: ${clip(item.val.subject, 80) || "(no subject)"}`, tag: "mail", url: "./" };
       } else return json(req, { error: "bad kind" }, 400);
 
-      // Skip the alert if they're looking at DialedUp right now (they'll see it in the app).
+      // Skip the alert only if DialedUp is open on their screen right now (they'll see it in the app).
       const them = await dbGet(`users/${to}`, token);
-      if (them.ok && them.val && them.val.signedOn && !them.val.idleSince && Date.now() - (them.val.lastSeen || 0) < 90000) return json(req, { ok: true, skipped: "active" });
+      const onScreen = them.ok && them.val && them.val.fg === true && them.val.signedOn && Date.now() - (them.val.lastSeen || 0) < 75000;
+      const log = (o) => env.SUBS.put(`last:${to}`, JSON.stringify({ at: new Date().toISOString(), kind: body.kind, from: me.slice(0, 5), ...o }), { expirationTtl: 86400 * 3 });
+      if (onScreen) { await log({ skipped: "app open on screen" }); return json(req, { ok: true, skipped: "active" }); }
 
-      const sent = await sendTo(env, to, note);
-      return json(req, { ok: true, sent });
+      const out = await sendTo(env, to, note);
+      await log(out);
+      return json(req, { ok: true, ...out });
     }
     return json(req, { error: "not found" }, 404);
   },

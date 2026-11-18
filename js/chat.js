@@ -98,9 +98,11 @@ export async function startChat() {
   if (!state.groups.length) state.groups = [{ id: crypto.randomUUID().toUpperCase(), name: "Buddies", members: [], collapsed: false }];
 
   const created = Date.parse(auth.currentUser.metadata?.creationTime || "") || null;
-  await update(meRef, { signedOn: true, lastSeen: serverTimestamp(), idleSince: null, onlineSince: serverTimestamp(),
+  await update(meRef, { signedOn: true, fg: document.visibilityState === "visible", lastSeen: serverTimestamp(), idleSince: null, onlineSince: serverTimestamp(),
     ...(created && state.me.since !== created ? { since: created } : {}) });
-  onDisconnect(meRef).update({ signedOn: false, lastSeen: serverTimestamp() });
+  onDisconnect(meRef).update({ signedOn: false, fg: false, lastSeen: serverTimestamp() });
+  // "fg" = DialedUp is on screen right now. Push alerts are skipped only while it is.
+  window.addEventListener("pagehide", () => state.uid && update(ref(db, `users/${state.uid}`), { fg: false }).catch(() => {}));
   state.timers.push(setInterval(() => update(meRef, { lastSeen: serverTimestamp(), signedOn: true }), 60000));
   set(ref(db, `names/${uid}`), state.me.screenName || "").catch(() => {});
   state.timers.push(setInterval(refreshBuddyList, 10000));
@@ -175,8 +177,8 @@ export function stopChat() {
 function onVisibility() {
   if (!state.uid) return;
   const r = ref(db, `users/${state.uid}`);
-  if (document.hidden) update(r, { idleSince: serverTimestamp(), lastSeen: serverTimestamp() });
-  else update(r, { idleSince: null, lastSeen: serverTimestamp(), signedOn: true });
+  if (document.hidden) update(r, { fg: false, idleSince: serverTimestamp(), lastSeen: serverTimestamp() });
+  else update(r, { fg: true, idleSince: null, lastSeen: serverTimestamp(), signedOn: true });
 }
 
 const buddyIDs = () => new Set(state.groups.flatMap((g) => g.members));
