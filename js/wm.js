@@ -23,7 +23,7 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   top = Math.max(top, minTop);
   const saved = savedGeometry(id);
   if (saved) {
-    w = Math.min(saved.w, dw); h = Math.min(saved.h, dh);
+    w = Math.min(saved.w, dw - 4); h = Math.min(saved.h, dh - 4);
     left = Math.min(Math.max(saved.x, 0), Math.max(0, dw - w)); top = Math.min(Math.max(saved.y, minTop), Math.max(minTop, dh - 40));
   }
   // never let the bottom edge (and the resize corner) hang below the screen
@@ -241,8 +241,10 @@ function makeDraggable(el, handle) {
     handle.setPointerCapture(e.pointerId);
     const move = (ev) => {
       const d = desk();
-      el.style.left = Math.min(Math.max(ox + ev.clientX - sx, 60 - el.offsetWidth), d.clientWidth - 60) + "px";
-      el.style.top = Math.min(Math.max(oy + ev.clientY - sy, safeTop()), d.clientHeight - 30) + "px";
+      // stay completely inside the desktop area: no edge can go past the border
+      const maxX = Math.max(0, d.clientWidth - el.offsetWidth), maxY = Math.max(safeTop(), d.clientHeight - el.offsetHeight);
+      el.style.left = Math.min(Math.max(ox + ev.clientX - sx, 0), maxX) + "px";
+      el.style.top = Math.min(Math.max(oy + ev.clientY - sy, safeTop()), maxY) + "px";
     };
     const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); saveGeometry(el); };
     handle.addEventListener("pointermove", move);
@@ -256,8 +258,10 @@ function makeResizable(el, grip) {
     const sx = e.clientX, sy = e.clientY, ow = el.offsetWidth, oh = el.offsetHeight;
     grip.setPointerCapture(e.pointerId);
     const move = (ev) => {
-      el.style.width = Math.max(220, ow + ev.clientX - sx) + "px";
-      el.style.height = Math.max(160, oh + ev.clientY - sy) + "px";
+      // can't grow past the right or bottom border of the desktop area
+      const d = desk(), roomW = d.clientWidth - el.offsetLeft, roomH = d.clientHeight - el.offsetTop;
+      el.style.width = Math.min(roomW, Math.max(Math.min(220, roomW), ow + ev.clientX - sx)) + "px";
+      el.style.height = Math.min(roomH, Math.max(Math.min(160, roomH), oh + ev.clientY - sy)) + "px";
     };
     const up = () => { grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); saveGeometry(el); };
     grip.addEventListener("pointermove", move);
