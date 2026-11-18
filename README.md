@@ -2,7 +2,7 @@
 
 **The online service that never logged off.** DialedUp reimagines a late-'90s online service for 2026: instant messages, chat rooms, mail and profiles, together with modern features such as a social feed, stories and push notifications.
 
-Live at **https://dialedup.lol** · Instant messenger: **https://dialedup.lol/dim.html**
+Live at **https://dialedup.lol** · Instant Messages: **https://dialedup.lol/dim.html**
 
 > DialedUp is an independent, fan-made project. It is not affiliated with, endorsed by, or connected to AOL, AIM, Yahoo or Bending Spoons. All trademarks belong to their owners.
 

@@ -1,6 +1,6 @@
 {
-  "name": "DIM — DialedUp Instant Messenger",
-  "short_name": "DIM",
+  "name": "DialedUp Instant Messages",
+  "short_name": "DialedUp IM",
   "start_url": "dim.html",
   "scope": "./",
   "display": "standalone",
