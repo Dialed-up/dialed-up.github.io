@@ -2,7 +2,7 @@
 // plus pop-ups while the app is open in the background.
 import { auth } from "./firebase.js";
 
-const PUSH = "";   // the push sender's address goes here once it's set up on DialedUp's own Cloudflare account
+const PUSH = "https://dialedup-push.stickyarcadecloud.workers.dev";   // free Cloudflare Worker (see worker/)
 const VAPID_PUBLIC = "BFk3S49eezM1VA09c-2mfLO8Im1Qvew7PH1CdLkWNhlCbsQOrtd8O2VG0leGU9Kys6UF_tpHu_uke8nxsYlKfPw";
 let reg = null;
 const supported = () => "Notification" in window && "serviceWorker" in navigator;
