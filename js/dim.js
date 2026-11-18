@@ -113,7 +113,7 @@ $("to-du").onclick = () => import("./switcher.js").then((m) => m.switchTo("index
 $("start").onclick = () => {
   const r = $("start").getBoundingClientRect();
   contextMenu(r.left, r.top - 4, [
-    { label: "👥 Buddies", action: openBuddyList },
+    { label: "👥 Homies List", action: openBuddyList },
     { label: "📰 Buddy Feed", action: () => import("./social.js").then((m) => m.openFeed()) },
     { label: "🔥 Trending", action: () => import("./engage.js").then((m) => m.openTrending()) },
     { label: "🌍 Groups", action: () => import("./engage.js").then((m) => m.openGroups()) },
@@ -122,7 +122,7 @@ $("start").onclick = () => {
     { label: "✨ New Buddy Update", action: () => import("./social.js").then((m) => m.newStory()) },
     { label: "📨 Unread IMs", action: () => import("./chat.js").then((m) => m.openUnreadIMs()) },
     { label: "➕ Add a Buddy", action: () => openAddBuddy() },
-    { label: "🛠 Manage Buddies", action: () => import("./chat.js").then((m) => m.openEditGroups()) },
+    { label: "🛠 Manage Homies List", action: () => import("./chat.js").then((m) => m.openEditGroups()) },
     { label: "🗨️ Chat Rooms", action: () => openPeoplePlaza() },
     { label: "📬 Mail", action: openMail },
     { label: "📝 Away Message", action: openAway },
