@@ -702,3 +702,10 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 #menubar .fs-btn:not([hidden]) + .install-btn { margin-left: 0; }
 body.dim #taskbar .fs-btn { color: #1e5fc8; font-weight: bold; }
 .bl-offline { background: #fff4d6; border: 1px solid #f0c040; color: #7a5200; border-radius: 8px; padding: 4px 8px; margin-bottom: 6px; font-size: 12px; text-align: center; }
+.yt-player iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 10px; background: #000; display: block; margin-top: 8px; }
+.yt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.yt-tile { border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 0 0 6px; text-align: left; cursor: pointer; overflow: hidden; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.yt-tile img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.yt-tile span { padding: 0 6px; font-weight: bold; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.yt-tile small { padding: 0 6px; color: #666; }
+.sn-panel input { font-weight: bold; }

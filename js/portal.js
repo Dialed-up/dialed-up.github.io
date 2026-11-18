@@ -205,6 +205,7 @@ export function openChannels() {
         ${tile("🎰 Lottery", "Powerball & Mega Millions", "#ffb300", "lottery")}
         ${tile("🔎 Locate", "Find a member online", "#00a68c", "locate")}
         ${tile("🎙 Podcasts", "Top shows, new episodes", "#7b1fa2", "podcasts")}
+        ${tile("▶️ YouTube", "Watch right here", "#e53935", "youtube")}
         ${tile("🤖 DialBot", "Always-online chat buddy", "#21a0fd", "dialbot")}
       </div>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = () => runKeyword(b.dataset.kw)));
@@ -240,7 +241,7 @@ const keywords = {
   about: openAbout,
   browser: () => openBrowser(), web: () => openBrowser(), internet: () => openBrowser(), www: () => openBrowser(),
   cnn: () => openBrowser("https://www.cnn.com"), espn: () => openBrowser("https://www.espn.com"),
-  youtube: () => openBrowser("https://www.youtube.com"), wikipedia: () => openBrowser("https://en.wikipedia.org/wiki/AOL"),
+  youtube: () => import("./youtube.js").then((m) => m.openYouTube()), videos: () => import("./youtube.js").then((m) => m.openYouTube()), wikipedia: () => openBrowser("https://en.wikipedia.org/wiki/AOL"),
   locate: () => openLocate(), find: () => openLocate(), whereis: () => openLocate(),
   polls: openPolls, poll: openPolls, vote: openPolls, qotd: openPolls, question: openPolls,
   movies: openMovies, movie: openMovies, showtimes: openMovies, film: openMovies,
@@ -281,7 +282,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.1722) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.1744) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });

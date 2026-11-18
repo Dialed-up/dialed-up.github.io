@@ -185,6 +185,10 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
           <p class="small muted" style="margin:4px 0">Magic words: <b>%n</b> = the name of whoever's reading · <b>%d</b> = today's date · <b>%t</b> = the time</p>
         </section>
         <section data-p="info" hidden>
+          <div class="panel sn-panel"><b>🆔 Screen Name</b>
+            <div class="row" style="gap:4px;margin-top:4px"><input id="sn-new" value="${esc(screenName)}" maxlength="20" autocapitalize="off" style="flex:1"><button class="btn small-btn" id="sn-go">Change</button></div>
+            <p class="small muted" style="margin:4px 0 0">3–16 letters or numbers (spaces OK). Your password stays the same, and you can sign on with your new or old name. Buddies see the new name right away.</p>
+            <p class="error" id="sn-err"></p></div>
           ${FIELDS.map(([k, label, ph]) => k === "gender" ? `<label>${label}<select data-f="${k}">${GENDER.map((g) => `<option ${card[k] === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>`
             : k === "status" ? `<label>${label}<select data-f="${k}">${STATUS.map((g) => `<option ${card[k] === g ? "selected" : ""}>${g}</option>`).join("")}</select></label>`
             : `<label>${label}<input data-f="${k}" maxlength="${k === "quote" ? 140 : 60}" value="${esc(card[k] || (k === "location" ? u.location || "" : ""))}" placeholder="${esc(ph)}"></label>`).join("")}
@@ -288,6 +292,24 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         ed.setAttribute("style", css);
         body.querySelectorAll("[data-look]").forEach((x) => x.classList.toggle("on", x.dataset.look === look.theme));
         body.querySelectorAll("[data-border]").forEach((x) => x.classList.toggle("primary", x.dataset.border === look.border));
+      };
+      body.querySelector("#sn-go").onclick = async () => {
+        const n = body.querySelector("#sn-new").value.trim();
+        const err = body.querySelector("#sn-err");
+        err.textContent = "";
+        if (!n || n === screenName) return;
+        if (!confirm(`Change your screen name to "${n}"?`)) return;
+        try {
+          const { changeScreenName } = await import("./firebase.js");
+          const done = await changeScreenName(n);
+          try {
+            const names = JSON.parse(localStorage.getItem("du.names") || "[]").filter((x) => x.toLowerCase() !== done.toLowerCase());
+            localStorage.setItem("du.names", JSON.stringify([done, ...names].slice(0, 7)));
+          } catch {}
+          alert(`You're now "${done}"! Sign on with this name next time (your password is the same).`);
+          screenName = done;
+          document.title = document.title.replace(/—.*$/, "— " + done);
+        } catch (e) { err.textContent = e.message; }
       };
       body.querySelectorAll("[data-look]").forEach((b) => (b.onclick = () => { look.theme = b.dataset.look; paintLook(); }));
       body.querySelectorAll("[data-border]").forEach((b) => (b.onclick = () => { look.border = b.dataset.border; paintLook(); }));

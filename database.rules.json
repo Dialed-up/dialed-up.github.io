@@ -360,6 +360,13 @@
           ".validate": "newData.isString() && newData.val().length <= 360000"
         }
       }
+    },
+    "loginnames": {
+      ".read": true,
+      "$key": {
+        ".write": "auth != null && !data.exists() && root.child('screennames/' + $key).val() === auth.uid",
+        ".validate": "newData.hasChildren(['login']) && newData.child('login').isString() && newData.child('login').val().matches(/^[a-z0-9]{3,16}$/) && newData.child('login').val() !== $key"
+      }
     }
   }
 }

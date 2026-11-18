@@ -50,7 +50,10 @@ function friendly(err) {
 export async function signOn(screenName, password, remember) {
   try {
     await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
-    const cred = await signInWithEmailAndPassword(auth, emailFor(screenName), password);
+    // Renamed accounts: the new screen name points to the original login
+    let login = normalize(screenName);
+    try { const l = (await get(ref(db, `loginnames/${login}/login`))).val(); if (typeof l === "string" && l) login = l; } catch {}
+    const cred = await signInWithEmailAndPassword(auth, emailFor(login), password);
     return cred.user;
   } catch (e) {
     throw new Error(friendly(e));
@@ -91,3 +94,34 @@ export async function signOff() {
 }
 
 export const conversationID = (a, b) => [a, b].sort().join("_");
+
+/** Change your screen name. Your password and login stay the same; the new name (and the old one) both sign you in. */
+export async function changeScreenName(newName) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Sign on first.");
+  const name = (newName || "").trim();
+  if (!validScreenName(name)) throw new Error("Screen names are 3–16 letters or numbers (spaces are OK).");
+  const key = normalize(name);
+  const uid = user.uid;
+  const login = (user.email || "").split("@")[0];
+  const current = (await get(ref(db, `users/${uid}/screenName`))).val() || login;
+  const oldKey = normalize(current);
+  if (key !== oldKey) {
+    const owner = (await get(ref(db, `screennames/${key}`))).val();
+    if (owner && owner !== uid) throw new Error(`"${name}" is already taken. Try another one.`);
+    if (!owner) {
+      try { await set(ref(db, `screennames/${key}`), uid); } catch { throw new Error(`"${name}" is already taken. Try another one.`); }
+    }
+    if (key !== login) await set(ref(db, `loginnames/${key}`), { login }).catch(() => {});
+    // Bring your Home Page along to its new address
+    try {
+      const page = (await get(ref(db, `homepages/${oldKey}`))).val();
+      if (page && !(await get(ref(db, `homepages/${key}`))).val()) await set(ref(db, `homepages/${key}`), page);
+    } catch {}
+  }
+  await update(ref(db, `users/${uid}`), { screenName: name, renamedAt: serverTimestamp() });
+  await set(ref(db, `names/${uid}`), name).catch(() => {});
+  if ((await get(ref(db, `directory/${uid}/screenName`)).catch(() => null))?.val()) await update(ref(db, `directory/${uid}`), { screenName: name }).catch(() => {});
+  if ((await get(ref(db, `publicprofiles/${uid}/screenName`)).catch(() => null))?.val()) await update(ref(db, `publicprofiles/${uid}`), { screenName: name }).catch(() => {});
+  return name;
+}
