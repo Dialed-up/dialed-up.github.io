@@ -53,13 +53,8 @@ function paintBadge() {
 
 function mailsHere() {
   sfx.alertBlip();
-  import("./notify.js").then((m) => m.notify("📬 Mail's here!", "You have new mail on DialedUp.", { tag: "mail" }));
-  if (localStorage.getItem("du.muted") === "1") return;
-  try {
-    const u = new SpeechSynthesisUtterance("Mail's here!");
-    u.rate = 1.05; u.pitch = 1.2;
-    speechSynthesis.speak(u);
-  } catch {}
+  import("./notify.js").then((m) => m.notify("📬 You have mail!", "You have new mail on DialedUp.", { tag: "mail" }));
+  sfx.youHaveMail();
 }
 
 const refresh = () => { const w = getWindow("mail"); if (w) renderMailbox(w.body); };

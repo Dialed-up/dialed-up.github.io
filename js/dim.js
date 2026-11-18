@@ -87,7 +87,7 @@ async function enter(fresh) {
   watchCalls(userName);
   watchMail();
   openBuddyList();
-  if (fresh) sfx.buddyIn();
+  if (fresh) sfx.welcome();
 }
 
 function leave() {

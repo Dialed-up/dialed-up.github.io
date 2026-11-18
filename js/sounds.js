@@ -66,15 +66,94 @@ export function dialUp() {
   return t;
 }
 
+// ---------- Talking ----------
+let voice = null;
+function pickVoice() {
+  const vs = speechSynthesis.getVoices();
+  if (!vs.length) return null;
+  const en = vs.filter((v) => /^en(-|_)US/i.test(v.lang));
+  return en.find((v) => /samantha|ava|allison|google us english|zira|aria/i.test(v.name)) || en[0] || vs.find((v) => /^en/i.test(v.lang)) || null;
+}
+try { speechSynthesis.onvoiceschanged = () => (voice = pickVoice()); } catch {}
+
+/** Says something out loud with the phone or computer's built-in voice. */
+export function say(text, { rate = 1, pitch = 1.05, delay = 0 } = {}) {
+  if (muted || !("speechSynthesis" in window)) return;
+  const go = () => {
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      voice = voice || pickVoice();
+      if (voice) u.voice = voice;
+      u.rate = rate; u.pitch = pitch; u.volume = 1;
+      speechSynthesis.speak(u);
+    } catch {}
+  };
+  delay ? setTimeout(go, delay) : go();
+}
+
 export function welcome() {
   if (muted) return;
   [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.12, 0.35, { type: "triangle", vol: 0.12 }));
-  try {
-    const u = new SpeechSynthesisUtterance("Welcome! You're dialed up.");
-    u.rate = 1.05; u.pitch = 1.1;
-    setTimeout(() => speechSynthesis.speak(u), 600);
-  } catch {}
+  say("Welcome!", { delay: 550, pitch: 1.1 });
 }
+
+/** Spoken mail alert. */
+export function youHaveMail() { say("You have mail!", { pitch: 1.1 }); }
+
+// ---------- Doors (made from scratch: a creaky hinge, a latch click and a thump) ----------
+function latch(start, vol = 0.18) {
+  const c = ac();
+  const t = c.currentTime + start;
+  const buf = c.createBuffer(1, Math.floor(c.sampleRate * 0.03), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+  const src = c.createBufferSource(); src.buffer = buf;
+  const f = c.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 1800;
+  const g = c.createGain(); g.gain.value = vol;
+  src.connect(f).connect(g).connect(c.destination);
+  src.start(t);
+}
+function creak(start, dur, fromHz, toHz, vol = 0.07) {
+  const c = ac();
+  const t = c.currentTime + start;
+  const o = c.createOscillator(); o.type = "sawtooth";
+  o.frequency.setValueAtTime(fromHz, t);
+  o.frequency.linearRampToValueAtTime((fromHz + toHz) / 2 + 40, t + dur * 0.55);
+  o.frequency.linearRampToValueAtTime(toHz, t + dur);
+  // stick-slip: the hinge "catches" many times a second, which is what makes a creak
+  const lfo = c.createOscillator(); lfo.type = "square";
+  lfo.frequency.setValueAtTime(22, t); lfo.frequency.linearRampToValueAtTime(48, t + dur);
+  const lfoGain = c.createGain(); lfoGain.gain.value = vol * 0.9;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.05);
+  g.gain.setValueAtTime(vol, t + dur - 0.08); g.gain.linearRampToValueAtTime(0, t + dur);
+  lfo.connect(lfoGain).connect(g.gain);
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 3;
+  o.connect(bp).connect(g).connect(c.destination);
+  o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+}
+function thump(start, vol = 0.5) {
+  const c = ac();
+  const t = c.currentTime + start;
+  const o = c.createOscillator(); o.type = "sine";
+  o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.25);
+  const g = c.createGain();
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  o.connect(g).connect(c.destination);
+  o.start(t); o.stop(t + 0.35);
+  const buf = c.createBuffer(1, Math.floor(c.sampleRate * 0.15), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const src = c.createBufferSource(); src.buffer = buf;
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 400;
+  const g2 = c.createGain(); g2.gain.value = vol * 0.6;
+  src.connect(lp).connect(g2).connect(c.destination);
+  src.start(t);
+}
+/** A buddy signed on: latch click, then the door creaks open. */
+export function doorOpen() { if (muted) return; latch(0); creak(0.06, 0.75, 260, 520); }
+/** A buddy signed off: a short creak, then the door shuts. */
+export function doorClose() { if (muted) return; creak(0, 0.4, 480, 300, 0.06); thump(0.42); latch(0.44, 0.22); }
 
 export function buddyIn() { if (!muted) { tone(660, 0, 0.12, { type: "triangle" }); tone(990, 0.1, 0.18, { type: "triangle" }); } }
 export function buddyOut() { if (!muted) { tone(880, 0, 0.12, { type: "triangle" }); tone(440, 0.1, 0.22, { type: "triangle" }); } }

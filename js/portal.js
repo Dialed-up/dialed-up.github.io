@@ -253,9 +253,25 @@ const keywords = {
   podcasts: () => import("./podcasts.js").then((m) => m.openPodcasts()), podcast: () => import("./podcasts.js").then((m) => m.openPodcasts()),
   bot: () => import("./bot.js").then((m) => m.openBot()), dialbot: () => import("./bot.js").then((m) => m.openBot()),
   notifications: () => import("./notify.js").then((m) => m.enableNotifications()),
+  sounds: openSounds, sound: openSounds, voices: openSounds,
   lottery: openLottery, lotto: openLottery, powerball: openLottery, megamillions: openLottery,
   help: openHelp,
 };
+
+function openSounds() {
+  import("./sounds.js").then((sfx) => openWindow("sounds", {
+    title: "Sounds", icon: "🔊", width: 300, height: 340, keyword: "sounds",
+    render(body) {
+      const list = [["👋 \"Welcome!\" (signing on)", "welcome"], ["📬 \"You have mail!\"", "youHaveMail"], ["🚪 Door opens (buddy signs on)", "doorOpen"],
+        ["🚪 Door closes (buddy signs off)", "doorClose"], ["💬 IM received", "imIn"], ["👋 Goodbye (signing off)", "goodbye"]];
+      body.innerHTML = `<ul class="list">${list.map(([l, f]) => `<li class="row"><span>${l}</span><button class="btn small-btn" data-s="${f}">▶ Play</button></li>`).join("")}</ul>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="snd-mute" ${sfx.isMuted() ? "checked" : ""}> Mute all sounds</label>
+        <p class="small muted">The voice is your phone or computer's built-in voice. Turn your ringer on (iPhone side switch) to hear sounds.</p>`;
+      body.querySelectorAll("[data-s]").forEach((b) => (b.onclick = () => { sfx.unlock(); sfx[b.dataset.s](); }));
+      body.querySelector("#snd-mute").onchange = (e) => sfx.setMuted(e.target.checked);
+    },
+  }));
+}
 
 function openAbout() {
   openWindow("about", {
@@ -264,7 +280,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.1347) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.1349) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });

@@ -168,8 +168,8 @@ function checkPresenceChanges() {
     const before = state.known[uid];
     state.known[uid] = p;
     if (!state.loadedUsers || !before || before === p) continue;
-    if (before === "offline") sfx.buddyIn();
-    else if (p === "offline") sfx.buddyOut();
+    if (before === "offline") sfx.doorOpen();
+    else if (p === "offline") sfx.doorClose();
     fireAlerts(uid, before, p);
   }
 }

@@ -54,7 +54,7 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
     Window: null,   // built when opened
     Keyword: [["Go to Keyword…", () => $("keyword").focus()], ["Keyword List", () => go("help")]],
     "Sign Off": [["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
-    Help: [["Preferences (Themes)", () => go("preferences")], ["Kid-Safe Mode", () => go("kids")], ["Keyword Help", () => go("help")], ["Online Clock", openClock], ["About DialedUp", () => go("about")]],
+    Help: [["Preferences (Themes)", () => go("preferences")], ["🔊 Sounds", () => go("sounds")], ["Kid-Safe Mode", () => go("kids")], ["Keyword Help", () => go("help")], ["Online Clock", openClock], ["About DialedUp", () => go("about")]],
   };
   const holder = $("menus");
   holder.innerHTML = Object.keys(menus).map((m) => `<button class="menu-item" data-menu="${m}">${m}</button>`).join("");
