@@ -828,3 +828,5 @@ ol.lb li.me { background: #fff6c8; font-weight: bold; }
 .start .short { display: none; }
 @media (max-width: 700px) { .start .long { display: none; } .start .short { display: inline; } }
 @media (max-width: 420px) { .dim-logo b { font-size: 25px; } .dim-logo img { width: 60px; } }
+.story-bubble.mine .bicon { outline: 3px solid transparent; box-shadow: 0 0 0 2px #fff, 0 0 0 5px #ff5ec4, 0 0 0 7px #8a4dff; }
+.my-story .bicon { border-radius: 50%; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #ff5ec4, 0 0 0 6px #8a4dff; cursor: pointer; }

@@ -119,7 +119,7 @@ export async function startChat() {
   syncWatches();
   import("./social.js").then((m) => {
     social = m;
-    [...watches.keys()].forEach((u) => { if (!storyWatched.has(u)) { storyWatched.add(u); m.watchStories(u, refreshBuddyList); } });
+    [state.uid, ...watches.keys()].forEach((u) => { if (!storyWatched.has(u)) { storyWatched.add(u); m.watchStories(u, refreshBuddyList); } });
     document.addEventListener("du:stories", refreshBuddyList);
   });
   import("./engage.js").then((m) => {
@@ -340,8 +340,8 @@ function refreshBuddyList() {
         <option value="online" ${show === "online" ? "selected" : ""}>Online Only</option>
         <option value="available" ${show === "available" ? "selected" : ""}>Hide Away & Idle</option>
       </select></div>
-    <div class="bl-me" data-me title="Tap to edit your profile">${state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="${document.body.classList.contains("dim") ? "img/dim-logo.png" : "img/logo.png"}" width="40" height="28" alt="" style="object-fit:contain">`}
-      <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
+    <div class="bl-me" data-me title="Tap to edit your profile">${social?.hasStory(state.uid) ? `<span class="my-story ring" data-mystory title="See your Homie Update">${iconHTML(state.uid, 34)}</span>` : state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="${document.body.classList.contains("dim") ? "img/dim-logo.png" : "img/logo.png"}" width="40" height="28" alt="" style="object-fit:contain">`}
+      <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${social?.hasStory(state.uid) ? `<br><a href="#" class="small" data-mystory>✨ Your Homie Update is live</a>` : ""}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
     <div class="group"><button>▾ Bots (1/1)</button>
       <div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div></div>
     ${groupsHTML}
@@ -359,7 +359,10 @@ function refreshBuddyList() {
       <button class="btn small-btn" data-act="setup">Setup</button>
     </div>`;
   body.scrollTop = scroll;
-  body.querySelector("[data-me]").onclick = () => openProfile();
+  body.querySelector("[data-me]").onclick = (e) => {
+    if (e.target.closest("[data-mystory]")) { e.preventDefault(); social?.viewStories(state.uid, refreshBuddyList); return; }
+    openProfile();
+  };
   body.querySelectorAll("[data-story]").forEach((r) => (r.onclick = (e) => { e.stopPropagation(); social?.viewStories(r.dataset.story, refreshBuddyList); }));
   body.querySelector("[data-bot]").onclick = () => import("./bot.js").then((m) => m.openBot());
   body.querySelectorAll("[data-buddy]").forEach((el) => {

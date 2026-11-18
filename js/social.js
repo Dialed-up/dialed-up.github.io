@@ -277,7 +277,7 @@ function paintStoriesBar(el) {
   const people = [uid(), ...buddyList()];
   const draw = () => {
     const withStories = people.filter((u) => u !== uid() && hasStory(u)).sort((a, b) => Number(hasNewStory(b)) - Number(hasNewStory(a)));
-    el.innerHTML = `<button class="story-bubble add" data-add>${iconHTML(uid(), 52)}<b>＋</b><span>${hasStory(uid()) ? "Your Update" : "Add Update"}</span></button>
+    el.innerHTML = `<button class="story-bubble add ${hasStory(uid()) ? "mine" : ""}" data-add>${iconHTML(uid(), 52)}<b>＋</b><span>${hasStory(uid()) ? "Your Update" : "Add Update"}</span></button>
       ${withStories.map((u) => `<button class="story-bubble ${hasNewStory(u) ? "new" : ""}" data-s="${esc(u)}">${iconHTML(u, 52)}<span>${esc(userName(u))}</span></button>`).join("")}`;
     el.querySelector("[data-add]").onclick = () => (hasStory(uid()) ? contextMenu(...pos(el), [
       { label: "👀 View My Update", action: () => viewStories(uid()) }, { label: "➕ Add Another", action: newStory }]) : newStory());
@@ -328,6 +328,7 @@ export function newStory() {
           // tidy up your expired updates
           get(ref(db, `stories/${uid()}`)).then((s) => Object.entries(s.val() || {}).forEach(([sid, st]) => Date.now() - (st.ts || 0) > DAY && remove(ref(db, `stories/${uid()}/${sid}`)).catch(() => {}))).catch(() => {});
           closeWindow("story.new");
+          setTimeout(() => viewStories(uid()), 400);   // show it right away so you know it's live
         } catch (err) { msg.textContent = err.message || "Couldn't share it."; e.target.disabled = false; }
       };
     },
