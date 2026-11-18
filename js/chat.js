@@ -373,6 +373,7 @@ function refreshBuddyList() {
     },
     setup: (b) => contextMenu(...at(b), [
       { label: "➕ Add a Buddy", action: () => openAddBuddy() },
+      { label: "➖ Remove a Buddy…", action: () => pickBuddyToRemove(...at(b)) },
       { label: "📁 Add a Group", action: newGroup },
       { label: "🔎 Get Member Info…", action: () => openGetInfo() },
       { label: "🛠 Manage Buddy List…", action: openEditGroups },
@@ -494,9 +495,18 @@ function putInGroup(uid, gid) {
   saveGroups();
 }
 
-async function removeBuddy(uid) {
+async function removeBuddy(uid, { ask = true } = {}) {
+  if (ask && !confirm(`Remove ${name(uid)} from your Buddy List?`)) return false;
   state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
   await saveGroups();
+  return true;
+}
+
+/** Setup → Remove a Buddy: pick from your list. */
+function pickBuddyToRemove(x, y) {
+  const list = [...buddyIDs()].sort((a, b) => name(a).localeCompare(name(b)));
+  if (!list.length) { alert("Your Buddy List is empty."); return; }
+  contextMenu(x, y, list.map((u) => ({ label: "➖ " + name(u), action: () => removeBuddy(u) })));
 }
 
 /** Opens a file picker, then sends the chosen file to `uid`. */
@@ -605,7 +615,7 @@ export function openEditGroups() {
         body.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => deleteGroup(b.dataset.x)));
         body.querySelectorAll("[data-mv]").forEach((sel) => (sel.onchange = () => putInGroup(sel.dataset.mv, sel.value)));
         body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => {
-          if (confirm(`Remove ${name(b.dataset.rm)} from your Buddy List?`)) removeBuddy(b.dataset.rm);
+          removeBuddy(b.dataset.rm);
         }));
       };
       paint();
@@ -760,7 +770,7 @@ export function openIM(uid, { quiet = false } = {}) {
         { label: "📞 Talk", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid))) },
         { label: "📹 Video Chat", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid), { video: true })) },
         { label: "📜 IM History", action: () => openHistory(uid) },
-        ...(buddyIDs().has(uid) ? [] : [{ label: "➕ Add Buddy", action: () => openAddBuddy(name(uid)) }]),
+        ...(buddyIDs().has(uid) ? [{ label: "🗑 Remove Buddy", action: () => removeBuddy(uid) }] : [{ label: "➕ Add Buddy", action: () => openAddBuddy(name(uid)) }]),
         "-",
         { label: "⚠️ Warn", action: doWarn },
         { label: state.blocked.has(uid) ? "✅ Unblock" : "⛔ Block", danger: !state.blocked.has(uid), action: () => toggleBlock(uid) },
@@ -1152,9 +1162,7 @@ export async function openInfo(uid) {
       body.querySelector("[data-x=file]").onclick = () => sendFileTo(uid);
       body.querySelector("[data-x=add]")?.addEventListener("click", () => openAddBuddy(u.screenName || name(uid)));
       body.querySelector("[data-x=remove]")?.addEventListener("click", async () => {
-        state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
-        await saveGroups();
-        closeWindow("info." + uid);
+        if (await removeBuddy(uid)) closeWindow("info." + uid);
       });
       body.querySelector("[data-x=block]").onclick = async () => { await toggleBlock(uid); closeWindow("info." + uid); };
     },
