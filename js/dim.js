@@ -1,5 +1,6 @@
 // DIM — DialedUp Instant Messenger: the Buddy List, IMs and chat rooms on their own desktop, in their own tab.
 import "./update.js";
+import { startSync, stopSync } from "./sync.js";
 import { auth, onAuthStateChanged, signOn, signOff } from "./firebase.js";
 import * as sfx from "./sounds.js";
 import { closeAll, contextMenu, openWindow, closeWindow } from "./wm.js";
@@ -81,6 +82,7 @@ async function enter(fresh) {
   $("app").hidden = false;
   applyBackdrop();
   await startChat();
+  if (await startSync(auth.currentUser.uid)) applyBackdrop();
   document.title = `DIM — ${me().screenName}`;
   watchInvites();
   watchWarnings();
@@ -93,7 +95,7 @@ async function enter(fresh) {
 
 function leave() {
   started = false;
-  stopChat(); stopInvites(); stopWarnings(); stopCalls(); stopMail();
+  stopChat(); stopInvites(); stopWarnings(); stopCalls(); stopMail(); stopSync();
   closeAll();
 }
 

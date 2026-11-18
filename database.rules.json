@@ -351,6 +351,15 @@
           ".validate": "newData.isString() && newData.val().length <= 160000"
         }
       }
+    },
+    "settings": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$key": {
+          ".validate": "newData.isString() && newData.val().length <= 360000"
+        }
+      }
     }
   }
 }

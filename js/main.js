@@ -20,6 +20,7 @@ import { addToHomeScreen, refreshButtons } from "./install.js";
 import { me } from "./chat.js";
 import { writeMail } from "./mail.js";
 import "./update.js";
+import { startSync, stopSync } from "./sync.js";
 import { watchReminders, stopReminders, watchEvents, stopEvents } from "./more.js";
 
 const $ = (id) => document.getElementById(id);
@@ -141,6 +142,7 @@ async function enterDesktop(fresh) {
   started = true;
   show("app");
   await startChat();
+  if (await startSync(auth.currentUser.uid)) { applyPrefs(); applyKidMode(); }   // settings saved to the account come back here
   rememberName(me().screenName);
   startClock();
   setupChrome({
@@ -179,6 +181,7 @@ function leaveDesktop() {
   stopGameInvites();
   stopCalls();
   stopReminders();
+  stopSync();
   stopEvents();
   stopRadio();
   closeAll();

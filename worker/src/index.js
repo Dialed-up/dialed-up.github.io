@@ -5,7 +5,7 @@
 import { buildPushPayload } from "@block65/webcrypto-web-push";
 
 const DB = "https://buddychat-48c0b-default-rtdb.firebaseio.com";
-const ORIGINS = ["https://dialed-up.github.io", "http://localhost:8765"];
+const ORIGINS = ["https://dialedup.lol", "https://www.dialedup.lol", "https://dialed-up.github.io", "http://localhost:8765"];
 
 const cors = (req) => {
   const o = req.headers.get("origin") || "";
@@ -37,7 +37,7 @@ const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
 
 async function sendTo(env, uid, note) {
   const list = await env.SUBS.list({ prefix: `sub:${uid}:` });
-  const vapid = { subject: "https://dialed-up.github.io", publicKey: env.VAPID_PUBLIC, privateKey: env.VAPID_PRIVATE };
+  const vapid = { subject: "https://dialedup.lol", publicKey: env.VAPID_PUBLIC, privateKey: env.VAPID_PRIVATE };
   let sent = 0;
   await Promise.all(list.keys.map(async ({ name }) => {
     const sub = await env.SUBS.get(name, "json");
