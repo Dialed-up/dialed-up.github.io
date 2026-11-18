@@ -215,8 +215,9 @@ export function openBuddyList() {
   const w = bigScreen ? 250
     : Math.max(220, Math.min(wide ? 250 : 230, Math.round(desk.clientWidth * (wide ? 0.32 : 0.5))));
   openWindow("buddies", {
-    title: `${state.me.screenName}'s Buddy List`, icon: "👥", width: w, height: bigScreen ? Math.min(600, desk.clientHeight - 40) : desk.clientHeight - 12,
-    x: desk.clientWidth - w - (bigScreen ? 24 : 6), y: bigScreen ? 16 : 6, render: () => refreshBuddyList(),
+    title: `${state.me.screenName}'s Buddy List`, icon: "👥", width: w, height: bigScreen ? Math.min(600, desk.clientHeight - 80) : desk.clientHeight - (document.body.classList.contains("dim") ? 70 : 12),
+    x: desk.clientWidth - w - (bigScreen ? 24 : 6),
+    y: document.body.classList.contains("dim") ? (bigScreen ? 60 : 44) : bigScreen ? 16 : 6, render: () => refreshBuddyList(),
   });
 }
 

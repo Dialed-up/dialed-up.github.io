@@ -571,3 +571,4 @@ html:has(body.dim) { background: #1e5fc8; }
 .dim-mini { width: 18px; height: 18px; vertical-align: -4px; }
 .switch-tab { display: inline-flex; align-items: center; gap: 4px; }
 
+body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; background: linear-gradient(180deg, #7fb8ff, #2e6fd6); }

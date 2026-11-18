@@ -16,12 +16,15 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   let w = Math.min(width, small ? Math.round(dw * 0.86) : dw - 12);
   let h = Math.min(height, small ? Math.round(dh * 0.7) : shortScreen ? dh - 10 : dh - 12);
   const step = (cascadeCount++ % 6) * (small ? 18 : 26);
-  let left = x ?? Math.min(8 + step, dw - w - 6);
-  let top = y ?? Math.min(8 + step, dh - h - 6);
+  const minTop = safeTop();
+  const centered = document.body.classList.contains("dim");   // DIM: new windows open in the middle
+  let left = x ?? (centered ? Math.max(0, Math.round((dw - w) / 2) + step - 26) : Math.min(8 + step, dw - w - 6));
+  let top = y ?? (centered ? Math.max(minTop, Math.round((dh - h) / 2) + step - 26) : Math.min(8 + step, dh - h - 6));
+  top = Math.max(top, minTop);
   const saved = savedGeometry(id);
   if (saved) {
     w = Math.min(saved.w, dw); h = Math.min(saved.h, dh);
-    left = Math.min(Math.max(saved.x, 0), Math.max(0, dw - w)); top = Math.min(Math.max(saved.y, 0), Math.max(0, dh - 40));
+    left = Math.min(Math.max(saved.x, 0), Math.max(0, dw - w)); top = Math.min(Math.max(saved.y, minTop), Math.max(minTop, dh - 40));
   }
   el.style.width = w + "px";
   el.style.height = h + "px";
@@ -92,7 +95,7 @@ export function closeWindow(id) {
 }
 
 // ---------- remembering where windows were ----------
-const geoKey = (id) => "du.win2." + id.split(".")[0] + (id.startsWith("im.") || id === "buddies" ? "" : "." + id);
+const geoKey = (id) => "du.win3." + id.split(".")[0] + (id.startsWith("im.") || id === "buddies" ? "" : "." + id);
 function savedGeometry(id) {
   try { return JSON.parse(localStorage.getItem(geoKey(id)) || "null"); } catch { return null; }
 }
@@ -199,6 +202,21 @@ export function tile() {
 export function closeAll() { [...wins.keys()].forEach(closeWindow); cascadeCount = 0; }
 export const getWindow = (id) => wins.get(id);
 
+/** How far down windows must stay so their title bar is never hidden under the phone's clock/notch. */
+let safeTopPx = null;
+export function safeTop() {
+  if (safeTopPx === null) {
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;top:0;padding-top:env(safe-area-inset-top);visibility:hidden";
+    document.body.appendChild(probe);
+    const inset = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+    probe.remove();
+    const deskTop = desk()?.getBoundingClientRect().top || 0;
+    safeTopPx = Math.max(0, Math.ceil(inset - deskTop)) + (document.body.classList.contains("dim") ? 8 : 0);
+  }
+  return safeTopPx;
+}
+
 export function focus(id) {
   const w = wins.get(id);
   if (!w) return;
@@ -222,7 +240,7 @@ function makeDraggable(el, handle) {
     const move = (ev) => {
       const d = desk();
       el.style.left = Math.min(Math.max(ox + ev.clientX - sx, 60 - el.offsetWidth), d.clientWidth - 60) + "px";
-      el.style.top = Math.min(Math.max(oy + ev.clientY - sy, 0), d.clientHeight - 30) + "px";
+      el.style.top = Math.min(Math.max(oy + ev.clientY - sy, safeTop()), d.clientHeight - 30) + "px";
     };
     const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); saveGeometry(el); };
     handle.addEventListener("pointermove", move);
