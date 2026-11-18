@@ -816,3 +816,6 @@ ol.lb li.me { background: #fff6c8; font-weight: bold; }
 .party-bar .btn.primary { color: #fff; }
 .w-feed .stories-bar { margin-bottom: 6px; }
 .feed-more { display: block; margin: 6px auto 0; }
+.altcaps { display: inline-flex !important; align-items: center; gap: 3px; font-size: 11px !important; font-weight: normal !important; margin: 2px 0 !important; color: inherit; opacity: .85; cursor: pointer; white-space: nowrap; width: auto !important; }
+.altcaps input { width: auto !important; margin: 0 !important; }
+.fmt .altcaps { margin-left: 4px !important; }

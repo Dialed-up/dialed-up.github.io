@@ -79,7 +79,7 @@ export function openMyPage() {
           <label class="check"><input type="checkbox" data-k="glitter" ${d.glitter ? "checked" : ""}> Glitter title ✨</label>
           <label>Scrolling message <input data-k="marquee" value="${esc(d.marquee || "")}"></label>
           <label>About me <textarea data-k="intro" rows="4">${esc(d.intro || "")}</textarea></label>
-          <label>Links (one per line: <i>Name | https://…</i>) <textarea data-k="links" rows="3">${esc(d.links || "")}</textarea></label>
+          <label>Links (one per line: <i>Name | https://…</i>) <textarea data-k="links" rows="3" data-no-altcaps>${esc(d.links || "")}</textarea></label>
           <div class="grid2">
             <label>Background <select data-k="bg">${Object.keys(backgrounds).map((b) => `<option ${b === d.bg ? "selected" : ""}>${b}</option>`).join("")}</select></label>
             <label>Font <select data-k="font">${["Comic Sans MS", "Verdana", "Impact", "Courier New", "Georgia", "Trebuchet MS"].map((f) => `<option ${f === d.font ? "selected" : ""}>${f}</option>`).join("")}</select></label>

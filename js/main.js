@@ -21,6 +21,7 @@ import { me } from "./chat.js";
 import { writeMail } from "./mail.js";
 import "./update.js";
 import "./fullscreen.js";
+import "./altcaps.js";
 import { startSync, stopSync } from "./sync.js";
 import { watchReminders, stopReminders, watchEvents, stopEvents } from "./more.js";
 
