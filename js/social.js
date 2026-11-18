@@ -189,35 +189,43 @@ export function renderWall(el, owner, { label = null, groupOwnerUid = null } = {
 
 // =================== The Buddy Feed ===================
 const feedSeenKey = () => "du.feedSeen." + uid();
-export function openFeed() {
+/** The feed itself (stories bar, post box, posts). Used by the Feed window and the Welcome screen. Returns a cleanup function. */
+export function mountFeed(body, { limit = 60, more = null } = {}) {
   const refs = [], cards = [];
+  body.innerHTML = `<div class="stories-bar"></div><div class="feed-compose"></div><div class="feed-list"><p class="muted">Loading your buddies' posts…</p></div>`;
+  paintStoriesBar(body.querySelector(".stories-bar"));
+  body.querySelector(".feed-compose").appendChild(composer(uid()));
+  const people = [uid(), ...buddyList()];
+  const byUser = {};
+  const paint = () => {
+    const sorted = Object.entries(byUser).flatMap(([owner, posts]) => posts.map(([pid, p]) => ({ owner, pid, p })))
+      .sort((a, b) => (b.p.ts || 0) - (a.p.ts || 0));
+    const all = sorted.slice(0, limit);
+    const list = body.querySelector(".feed-list");
+    if (!list) return;
+    cards.forEach((fn) => fn()); cards.length = 0;
+    if (!all.length) { list.innerHTML = `<div class="panel small">No posts yet. Be the first! Share a photo or what you're up to above. 👆</div>`; return; }
+    list.innerHTML = "";
+    all.forEach(({ owner, pid, p }) => { const d = document.createElement("div"); list.appendChild(d); cards.push(postCard(d, owner, pid, p)); });
+    if (more && sorted.length > limit) { const a = document.createElement("button"); a.className = "btn small-btn feed-more"; a.textContent = "See more in the Buddy Feed ›"; a.onclick = more; list.appendChild(a); }
+    try { localStorage.setItem(feedSeenKey(), String(Date.now())); } catch {}
+    paintFeedBadge(0);
+  };
+  let timer = null;
+  people.forEach((u) => {
+    const r = query(ref(db, `posts/${u}`), orderByKey(), limitToLast(15));
+    onValue(r, (s) => { const posts = []; s.forEach((c) => { posts.push([c.key, c.val()]); }); byUser[u] = posts; clearTimeout(timer); timer = setTimeout(paint, 250); }, () => {});
+    refs.push(r);
+  });
+  return () => { refs.forEach((r) => off(r)); cards.forEach((fn) => fn()); };
+}
+
+export function openFeed() {
+  let cleanup = null;
   openWindow("feed", {
     title: "Buddy Feed", icon: "📰", width: 440, height: 600, keyword: "feed",
-    onClose: () => { refs.forEach((r) => off(r)); cards.forEach((fn) => fn()); },
-    render(body) {
-      body.innerHTML = `<div class="stories-bar"></div><div class="feed-compose"></div><div class="feed-list"><p class="muted">Loading your buddies' posts…</p></div>`;
-      paintStoriesBar(body.querySelector(".stories-bar"));
-      body.querySelector(".feed-compose").appendChild(composer(uid()));
-      const people = [uid(), ...buddyList()];
-      const byUser = {};
-      const paint = () => {
-        const all = Object.entries(byUser).flatMap(([owner, posts]) => posts.map(([pid, p]) => ({ owner, pid, p })))
-          .sort((a, b) => (b.p.ts || 0) - (a.p.ts || 0)).slice(0, 60);
-        const list = body.querySelector(".feed-list");
-        cards.forEach((fn) => fn()); cards.length = 0;
-        if (!all.length) { list.innerHTML = `<div class="panel small">No posts yet. Be the first! Share a photo or what you're up to above. 👆</div>`; return; }
-        list.innerHTML = "";
-        all.forEach(({ owner, pid, p }) => { const d = document.createElement("div"); list.appendChild(d); cards.push(postCard(d, owner, pid, p)); });
-        try { localStorage.setItem(feedSeenKey(), String(Date.now())); } catch {}
-        paintFeedBadge(0);
-      };
-      let timer = null;
-      people.forEach((u) => {
-        const r = query(ref(db, `posts/${u}`), orderByKey(), limitToLast(15));
-        onValue(r, (s) => { const posts = []; s.forEach((c) => { posts.push([c.key, c.val()]); }); byUser[u] = posts; clearTimeout(timer); timer = setTimeout(paint, 250); }, () => {});
-        refs.push(r);
-      });
-    },
+    onClose: () => cleanup?.(),
+    render(body) { cleanup = mountFeed(body); },
   });
 }
 

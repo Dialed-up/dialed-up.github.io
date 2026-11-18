@@ -29,10 +29,11 @@ const city = () => JSON.parse(localStorage.getItem("du.city") || "null") || { na
 const alertsAsk = () => ("Notification" in window) && Notification.permission === "default" && localStorage.getItem("du.alertsAskOff") !== "1"
   && (window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true || !/iPhone|iPad/.test(navigator.userAgent));
 let qotdRef = null;
+let welcomeFeed = null;
 export function openWelcome() {
   openWindow("welcome", {
     title: "Welcome to DialedUp", icon: "🏠", keyword: "home",
-    onClose: () => { if (qotdRef) off(qotdRef); qotdRef = null; },
+    onClose: () => { if (qotdRef) off(qotdRef); qotdRef = null; welcomeFeed?.(); welcomeFeed = null; },
     // in landscape, fill the space left of the Buddy List
     ...(() => {
       const d = document.getElementById("desk");
@@ -52,6 +53,7 @@ export function openWelcome() {
           <div class="small muted">${new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · online ${onlineFor()}</div></div>
         </div>
         ${alertsAsk() ? `<div class="alerts-ask"><span>🔔 <b>Get alerts</b> for new IMs and mail, even when DialedUp is closed.</span><button class="btn primary small-btn" id="w-alerts">Turn On Alerts</button><button class="alerts-x" id="w-alerts-x" title="Don't show this again" aria-label="Close">✕</button></div>` : ""}
+        <div class="panel w-feed"><h3>📰 Buddy Feed <a href="#" data-kw="feed" class="small" style="float:right">Open Feed ›</a></h3><div id="w-feed"></div></div>
         <div id="w-top" class="top-story"><div class="muted small" style="padding:30px;text-align:center">📡 Getting today's top story…</div></div>
         <div class="grid2">
           <div class="panel" id="w-online"><h3>🟢 Buddies Online</h3><span class="muted small">Checking…</span></div>
@@ -85,6 +87,8 @@ export function openWelcome() {
       if (qotdRef) off(qotdRef);
       qotdRef = mountQotd(body.querySelector("#w-qotd"));
       fillWelcomeLive(body);
+      welcomeFeed?.();
+      import("./social.js").then((m) => { if (body.querySelector("#w-feed")) welcomeFeed = m.mountFeed(body.querySelector("#w-feed"), { limit: 5, more: m.openFeed }); });
     },
   });
 }
@@ -299,7 +303,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.2026) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.2031) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });
