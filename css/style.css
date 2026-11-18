@@ -159,7 +159,7 @@ label.check input { width: auto; margin: 0; }
 .big-temp { font-size: 30px; font-weight: bold; color: var(--grape); }
 .score { display: flex; justify-content: space-between; gap: 6px; }
 
-/* Buddy list */
+/* Buddies */
 .bl-me { display: flex; gap: 8px; align-items: center; padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
 .bl-me .status { font-size: 11px; color: #3d8b3d; }
 .bl-me .status.away { color: #d9822b; }
@@ -286,7 +286,7 @@ label.check input { width: auto; margin: 0; }
   #toolbar > button { min-width: 46px; }
 }
 
-/* ===== Buddy List ===== */
+/* ===== Buddies window ===== */
 .bl-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
 .bl-title { font: italic 900 16px/1 "Trebuchet MS", Verdana, sans-serif; color: var(--grape); }
 #bl-show { width: auto; padding: 2px 4px; font-size: 11px; border-radius: 6px; }

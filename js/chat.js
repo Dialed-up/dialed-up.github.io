@@ -1,4 +1,4 @@
-// Buddy List, IMs, chat rooms, away messages and profiles — shared with the BuddyChat iPhone app.
+// Buddies, IMs, chat rooms, away messages and profiles — shared with the BuddyChat iPhone app.
 import {
   auth, db, ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect,
   query, orderByKey, limitToLast, normalize, conversationID,
@@ -275,7 +275,7 @@ async function syncBuddyOf() {
   localStorage.setItem("du.buddyof." + state.uid, JSON.stringify([...mine]));
 }
 
-// ---------- Buddy List ----------
+// ---------- Buddies ----------
 export function openBuddyList() {
   const desk = document.getElementById("desk");
   const wide = desk.clientWidth > desk.clientHeight;
@@ -283,7 +283,7 @@ export function openBuddyList() {
   const w = bigScreen ? 250
     : Math.max(220, Math.min(wide ? 250 : 230, Math.round(desk.clientWidth * (wide ? 0.32 : 0.5))));
   openWindow("buddies", {
-    title: `${state.me.screenName}'s Buddy List`, icon: "👥", width: w, height: bigScreen ? Math.min(600, desk.clientHeight - 80) : desk.clientHeight - (document.body.classList.contains("dim") ? 70 : 12),
+    title: `${state.me.screenName}'s Buddies`, icon: "👥", width: w, height: bigScreen ? Math.min(600, desk.clientHeight - 80) : desk.clientHeight - (document.body.classList.contains("dim") ? 70 : 12),
     x: desk.clientWidth - w - (bigScreen ? 24 : 6),
     y: document.body.classList.contains("dim") ? (bigScreen ? 60 : 44) : bigScreen ? 16 : 6, render: () => refreshBuddyList(),
   });
@@ -330,7 +330,7 @@ function refreshBuddyList() {
   const strangers = [...new Set(entries.filter((e) => (e.ts || 0) > weekAgo && !buddyIDs().has(e.with) && e.from !== state.uid).map((e) => e.with))];
   body.innerHTML = `
     ${state.connected === false ? `<div class="bl-offline">📡 Reconnecting to DialedUp…</div>` : ""}
-    <div class="bl-top"><b class="bl-title">Buddy List</b>
+    <div class="bl-top"><b class="bl-title">Buddies</b>
       <select id="bl-show" title="Who to show">
         <option value="everyone" ${show === "everyone" ? "selected" : ""}>Show Everyone</option>
         <option value="online" ${show === "online" ? "selected" : ""}>Online Only</option>
@@ -412,7 +412,7 @@ function refreshBuddyList() {
       { label: "➖ Remove a Buddy…", action: () => pickBuddyToRemove(...at(b)) },
       { label: "📁 Add a Group", action: newGroup },
       { label: "🔎 Get Member Info…", action: () => openGetInfo() },
-      { label: "🛠 Manage Buddy List…", action: openEditGroups },
+      { label: "🛠 Manage Buddies…", action: openEditGroups },
       { label: "🔎 Member Directory", action: openDirectory },
     ]),
   };
@@ -532,7 +532,7 @@ function putInGroup(uid, gid) {
 }
 
 async function removeBuddy(uid, { ask = true } = {}) {
-  if (ask && !confirm(`Remove ${name(uid)} from your Buddy List?`)) return false;
+  if (ask && !confirm(`Remove ${name(uid)} from your buddies?`)) return false;
   state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
   await saveGroups();
   forgetRecent(uid);
@@ -547,7 +547,7 @@ function forgetRecent(uid) {
 /** Setup → Remove a Buddy: pick from your list. */
 function pickBuddyToRemove(x, y) {
   const list = [...buddyIDs()].sort((a, b) => name(a).localeCompare(name(b)));
-  if (!list.length) { alert("Your Buddy List is empty."); return; }
+  if (!list.length) { alert("You don't have any buddies yet."); return; }
   contextMenu(x, y, list.map((u) => ({ label: "➖ " + name(u), action: () => removeBuddy(u) })));
 }
 
@@ -602,7 +602,7 @@ function groupMenu(gid, x, y) {
     ...(i > 0 ? [{ label: "⬆️ Move Up", action: () => moveGroup(gid, -1) }] : []),
     ...(i < state.groups.length - 1 ? [{ label: "⬇️ Move Down", action: () => moveGroup(gid, 1) }] : []),
     { label: "📁 Add a Group", action: newGroup },
-    { label: "🛠 Manage Buddy List…", action: openEditGroups },
+    { label: "🛠 Manage Buddies…", action: openEditGroups },
     "-",
     { label: "🗑 Delete Group", danger: true, action: () => deleteGroup(gid) },
   ]);
@@ -634,7 +634,7 @@ function deleteGroup(gid) {
 }
 export function openEditGroups() {
   openWindow("managebuddies", {
-    title: "Manage Buddy List", icon: "🛠", width: 360, height: 500, keyword: "managebuddies",
+    title: "Manage Buddies", icon: "🛠", width: 360, height: 500, keyword: "managebuddies",
     render(body) {
       const paint = () => {
         const opts = (sel) => state.groups.map((g) => `<option value="${g.id}" ${g.id === sel ? "selected" : ""}>${esc(g.name)}</option>`).join("");
@@ -648,7 +648,7 @@ export function openEditGroups() {
               <span style="white-space:nowrap"><select data-mv="${m}" title="Move to group">${opts(g.id)}</select>
               <button class="btn small-btn" data-rm="${m}" title="Remove buddy">✖</button></span></li>`).join("")}</ul>`
               : `<p class="small muted" style="margin:4px 0 0">No buddies in this group yet.</p>`}</div>`).join("")}
-          <p class="small muted">Tip: press and hold any buddy or group on the Buddy List for quick options.</p>`;
+          <p class="small muted">Tip: press and hold any buddy or group on your Buddies for quick options.</p>`;
         body.querySelector("[data-addb]").onclick = () => openAddBuddy();
         body.querySelector("[data-new]").onclick = newGroup;
         body.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => renameGroup(b.dataset.r)));
@@ -1200,7 +1200,7 @@ function openKnock(uid, preview = "") {
   openWindow(id, {
     title: "Incoming IM", icon: "🚪", width: 300, height: 250,
     render(body) {
-      body.innerHTML = `<p style="margin-top:0"><b>${esc(name(uid))}</b> isn't on your Buddy List and wants to send you an Instant Message.</p>
+      body.innerHTML = `<p style="margin-top:0"><b>${esc(name(uid))}</b> isn't one of your buddies and wants to send you an Instant Message.</p>
         ${preview ? `<div class="panel small" style="font-style:italic">"${esc(preview)}"</div>` : ""}
         <div class="row" style="margin-top:10px;justify-content:flex-end;gap:6px">
           <button class="btn danger small-btn" data-k="block">Block</button>

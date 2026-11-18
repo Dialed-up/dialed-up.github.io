@@ -1,4 +1,4 @@
-// Shared with BuddyChat: same accounts, buddy lists, IMs and chat rooms.
+// Shared with BuddyChat: same accounts, buddies, IMs and chat rooms.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut,

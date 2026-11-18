@@ -23,7 +23,7 @@ export function openKidSafe() {
       const on = kidMode();
       body.innerHTML = `<div class="panel"><h3>${on ? "🔒 Kid-Safe Mode is ON" : "🧒 Kid-Safe Mode is off"}</h3>
         <p class="small">When it's on, this device can't open chat rooms, message boards, the web browser, news, radio or the member directory —
-        and only people on the Buddy List can send mail. Mail, IMs with buddies, games, weather and home pages still work.</p></div>
+        and only buddies can send mail. Mail, IMs with buddies, games, weather and home pages still work.</p></div>
         <form id="kf"><label>${on ? "Enter the PIN to turn it off" : "Pick a 4-digit PIN (grown-ups only!)"}
           <input id="kp" inputmode="numeric" maxlength="4" pattern="\\d{4}" required></label>
         ${on ? "" : `<label>Type the PIN again <input id="kp2" inputmode="numeric" maxlength="4" pattern="\\d{4}" required></label>`}

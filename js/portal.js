@@ -34,7 +34,7 @@ export function openWelcome() {
   openWindow("welcome", {
     title: "Welcome to DialedUp", icon: "🏠", keyword: "home",
     onClose: () => { if (qotdRef) off(qotdRef); qotdRef = null; welcomeFeed?.(); welcomeFeed = null; },
-    // in landscape, fill the space left of the Buddy List
+    // in landscape, fill the space left of the Buddies window
     ...(() => {
       const d = document.getElementById("desk");
       const wide = d.clientWidth > d.clientHeight && d.clientHeight < 500;
@@ -303,7 +303,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.2046) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.2047) · Still connecting since '96.</p>
         <p class="small muted">DialedUp is an independent, fan-made throwback. Not affiliated with, endorsed by, or connected to AOL, AIM, Yahoo or Bending Spoons. All trademarks belong to their owners.</p></div>`;
     },
   });
@@ -477,7 +477,7 @@ export const signs = [
 const openers = ["The stars are buffering in your favor today.", "Your aura is running at full bandwidth.", "Mercury is fine, actually — no excuses.",
   "The universe left you an away message.", "Today's signal strength: five bars.", "A cosmic pop-up is heading your way.",
   "Your vibe just got a firmware update.", "The moon is reading your profile."];
-const middles = ["Someone from your Buddy List is thinking about you", "a surprise IM brings good news", "a playlist will fix your mood",
+const middles = ["One of your buddies is thinking about you", "a surprise IM brings good news", "a playlist will fix your mood",
   "an old friend signs back on", "your best idea arrives around lunchtime", "a small risk pays off big", "a group chat gets legendary",
   "a stranger's compliment makes your day"];
 const advice = ["Say yes to the late-night plan.", "Drink some water, superstar.", "Update your away message — it's time.",

@@ -258,7 +258,7 @@ const markSeen = (sid) => { const s = seen(); s.add(sid); try { localStorage.set
 export const hasNewStory = (u) => (storyCache[u] || []).some(([sid]) => !seen().has(sid));
 export const hasStory = (u) => (storyCache[u] || []).length > 0;
 
-/** Keeps the story list for a person up to date (used by the Buddy List rings and the Feed). */
+/** Keeps the story list for a person up to date (used by the Buddies window rings and the Feed). */
 export function watchStories(u, onChange) {
   const r = ref(db, `stories/${u}`);
   onValue(r, (s) => {
