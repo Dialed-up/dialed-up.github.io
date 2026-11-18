@@ -40,7 +40,12 @@ if (window.visualViewport) {
     }
   });
 }
-document.addEventListener("touchmove", (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false, capture: true });
+// A pinch begins when a second finger lands — stop it right there.
+["touchstart", "touchmove"].forEach((ev) => {
+  const stopPinch = (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); };
+  window.addEventListener(ev, stopPinch, { passive: false, capture: true });
+  document.addEventListener(ev, stopPinch, { passive: false, capture: true });
+});
 let lastTouchEnd = 0;
 document.addEventListener("touchend", (e) => {
   const now = Date.now();
