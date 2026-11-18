@@ -9,6 +9,8 @@ function ac() {
 }
 
 export const isMuted = () => muted;
+// While DialedUp and DIM are stacked in one page (full screen), only the one on top makes sounds.
+const quiet = () => muted || window.__duQuiet === true;
 export function setMuted(m) { muted = m; localStorage.setItem("du.muted", m ? "1" : "0"); }
 
 function tone(freq, start, dur, { type = "sine", vol = 0.15, freq2 = null } = {}) {
@@ -48,7 +50,7 @@ const DTMF = { 1: [697, 1209], 2: [697, 1336], 3: [697, 1477], 4: [770, 1209], 5
 
 /** The whole "connecting" soundtrack. Returns its length in seconds. */
 export function dialUp() {
-  if (muted) return 0;
+  if (quiet()) return 0;
   let t = 0;
   tone(350, t, 1.1, { vol: 0.08 }); tone(440, t, 1.1, { vol: 0.08 }); t += 1.2;          // dial tone
   for (const d of "18005550199") {                                                     // made-up number
@@ -78,7 +80,7 @@ try { speechSynthesis.onvoiceschanged = () => (voice = pickVoice()); } catch {}
 
 /** Says something out loud with the phone or computer's built-in voice. */
 export function say(text, { rate = 1, pitch = 1.05, delay = 0 } = {}) {
-  if (muted || !("speechSynthesis" in window)) return;
+  if (quiet() || !("speechSynthesis" in window)) return;
   const go = () => {
     try {
       const u = new SpeechSynthesisUtterance(text);
@@ -92,7 +94,7 @@ export function say(text, { rate = 1, pitch = 1.05, delay = 0 } = {}) {
 }
 
 export function welcome() {
-  if (muted) return;
+  if (quiet()) return;
   [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.12, 0.35, { type: "triangle", vol: 0.12 }));
   say("Welcome!", { delay: 550, pitch: 1.1 });
 }
@@ -151,17 +153,17 @@ function thump(start, vol = 0.5) {
   src.start(t);
 }
 /** A buddy signed on: latch click, then the door creaks open. */
-export function doorOpen() { if (muted) return; latch(0); creak(0.06, 0.75, 260, 520); }
+export function doorOpen() { if (quiet()) return; latch(0); creak(0.06, 0.75, 260, 520); }
 /** A buddy signed off: a short creak, then the door shuts. */
-export function doorClose() { if (muted) return; thump(0); latch(0.02, 0.22); creak(0.05, 0.25, 420, 300, 0.035); }
+export function doorClose() { if (quiet()) return; thump(0); latch(0.02, 0.22); creak(0.05, 0.25, 420, 300, 0.035); }
 
-export function buddyIn() { if (!muted) { tone(660, 0, 0.12, { type: "triangle" }); tone(990, 0.1, 0.18, { type: "triangle" }); } }
-export function buddyOut() { if (!muted) { tone(880, 0, 0.12, { type: "triangle" }); tone(440, 0.1, 0.22, { type: "triangle" }); } }
-export function imIn() { if (!muted) { tone(700, 0, 0.08, { vol: 0.12, freq2: 1000 }); tone(1100, 0.09, 0.12, { vol: 0.12, freq2: 1400 }); } }
-export function imOut() { if (!muted) noise(0, 0.18, 0.05, 4000); }
-export function alertBlip() { if (!muted) { tone(1200, 0, 0.07); tone(1200, 0.12, 0.07); } }
+export function buddyIn() { if (!quiet()) { tone(660, 0, 0.12, { type: "triangle" }); tone(990, 0.1, 0.18, { type: "triangle" }); } }
+export function buddyOut() { if (!quiet()) { tone(880, 0, 0.12, { type: "triangle" }); tone(440, 0.1, 0.22, { type: "triangle" }); } }
+export function imIn() { if (!quiet()) { tone(700, 0, 0.08, { vol: 0.12, freq2: 1000 }); tone(1100, 0.09, 0.12, { vol: 0.12, freq2: 1400 }); } }
+export function imOut() { if (!quiet()) noise(0, 0.18, 0.05, 4000); }
+export function alertBlip() { if (!quiet()) { tone(1200, 0, 0.07); tone(1200, 0.12, 0.07); } }
 export function goodbye() {
-  if (muted) return;
+  if (quiet()) return;
   [784, 659, 523].forEach((f, i) => tone(f, i * 0.12, 0.3, { type: "triangle", vol: 0.12 }));
 }
 export const unlock = () => ac();

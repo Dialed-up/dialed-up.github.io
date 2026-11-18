@@ -711,3 +711,5 @@ body.dim #taskbar .fs-btn { color: #1e5fc8; font-weight: bold; }
 .sn-panel input { font-weight: bold; }
 .im-notice { text-align: center; color: #777; font-size: 11px; font-style: italic; margin: 6px 0; }
 .im-notice span { opacity: .75; }
+#du-overlay { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 300000; background: #3d8fe6; }
+#du-overlay[hidden] { display: none; }
