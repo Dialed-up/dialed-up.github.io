@@ -9,7 +9,8 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET" || url.origin !== self.location.origin || !/\.(js|css|html|webmanifest)$|\/$/.test(url.pathname)) return;
   e.respondWith((async () => {
     try {
-      const fresh = await fetch(req, { cache: "no-cache" });
+      // (a page load can't be copied with new options, so fetch it by its address)
+      const fresh = req.mode === "navigate" ? await fetch(url.href, { cache: "no-cache", credentials: "same-origin" }) : await fetch(req, { cache: "no-cache" });
       if (fresh.ok) (await caches.open("du-files")).put(req, fresh.clone()).catch(() => {});
       return fresh;
     } catch {
@@ -29,7 +30,7 @@ self.addEventListener("notificationclick", (e) => {
     return open ? open.focus() : self.clients.openWindow(url);
   }));
 });
-// Ready for real push later (needs a small sender server).
+// Push alerts from the DialedUp sender (Cloudflare Worker).
 self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data.json(); } catch { d = { title: "DialedUp", body: e.data?.text() || "" }; }

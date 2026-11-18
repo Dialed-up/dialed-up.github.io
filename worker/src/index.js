@@ -71,7 +71,7 @@ export default {
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/") return json(req, { ok: true, service: "DialedUp push" });
 
-    // ----- Files people send in IMs (up to 25 MB, kept 30 days) -----
+    // ----- Files people send in IMs (up to 25 MB, kept 24 hours) -----
     if (req.method === "GET" && url.pathname.startsWith("/f/")) {
       const id = url.pathname.slice(3);
       if (!/^[a-f0-9]{32}$/.test(id)) return new Response("not found", { status: 404, headers: cors(req) });
@@ -103,7 +103,7 @@ export default {
       if (buf.byteLength > 25 * 1024 * 1024) return json(req, { error: "too big" }, 413);
       const id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
       const name = decodeURIComponent(req.headers.get("x-du-name") || "file").slice(0, 100);
-      await env.SUBS.put(`file:${id}`, buf, { expirationTtl: 60 * 60 * 24 * 30,
+      await env.SUBS.put(`file:${id}`, buf, { expirationTtl: 60 * 60 * 24,
         metadata: { type: (req.headers.get("content-type") || "application/octet-stream").slice(0, 100), name, from: me, conv, size: buf.byteLength } });
       return json(req, { ok: true, url: `${url.origin}/f/${id}`, size: buf.byteLength });
     }

@@ -4,7 +4,7 @@ import { auth, db, ref, get, set, remove } from "./firebase.js";
 import { esc } from "./wm.js";
 
 const CHUNK = 192 * 1024;
-const FILES = "https://dialedup-push.stickyarcadecloud.workers.dev";   // free Cloudflare file storage (files kept 30 days)
+const FILES = "https://dialedup-push.stickyarcadecloud.workers.dev";   // free Cloudflare file storage (files kept 24 hours)
 export const MAX_FILE = 25 * 1024 * 1024;
 export const MAX_VIDEO = MAX_FILE;
 const cache = new Map();   // mid → object URL
@@ -170,7 +170,7 @@ export async function startRecording(onTick = () => {}) {
 function paintStored(el, info) {
   const url = info.url;
   const nameLine = info.name ? `<div class="media-name small">${{ video: "🎬", audio: "🎵", file: "📄", photo: "📷" }[info.kind] || "📄"} <b>${esc(info.name)}</b> <span class="muted">${sizeLabel(info.size)}</span></div>` : "";
-  const gone = () => (el.innerHTML = `<span class="small muted">This ${info.kind === "audio" ? (info.name ? "audio file" : "voice note") : info.kind} has expired (files are kept 30 days).</span>`);
+  const gone = () => (el.innerHTML = `<span class="small muted">This ${info.kind === "audio" ? (info.name ? "audio file" : "voice note") : info.kind} has expired (files are kept 24 hours).</span>`);
   if (info.kind === "photo") {
     el.innerHTML = `<img src="${esc(url)}" alt="Photo" class="im-photo" ${info.w ? `width="${info.w}" height="${info.h}"` : ""}>`;
     const img = el.querySelector("img");
