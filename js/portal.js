@@ -43,7 +43,7 @@ export function openWelcome() {
         </div>
         <div id="w-top" class="top-story"><div class="muted small" style="padding:30px;text-align:center">📡 Getting today's top story…</div></div>
         <div class="grid2">
-          <div class="panel" id="w-online"><h3>🟢 Who's Online</h3><span class="muted small">Checking…</span></div>
+          <div class="panel" id="w-online"><h3>🟢 Buddies Online</h3><span class="muted small">Checking…</span></div>
           <div class="panel" id="w-rooms"><h3>🔥 Hot Rooms Right Now</h3><span class="muted small">Checking…</span></div>
         </div>
         <div class="panel"><h3>📰 Today's Headlines <a href="#" data-kw="news" class="small" style="float:right">More news ›</a></h3><ul class="list headlines" id="w-news"><li class="muted small">Loading…</li></ul></div>
@@ -105,10 +105,11 @@ function paintOnline(body) {
   const el = body.querySelector("#w-online");
   if (!el) return;
   const on = onlineMembers();
-  el.innerHTML = `<h3>🟢 Who's Online</h3>
-    <div class="big-temp" style="font-size:24px">${on.length + 1}</div>
-    <div class="small muted">member${on.length ? "s" : ""} online now · ${memberCount()} total</div>
-    <div class="small" style="margin-top:4px">${on.slice(0, 8).map((u) => `<a href="#" data-im="${u}">${esc(userName(u))}</a>`).join(", ") || "Just you so far — invite your friends!"}</div>`;
+  el.innerHTML = `<h3>🟢 Buddies Online</h3>
+    <div class="big-temp" style="font-size:24px">${on.length}</div>
+    <div class="small muted">of ${memberCount()} ${memberCount() === 1 ? "buddy" : "buddies"} signed on now</div>
+    <div class="small" style="margin-top:4px">${on.slice(0, 8).map((u) => `<a href="#" data-im="${u}">${esc(userName(u))}</a>`).join(", ")
+      || (memberCount() ? "None of your buddies are on right now." : "Add buddies to see who's on!")}</div>`;
   el.querySelectorAll("[data-im]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openIM(a.dataset.im); }));
 }
 
@@ -119,7 +120,7 @@ async function paintRooms(body) {
   const counts = await Promise.all(hotRooms.map(async (r) => {
     try {
       const m = (await get(ref(db, `rooms/${r.toLowerCase().replace(/[^a-z0-9]/g, "")}/members`))).val() || {};
-      return [r, Object.values(m).filter((t) => Date.now() - t < 120000).length];
+      return [r, Object.values(m).filter((v) => Date.now() - (typeof v === "object" ? v.t : v) < 120000).length];
     } catch { return [r, 0]; }
   }));
   counts.sort((a, b) => b[1] - a[1]);
@@ -224,7 +225,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.0535) · Still connecting since '96.<br>Works with the BuddyChat iPhone app.</p>
+        <p class="small">Version 26.0 (build 1118.0539) · Still connecting since '96.<br>Works with the BuddyChat iPhone app.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });

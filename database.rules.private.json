@@ -1,0 +1,243 @@
+{
+  "rules": {
+    "screennames": {
+      ".read": "auth != null",
+      "$key": {
+        ".write": "auth != null && !data.exists() && newData.val() === auth.uid",
+        ".validate": "$key.matches(/^[a-z0-9]{3,16}$/)"
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid).child($uid < auth.uid ? $uid + '_' + auth.uid : auth.uid + '_' + $uid).exists())",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "buddylists": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "blocks": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "inbox": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$conv": {
+          ".write": "auth != null && ($uid === auth.uid || ($conv.contains(auth.uid) && $conv.contains($uid) && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))"
+        }
+      }
+    },
+    "messages": {
+      "$conv": {
+        ".read": "auth != null && $conv.contains(auth.uid)",
+        "$msg": {
+          ".write": "auth != null && $conv.contains(auth.uid) && !data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $conv.replace(auth.uid, '').replace('_', '') + '/' + auth.uid).exists()"
+        }
+      }
+    },
+    "typing": {
+      "$conv": {
+        ".read": "auth != null && $conv.contains(auth.uid)",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && $conv.contains(auth.uid)"
+        }
+      }
+    },
+    "rooms": {
+      "$room": {
+        ".read": "auth != null",
+        "messages": {
+          "$msg": {
+            ".write": "auth != null && !data.exists() && newData.child('from').val() === auth.uid"
+          }
+        },
+        "members": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        },
+        "info": {
+          ".write": "auth != null"
+        }
+      }
+    },
+    "filemeta": {
+      "$conv": {
+        ".read": "auth != null && $conv.contains(auth.uid)",
+        "$tid": {
+          ".write": "auth != null && $conv.contains(auth.uid)"
+        }
+      }
+    },
+    "filechunks": {
+      "$conv": {
+        ".read": "auth != null && $conv.contains(auth.uid)",
+        "$tid": {
+          ".write": "auth != null && $conv.contains(auth.uid)"
+        }
+      }
+    },
+    "homepages": {
+      ".read": true,
+      "$key": {
+        ".write": "auth != null && root.child('screennames/' + $key).val() === auth.uid",
+        "visits": {
+          ".write": true,
+          ".validate": "newData.isNumber() && newData.val() >= (data.exists() ? data.val() : 0) && newData.val() <= (data.exists() ? data.val() : 0) + 1"
+        }
+      }
+    },
+    "guestbook": {
+      ".read": true,
+      "$key": {
+        "$id": {
+          ".write": "auth != null && ((!data.exists() && newData.child('from').val() === auth.uid) || (!newData.exists() && root.child('screennames/' + $key).val() === auth.uid))",
+          ".validate": "!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 500)"
+        }
+      }
+    },
+    "roomlist": {
+      ".read": "auth != null",
+      "$room": {
+        ".write": "auth != null"
+      }
+    },
+    "mail": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$id": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))"
+        }
+      }
+    },
+    "mailsent": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$id": {
+          "readAt": {
+            ".write": "auth != null"
+          }
+        }
+      }
+    },
+    "boards": {
+      ".read": "auth != null",
+      "$board": {
+        "threads": {
+          "$tid": {
+            ".write": "auth != null && (!data.exists() ? newData.child('from').val() === auth.uid : newData.child('from').val() === data.child('from').val())"
+          }
+        },
+        "posts": {
+          "$tid": {
+            "$pid": {
+              ".write": "auth != null && !data.exists() && newData.child('from').val() === auth.uid"
+            }
+          }
+        }
+      }
+    },
+    "invites": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$id": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))"
+        }
+      }
+    },
+    "warnings": {
+      ".read": "auth != null",
+      "$target": {
+        "$warner": {
+          ".write": "auth != null && auth.uid === $warner && $target !== auth.uid"
+        }
+      }
+    },
+    "icons": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid).child($uid < auth.uid ? $uid + '_' + auth.uid : auth.uid + '_' + $uid).exists())",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.isString() && newData.val().length < 30000)"
+      }
+    },
+    "addressbook": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "albumlist": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid).child($uid < auth.uid ? $uid + '_' + auth.uid : auth.uid + '_' + $uid).exists())",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "photos": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid).child($uid < auth.uid ? $uid + '_' + auth.uid : auth.uid + '_' + $uid).exists())",
+        ".write": "auth != null && auth.uid === $uid",
+        "$album": {
+          "$pid": {
+            ".validate": "!newData.exists() || newData.child('data').val().length < 400000"
+          }
+        }
+      }
+    },
+    "games": {
+      "$gid": {
+        ".read": "auth != null && (data.child('x').val() === auth.uid || data.child('o').val() === auth.uid)",
+        ".write": "auth != null && (!data.exists() ? newData.child('x').val() === auth.uid : (data.child('x').val() === auth.uid || data.child('o').val() === auth.uid))"
+      }
+    },
+    "gameinvites": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$id": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid))"
+        }
+      }
+    },
+    "calls": {
+      "$conv": {
+        ".read": "auth != null && $conv.contains(auth.uid)",
+        ".write": "auth != null && $conv.contains(auth.uid)"
+      }
+    },
+    "callring": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$conv": {
+          ".write": "auth != null && $conv.contains(auth.uid) && $conv.contains($uid)"
+        }
+      }
+    },
+    "names": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.isString() && newData.val().length <= 20"
+      }
+    },
+    "directory": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "buddyof": {
+      "$target": {
+        ".read": "auth != null && auth.uid === $target",
+        "$viewer": {
+          ".write": "auth != null && auth.uid === $viewer"
+        }
+      }
+    }
+  }
+}

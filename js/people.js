@@ -71,7 +71,7 @@ export function openPeoplePlaza() {
 function watchCount(key, container) {
   const r = ref(db, `rooms/${key}/members`);
   onValue(r, (s) => {
-    const n = Object.values(s.val() || {}).filter((t) => Date.now() - t < 120000).length;
+    const n = Object.values(s.val() || {}).filter((v) => Date.now() - (typeof v === "object" ? v.t : v) < 120000).length;
     const el = container.querySelector(`[data-count="${key}"]`);
     if (el) el.textContent = n >= ROOM_LIMIT ? "FULL" : `${n} ${n === 1 ? "person" : "people"}`;
   });
@@ -99,7 +99,7 @@ export async function openRoom(displayName, category = "") {
   if (getWindow(id)) return openWindow(id, {});
   const uid = auth.currentUser.uid;
   const members = (await get(ref(db, `rooms/${key}/members`))).val() || {};
-  const here = Object.entries(members).filter(([, t]) => Date.now() - t < 120000).map(([u]) => u);
+  const here = Object.entries(members).filter(([, v]) => Date.now() - (typeof v === "object" ? v.t : v) < 120000).map(([u]) => u);
   if (here.length >= ROOM_LIMIT && !here.includes(uid)) {
     alert(`"${displayName}" is full (${ROOM_LIMIT} people). Try another room or start your own.`);
     return;
@@ -136,7 +136,7 @@ export async function openRoom(displayName, category = "") {
       const ta = body.querySelector("textarea");
       const memRef = ref(db, `rooms/${key}/members/${uid}`);
       const touch = () => {
-        set(memRef, serverTimestamp()).catch(() => {});
+        set(memRef, { t: serverTimestamp(), n: me().screenName }).catch(() => {});
         if (category === "Member Rooms" && !isPrivate) set(ref(db, `roomlist/${key}`), { name: displayName, private: false, active: serverTimestamp() }).catch(() => {});
       };
       touch();
@@ -171,10 +171,12 @@ export async function openRoom(displayName, category = "") {
 
       const allRef = ref(db, `rooms/${key}/members`);
       onValue(allRef, (s) => {
-        const people = Object.entries(s.val() || {}).filter(([, t]) => Date.now() - t < 120000).map(([u]) => u);
+        const raw = s.val() || {};
+        const people = Object.entries(raw).filter(([, v]) => Date.now() - (typeof v === "object" ? v.t : v) < 120000).map(([u]) => u);
+        const roomName = (u) => (typeof raw[u] === "object" && raw[u].n) || userName(u);
         body.querySelector("#count").textContent = people.length;
         body.querySelector("#people").innerHTML = people.map((p) =>
-          `<li><a href="#" data-p="${p}" class="${ignored.has(p) ? "muted" : ""}">${esc(userName(p))}</a></li>`).join("");
+          `<li><a href="#" data-p="${p}" class="${ignored.has(p) ? "muted" : ""}">${esc(roomName(p))}</a></li>`).join("");
         body.querySelectorAll("[data-p]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); personMenu(a.dataset.p, e.clientX, e.clientY); }));
       });
       refs.push(allRef);

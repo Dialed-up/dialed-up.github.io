@@ -15,7 +15,21 @@ const state = {
 };
 
 export const me = () => state.me;
-const name = (uid) => state.users[uid]?.screenName ?? "…";
+// Screen names for people who aren't buddies come from a small public list of names only.
+const nameCache = {};
+const fetching = new Set();
+function lookUpName(uid) {
+  if (!uid || fetching.has(uid) || nameCache[uid]) return;
+  fetching.add(uid);
+  get(ref(db, `names/${uid}`)).then((s) => {
+    if (s.val()) { nameCache[uid] = s.val(); document.dispatchEvent(new CustomEvent("du:users")); refreshBuddyList(); }
+  }).catch(() => {}).finally(() => fetching.delete(uid));
+}
+const name = (uid) => {
+  const n = state.users[uid]?.screenName || nameCache[uid];
+  if (!n) lookUpName(uid);
+  return n || "…";
+};
 export const userName = name;
 /** A buddy's icon as an <img>, or a colored letter if they haven't picked one. */
 export function iconHTML(uid, size = 22) {
@@ -37,10 +51,11 @@ export async function setMyIcon(file) {
   await set(ref(db, `icons/${state.uid}`), b64);
 }
 /** Everyone signed on right now (not just buddies), newest activity first. */
-export const onlineMembers = () => Object.entries(state.users)
-  .filter(([id, u]) => id !== state.uid && presence(u) !== "offline")
-  .sort((a, b) => (b[1].lastSeen || 0) - (a[1].lastSeen || 0)).map(([id]) => id);
-export const memberCount = () => Object.keys(state.users).length;
+/** Buddies who are signed on right now, most recently active first. */
+export const onlineMembers = () => [...buddyIDs()]
+  .filter((id) => presence(state.users[id]) !== "offline")
+  .sort((a, b) => (state.users[b]?.lastSeen || 0) - (state.users[a]?.lastSeen || 0));
+export const memberCount = () => buddyIDs().size;
 export const buddyList = () => [...new Set(state.groups.flatMap((g) => g.members))];
 
 // ---------- Presence ----------
@@ -73,28 +88,60 @@ export async function startChat() {
 
   await update(meRef, { signedOn: true, lastSeen: serverTimestamp(), idleSince: null });
   onDisconnect(meRef).update({ signedOn: false, lastSeen: serverTimestamp() });
-  state.timers.push(setInterval(() => update(meRef, { lastSeen: serverTimestamp(), signedOn: true }), 45000));
+  state.timers.push(setInterval(() => update(meRef, { lastSeen: serverTimestamp(), signedOn: true }), 60000));
+  set(ref(db, `names/${uid}`), state.me.screenName || "").catch(() => {});
   state.timers.push(setInterval(refreshBuddyList, 10000));
   document.addEventListener("visibilitychange", onVisibility);
 
-  listen("users", (v) => {
-    state.users = v || {};
-    state.me = state.users[uid] || state.me;
-    checkPresenceChanges();
-    state.loadedUsers = true;
-    refreshBuddyList();
-    document.querySelectorAll("[data-im]").forEach((el) => renderIMStatus(el.dataset.im));
-    document.dispatchEvent(new CustomEvent("du:users"));
-  });
+  syncWatches();
+  syncBuddyOf();
+  setTimeout(() => { state.loadedUsers = true; }, 4000);
   listen(`inbox/${uid}`, onInbox);
-  listen("icons", (v) => { state.icons = v || {}; refreshBuddyList(); document.dispatchEvent(new CustomEvent("du:icons")); });
   listen(`blocks/${uid}`, (v) => { state.blocked = new Set(Object.keys(v || {})); refreshBuddyList(); });
   listen(`buddylists/${uid}`, (v) => {
-    try { if (v) { state.groups = JSON.parse(v); refreshBuddyList(); } } catch {}
+    try { if (v) { state.groups = JSON.parse(v); syncWatches(); refreshBuddyList(); } } catch {}
   });
 }
 
+// ---------- Only load info for people you're connected to ----------
+const watches = new Map();   // uid → [userRef, iconRef]
+
+/** You, your buddies, and anyone you have an IM conversation with. */
+function peopleToWatch() {
+  const set_ = new Set([state.uid, ...buddyIDs()]);
+  Object.values(state.inbox || {}).forEach((e) => e.with && set_.add(e.with));
+  return set_;
+}
+
+function syncWatches() {
+  if (!state.uid) return;
+  const want = peopleToWatch();
+  for (const [uid, refs] of watches) {
+    if (!want.has(uid)) { refs.forEach((r) => off(r)); watches.delete(uid); delete state.users[uid]; delete state.icons[uid]; }
+  }
+  for (const uid of want) {
+    if (watches.has(uid)) continue;
+    const ur = ref(db, `users/${uid}`), ir = ref(db, `icons/${uid}`);
+    onValue(ur, (s) => {
+      if (s.val()) state.users[uid] = s.val(); else delete state.users[uid];
+      if (uid === state.uid) state.me = state.users[uid] || state.me;
+      checkPresenceChanges();
+      refreshBuddyList();
+      if (getWindow("im." + uid)) renderIMStatus(uid);
+      document.dispatchEvent(new CustomEvent("du:users"));
+    }, () => {});
+    onValue(ir, (s) => {
+      if (s.val()) state.icons[uid] = s.val(); else delete state.icons[uid];
+      refreshBuddyList();
+      document.dispatchEvent(new CustomEvent("du:icons"));
+    }, () => {});
+    watches.set(uid, [ur, ir]);
+  }
+}
+
 export function stopChat() {
+  watches.forEach((refs) => refs.forEach((r) => off(r)));
+  watches.clear();
   state.listeners.forEach((r) => off(r));
   state.timers.forEach(clearInterval);
   document.removeEventListener("visibilitychange", onVisibility);
@@ -125,6 +172,7 @@ function checkPresenceChanges() {
 function onInbox(v) {
   const old = state.inbox;
   state.inbox = v || {};
+  syncWatches();
   if (state.loadedInbox) {
     for (const [conv, e] of Object.entries(state.inbox)) {
       if (e.from === state.uid || state.blocked.has(e.from) || (e.ts || 0) <= (old[conv]?.ts || 0)) continue;
@@ -141,7 +189,18 @@ function onInbox(v) {
 
 async function saveGroups() {
   await set(ref(db, `buddylists/${state.uid}`), JSON.stringify(state.groups));
+  syncBuddyOf();
+  syncWatches();
   refreshBuddyList();
+}
+
+/** buddyof/{them}/{me} = true for everyone on my list, so the server can let me see their status (and nobody else's). */
+async function syncBuddyOf() {
+  const mine = buddyIDs();
+  const prev = new Set(JSON.parse(localStorage.getItem("du.buddyof." + state.uid) || "[]"));
+  for (const b of mine) if (!prev.has(b)) set(ref(db, `buddyof/${b}/${state.uid}`), true).catch(() => {});
+  for (const b of prev) if (!mine.has(b)) remove(ref(db, `buddyof/${b}/${state.uid}`)).catch(() => {});
+  localStorage.setItem("du.buddyof." + state.uid, JSON.stringify([...mine]));
 }
 
 // ---------- Buddy List ----------
@@ -790,6 +849,7 @@ export function openProfile() {
         <label>About me<textarea id="pf" rows="6">${esc(u.profile || "")}</textarea></label>
         <label>Interests (for the Member Directory)<input id="pi" value="${esc(u.interests || "")}" placeholder="music, sneakers, basketball"></label>
         <label>Location<input id="pl" value="${esc(u.location || "")}" placeholder="Brooklyn, NY"></label>
+        <label class="check"><input type="checkbox" id="pd" ${localStorage.getItem("du.listed." + state.uid) === "1" ? "checked" : ""}> List me in the Member Directory (screen name, interests and location only)</label>
         <div class="row"><span class="small muted">Buddies see this in Info.</span><button class="btn primary" id="ps">Save</button></div>`;
       body.querySelector("#pf-file").onchange = async (e) => {
         const f = e.target.files[0];
@@ -800,9 +860,12 @@ export function openProfile() {
       };
       document.addEventListener("du:icons", () => { const el = body.querySelector("#pf-icon"); if (el) el.innerHTML = iconHTML(state.uid, 56); });
       body.querySelector("#ps").onclick = async () => {
-        await update(ref(db, `users/${state.uid}`), {
-          profile: body.querySelector("#pf").value, interests: body.querySelector("#pi").value, location: body.querySelector("#pl").value,
-        });
+        const interests = body.querySelector("#pi").value, location = body.querySelector("#pl").value;
+        await update(ref(db, `users/${state.uid}`), { profile: body.querySelector("#pf").value, interests, location });
+        const listed = body.querySelector("#pd").checked;
+        localStorage.setItem("du.listed." + state.uid, listed ? "1" : "0");
+        if (listed) await set(ref(db, `directory/${state.uid}`), { screenName: state.me.screenName, interests, location }).catch(() => {});
+        else await remove(ref(db, `directory/${state.uid}`)).catch(() => {});
         closeWindow("profile");
       };
     },
@@ -812,17 +875,19 @@ export function openProfile() {
 export function openDirectory() {
   openWindow("directory", {
     title: "Member Directory", icon: "🔎", width: 340, height: 460,
-    render(body) {
-      body.innerHTML = `<input id="dq" placeholder="Search names, interests, places…"><ul class="list" id="dr" style="margin-top:8px"></ul>`;
+    async render(body) {
+      body.innerHTML = `<p class="small muted" style="margin-top:0">Only members who chose to be listed (in My Profile) show up here.</p>
+        <input id="dq" placeholder="Search names, interests, places…"><ul class="list" id="dr" style="margin-top:8px"><li class="muted">Loading…</li></ul>`;
+      const all = (await get(ref(db, "directory")).catch(() => null))?.val() || {};
       const paint = () => {
         const q = body.querySelector("#dq").value.toLowerCase().trim();
-        const people = Object.entries(state.users).filter(([id, u]) => id !== state.uid && u.screenName &&
-          (!q || [u.screenName, u.interests, u.location, u.profile].some((x) => (x || "").toLowerCase().includes(q))))
+        const people = Object.entries(all).filter(([id, u]) => id !== state.uid && u.screenName &&
+          (!q || [u.screenName, u.interests, u.location].some((x) => (x || "").toLowerCase().includes(q))))
           .sort((a, b) => a[1].screenName.localeCompare(b[1].screenName)).slice(0, 100);
         body.querySelector("#dr").innerHTML = people.map(([id, u]) =>
-          `<li><a href="#" data-u="${id}"><b>${esc(u.screenName)}</b></a> <span class="small muted">${esc(u.interests || "")}</span></li>`).join("")
+          `<li><a href="#" data-u="${id}"><b>${esc(u.screenName)}</b></a> <span class="small muted">${esc(u.interests || "")}${u.location ? " · 📍 " + esc(u.location) : ""}</span></li>`).join("")
           || `<li class="muted">No members found.</li>`;
-        body.querySelectorAll("[data-u]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openInfo(a.dataset.u); }));
+        body.querySelectorAll("[data-u]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); nameCache[a.dataset.u] = all[a.dataset.u].screenName; openInfo(a.dataset.u); }));
       };
       body.querySelector("#dq").oninput = paint;
       paint();

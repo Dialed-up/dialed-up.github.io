@@ -217,6 +217,27 @@
           ".write": "auth != null && $conv.contains(auth.uid) && $conv.contains($uid)"
         }
       }
+    },
+    "names": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.isString() && newData.val().length <= 20"
+      }
+    },
+    "directory": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "buddyof": {
+      "$target": {
+        ".read": "auth != null && auth.uid === $target",
+        "$viewer": {
+          ".write": "auth != null && auth.uid === $viewer"
+        }
+      }
     }
   }
 }
