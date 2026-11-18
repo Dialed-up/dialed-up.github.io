@@ -4,7 +4,7 @@ import "./update.js";
 import "./fullscreen.js";
 import "./altcaps.js";
 import { startSync, stopSync } from "./sync.js";
-import { auth, onAuthStateChanged, signOn, signOff } from "./firebase.js";
+import { auth, onAuthStateChanged, signOff } from "./firebase.js";
 import * as sfx from "./sounds.js";
 import { closeAll, contextMenu, openWindow, closeWindow } from "./wm.js";
 import { startChat, stopChat, openBuddyList, openChatRooms, openAway, openProfile, openDirectory, openAddBuddy, me } from "./chat.js";
@@ -64,19 +64,16 @@ function changeBackdrop() {
 }
 
 // ---------- Sign on ----------
-$("signon-form").onsubmit = async (e) => {
-  e.preventDefault();
-  $("signon-error").textContent = "";
-  try {
-    sfx.unlock();
-    await signOn($("sn").value, $("pw").value, $("remember").checked);
-    enter(true);
-  } catch (err) { $("signon-error").textContent = err.message; }
-};
+// One sign-on for everything: signed out here → the main DialedUp sign-on, which brings you back afterwards.
+function toMainSignOn() {
+  const target = "index.html?next=im";
+  try { if (window.top !== window.self && window.top.location.origin === location.origin) { window.top.location.replace(target); return; } } catch {}
+  location.replace(target);
+}
 
 onAuthStateChanged(auth, (user) => {
-  if (user && !started) enter(false);
-  if (!user) { if (started) leave(); $("app").hidden = true; $("signon").hidden = false; }
+  if (user && !started) enter(!!sessionStorage.getItem("du.freshSignOn"));
+  if (!user) { if (started) leave(); toMainSignOn(); }
 });
 
 async function enter(fresh) {
@@ -84,6 +81,7 @@ async function enter(fresh) {
   started = true;
   $("signon").hidden = true;
   $("app").hidden = false;
+  sessionStorage.removeItem("du.freshSignOn");
   applyBackdrop();
   await startChat();
   if (await startSync(auth.currentUser.uid)) applyBackdrop();

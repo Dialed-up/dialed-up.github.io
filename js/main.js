@@ -146,7 +146,15 @@ export async function switchScreenName() {
   $("pw").focus();
 }
 
+// Came from Instant Messages (?next=im): after signing on, go back there instead of the DialedUp desktop.
+const nextIM = new URLSearchParams(location.search).get("next") === "im";
+if (nextIM) document.getElementById("signon-form")?.insertAdjacentHTML("afterbegin", `<p class="small" style="margin-top:0">💬 Sign on to open <b>Instant Messages</b>.</p>`);
 async function enterDesktop(fresh) {
+  if (nextIM) {
+    if (fresh) sessionStorage.setItem("du.freshSignOn", "1");
+    location.replace("dim.html");
+    return;
+  }
   if (started) return;
   started = true;
   show("app");

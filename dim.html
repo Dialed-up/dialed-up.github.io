@@ -28,21 +28,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="DialedUp IM">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/style.css?v=1795042688">
+<link rel="stylesheet" href="css/style.css?v=1795042757">
 </head>
 <body class="dim">
-  <!-- Sign-on -->
-  <main id="signon" class="screen" hidden>
+  <!-- Signing on happens on the main DialedUp page; this shows only while checking -->
+  <main id="signon" class="screen">
     <div class="signon-box glossy dim-signon">
       <div class="dim-logo"><img src="img/dim-logo.png" alt=""><div><b>Instant Messages</b><small>by DialedUp</small></div></div>
-      <form id="signon-form" autocomplete="on">
-        <label>Screen Name <input id="sn" name="username" autocomplete="username" required></label>
-        <label>Password <input id="pw" name="password" type="password" autocomplete="current-password" required></label>
-        <label class="check"><input id="remember" type="checkbox" checked> Keep me signed on</label>
-        <p id="signon-error" class="error" role="alert"></p>
-        <div class="row"><a href="index.html" class="small">New? Get a screen name on DialedUp</a><button class="btn primary">Sign On</button></div>
-      </form>
-      <p class="small muted disclaimer">DialedUp is an independent, fan-made throwback. Not affiliated with, endorsed by, or connected to AOL, AIM, Yahoo or Bending Spoons. All trademarks belong to their owners.</p>
+      <p class="small muted" style="text-align:center">Connecting…</p>
     </div>
   </main>
 
@@ -57,6 +50,6 @@
     </footer>
   </div>
 
-  <script type="module" src="js/dim.js?v=1795042688"></script>
+  <script type="module" src="js/dim.js?v=1795042757"></script>
 </body>
 </html>
