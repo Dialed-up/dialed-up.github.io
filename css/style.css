@@ -400,3 +400,17 @@ label.check input { width: auto; margin: 0; }
 .br-card img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 12px; margin-bottom: 8px; }
 .br-card .br-site { font-size: 54px; }
 .br-card h3 { margin: 8px 0; color: var(--ink); }
+
+/* Toolbar: always show the written labels */
+#toolbar { overflow-x: auto; scrollbar-width: none; }
+#toolbar::-webkit-scrollbar { display: none; }
+#toolbar > button { min-width: 58px; font-size: 18px; flex-shrink: 0; }
+#toolbar > button span { display: block !important; font-size: 10.5px; white-space: nowrap; }
+@media (max-width: 560px) { #toolbar > button { min-width: 52px; font-size: 18px; padding: 3px 4px; } #toolbar > button span { font-size: 10px; } }
+@media (orientation: landscape) and (max-height: 500px) {
+  #toolbar > button { min-width: 48px; font-size: 15px; padding: 1px 3px; }
+  #toolbar > button span { font-size: 9px; }
+  #desk { grid-row: 3 !important; }
+  #taskbar { grid-row: 4 !important; }
+  #app { grid-template-rows: auto auto 1fr auto !important; }
+}

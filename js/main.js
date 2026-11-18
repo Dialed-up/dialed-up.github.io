@@ -9,7 +9,6 @@ import { openBoards } from "./boards.js";
 import { watchInvites, stopInvites } from "./people.js";
 import { startClock, openClock, watchWarnings, stopWarnings } from "./extras.js";
 import { setupChrome, go } from "./chrome.js";
-import { startTicker, stopTicker } from "./portal.js";
 import { me } from "./chat.js";
 import { writeMail } from "./mail.js";
 
@@ -92,7 +91,6 @@ async function enterDesktop(fresh) {
   watchWarnings();
   openWelcome();
   openBuddyList();
-  startTicker();
   if (fresh) sfx.welcome();
 }
 
@@ -108,7 +106,6 @@ function leaveDesktop() {
   stopMail();
   stopInvites();
   stopWarnings();
-  stopTicker();
   closeAll();
   $("pw").value = "";
   $("signup-form").hidden = true;
