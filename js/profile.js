@@ -159,10 +159,10 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
             <select data-c="fontName" title="Font">${FONTS.map((f) => `<option style="font-family:'${f}'">${f}</option>`).join("")}</select>
             <select data-c="fontSize" title="Size">${[["1", "Tiny"], ["2", "Small"], ["3", "Normal"], ["4", "Medium"], ["5", "Large"], ["6", "Huge"], ["7", "Giant"]].map(([v, l]) => `<option value="${v}" ${v === "3" ? "selected" : ""}>${l}</option>`).join("")}</select>
             <button data-c="bold"><b>B</b></button><button data-c="italic"><i>I</i></button><button data-c="underline"><u>U</u></button><button data-c="strikeThrough"><s>S</s></button>
-            <label title="Text color" class="rt-color">A<input type="color" data-c="foreColor" value="#d81b60"></label>
-            <label title="Highlight" class="rt-color">🖍<input type="color" data-c="hiliteColor" value="#fff59d"></label>
+            <button data-c="textcolor" title="Text color" class="rt-a">A<span class="rt-a-bar"></span></button>
+            <button data-c="bucket" title="Background color">🪣</button>
             <button data-c="justifyLeft" title="Left">⬅</button><button data-c="justifyCenter" title="Center">↔</button><button data-c="justifyRight" title="Right">➡</button>
-            <button data-c="link" title="Add a link">🔗</button><button data-c="hr" title="Line">➖</button><button data-c="emoji" title="Emoji">😀</button><button data-c="bucket" title="Background color">🪣</button>
+            <button data-c="link" title="Add a link">🔗</button><button data-c="hr" title="Line">➖</button><button data-c="emoji" title="Emoji">😀</button>
             <select data-c="effect" title="Effects"><option value="">✨ Effects…</option><option value="du-glow">Glow</option><option value="du-rainbow">Rainbow</option><option value="du-sparkle">Sparkle</option><option value="du-blink">Blink</option><option value="du-scroll">Scrolling</option><option value="du-shadow">Shadow</option><option value="none">Remove effect</option></select>
           </div>
           <div class="rt-edit" contenteditable="true" spellcheck="true"></div>
@@ -218,7 +218,14 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         else if (c === "link") el.onclick = () => { const url = prompt("Link address (https://…):", "https://"); if (url && /^https?:\/\/\S+\.\S+/.test(url)) cmd("createLink", url); };
         else if (c === "hr") el.onclick = () => cmd("insertHorizontalRule");
         else if (c === "emoji") el.onclick = () => pickEmoji(el, (e) => cmd("insertText", e));
-        else if (c === "bucket") el.onclick = () => pickBackground(el, (color) => { look.theme = "Custom"; look.bgColor = color; paintLook(); });
+        else if (c === "bucket") el.onclick = () => pickBackground(el, "🪣 Profile background", (color) => { look.theme = "Custom"; look.bgColor = color; paintLook(); });
+        else if (c === "textcolor") el.onclick = () => {
+          keepSel();
+          pickBackground(el, "A  Text color (highlight text first)", (color) => {
+            cmd("foreColor", color);
+            el.querySelector(".rt-a-bar").style.background = color;
+          });
+        };
         else if (c === "effect") el.onchange = () => {
           restoreSel();
           const s = getSelection();
@@ -322,11 +329,11 @@ const PALETTE = [
   "#ffdcf3", "#ff9de2", "#ff5ec4", "#d81b8a", "#8a0f57", "#45072b",
 ];
 let bucketPop = null;
-function pickBackground(anchor, onPick) {
+function pickBackground(anchor, title, onPick) {
   if (bucketPop) { bucketPop.remove(); bucketPop = null; return; }
   bucketPop = document.createElement("div");
   bucketPop.className = "color-pop";
-  bucketPop.innerHTML = `<b class="small">🪣 Profile background</b>
+  bucketPop.innerHTML = `<b class="small">${esc(title)}</b>
     <div class="color-grid">${PALETTE.map((c) => `<button style="background:${c}" data-col="${c}" title="${c}"></button>`).join("")}</div>
     <label class="color-pick" style="margin-top:6px">🎨 More colors…<input type="color" value="#ffe3f3"></label>`;
   document.body.appendChild(bucketPop);
@@ -339,6 +346,9 @@ function pickBackground(anchor, onPick) {
   const close = () => { bucketPop?.remove(); bucketPop = null; document.removeEventListener("pointerdown", away, true); };
   const away = (e) => { if (bucketPop && !bucketPop.contains(e.target) && e.target !== anchor) close(); };
   setTimeout(() => document.addEventListener("pointerdown", away, true), 0);
-  bucketPop.querySelectorAll("[data-col]").forEach((b) => (b.onclick = () => { onPick(b.dataset.col); close(); }));
+  bucketPop.querySelectorAll("[data-col]").forEach((b) => {
+    b.addEventListener("pointerdown", (e) => e.preventDefault());   // don't steal the text selection
+    b.onclick = () => { onPick(b.dataset.col); close(); };
+  });
   bucketPop.querySelector("input").oninput = (e) => onPick(e.target.value);
 }

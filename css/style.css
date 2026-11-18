@@ -685,3 +685,5 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
 .color-grid button { aspect-ratio: 1; border: 1px solid rgba(0,0,0,.18); border-radius: 6px; cursor: pointer; padding: 0; }
 .color-grid button:hover { transform: scale(1.12); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--grape-2); }
+.rt-a { position: relative; font-weight: bold; padding-bottom: 5px !important; }
+.rt-a-bar { position: absolute; left: 5px; right: 5px; bottom: 2px; height: 3px; border-radius: 2px; background: #d81b60; }
