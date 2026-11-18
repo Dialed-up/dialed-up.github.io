@@ -1,6 +1,9 @@
 // The main window's chrome: status strip, menu bar, navigation bar, Favorites and Window menus.
 import { contextMenu, listWindows, restore, cascade, tile, closeAll, closeWindow, frontWindowId } from "./wm.js";
 import { favorites, addFavorite, openFavorites, onlineFor, openClock } from "./extras.js";
+import { openBrowser } from "./browser.js";
+
+const looksLikeURL = (v) => /^(https?:\/\/|www\.)\S+\.\S+/i.test(v) || /^[\w-]+(\.[\w-]+)*\.(com|net|org|io|co|edu|gov|tv|me|us|uk|fm|app)(\/\S*)?$/i.test(v);
 
 let run = () => {};
 const history = [];
@@ -17,7 +20,8 @@ export function go(keyword) {
     pos = history.length - 1;
   }
   skipHistory = false;
-  run(k);
+  if (looksLikeURL(k) || k.startsWith("home.html")) openBrowser(k);
+  else run(k);
 }
 
 export function setupChrome({ runKeyword, screenName, signOff, actions }) {
@@ -39,6 +43,8 @@ export function setupChrome({ runKeyword, screenName, signOff, actions }) {
     Channels: [["All Channels", () => go("channels")], ["News", () => go("news")], ["Weather", () => go("weather")], ["Sports", () => go("sports")],
       ["Tech", () => go("tech")], ["Horoscopes", () => go("horoscopes")], ["NYC", () => go("nyc")], ["Message Boards", () => go("boards")]],
     Games: [["Byte Snake", () => go("games")]],
+    Internet: [["DialedUp Browser", () => openBrowser()], ["CNN", () => go("cnn.com")], ["ESPN", () => go("espn.com")],
+      ["YouTube", () => go("youtube.com")], ["Wikipedia", () => go("en.wikipedia.org")]],
     Window: null,   // built when opened
     Keyword: [["Go to Keyword…", () => $("keyword").focus()], ["Keyword List", () => go("help")]],
     "Sign Off": [["Sign Off", signOff]],
@@ -69,9 +75,7 @@ export function setupChrome({ runKeyword, screenName, signOff, actions }) {
     const v = $("keyword").value.trim();
     $("keyword").value = "";
     $("keyword").blur();
-    if (/^(https?:\/\/|www\.)\S+\.\S+/i.test(v) || /^[\w-]+\.(com|net|org|io|co|edu|gov|tv|me)(\/\S*)?$/i.test(v)) {
-      window.open(/^https?:/i.test(v) ? v : "https://" + v, "_blank", "noopener");
-    } else go(v);
+    go(v);
   };
   $("search-form").onsubmit = (e) => {
     e.preventDefault();

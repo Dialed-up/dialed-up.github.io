@@ -1,5 +1,6 @@
 import { openWindow, getWindow, esc } from "./wm.js";
 import { getHeadlines, getScores, scoreText, timeAgo } from "./live.js";
+import { openBrowser } from "./browser.js";
 import { db, ref, get } from "./firebase.js";
 import { me, openBuddyList, openChatRooms, openAway, openDirectory, openProfile, openAddBuddy, onlineMembers, userName, openIM, memberCount } from "./chat.js";
 import { openMyPage } from "./homepage.js";
@@ -63,17 +64,17 @@ export function openWelcome() {
 // ---------- Live pieces of the Welcome screen ----------
 const tag = (h) => `<span class="src-tag" style="background:${h.color}">${esc(h.source)}</span>`;
 const headlineItem = (h) =>
-  `<li>${tag(h)} <a href="${esc(h.url || "#")}" target="_blank" rel="noopener">${esc(h.title)}</a>${h.ts ? ` <span class="small muted">${timeAgo(h.ts)}</span>` : ""}</li>`;
+  `<li>${tag(h)} <a href="${esc(h.url || "#")}" target="_blank" rel="noopener" data-browse data-title="${esc(h.title)}" data-source="${esc(h.source)}" data-image="${esc(h.image || "")}">${esc(h.title)}</a>${h.ts ? ` <span class="small muted">${timeAgo(h.ts)}</span>` : ""}</li>`;
 
 async function fillWelcomeLive(body) {
   paintOnline(body);
   paintRooms(body);
   try {
     const news = await getHeadlines();
-    const lead = [...news.sports, ...news.space, ...news.world].find((h) => h.image) || news.top[0];
+    const lead = news.top.find((h) => h.image) || [...news.sports, ...news.space].find((h) => h.image) || news.top[0];
     const topEl = body.querySelector("#w-top");
     if (lead && topEl) {
-      topEl.innerHTML = `<a href="${esc(lead.url || "#")}" target="_blank" rel="noopener" class="top-story-link">
+      topEl.innerHTML = `<a href="${esc(lead.url || "#")}" target="_blank" rel="noopener" class="top-story-link" data-browse data-title="${esc(lead.title)}" data-source="${esc(lead.source)}" data-image="${esc(lead.image || "")}">
         ${lead.image ? `<img src="${esc(lead.image)}" alt="" loading="lazy">` : ""}
         <div class="top-story-text">${tag(lead)}<b>${esc(lead.title)}</b></div></a>`;
     } else if (topEl) topEl.remove();
@@ -187,6 +188,9 @@ const keywords = {
   favorites: () => openFavorites(runKeyword), favs: () => openFavorites(runKeyword),
   clock: openClock, time: openClock,
   about: openAbout,
+  browser: () => openBrowser(), web: () => openBrowser(), internet: () => openBrowser(), www: () => openBrowser(),
+  cnn: () => openBrowser("https://www.cnn.com"), espn: () => openBrowser("https://www.espn.com"),
+  youtube: () => openBrowser("https://www.youtube.com"), wikipedia: () => openBrowser("https://en.wikipedia.org"),
   help: openHelp,
 };
 
@@ -293,14 +297,15 @@ function openNews() {
   openWindow("news", {
     title: "DialedUp News", icon: "📰", width: 480, height: 520, keyword: "news",
     render(body) {
-      const tabs = [["top", "Top Stories"], ["world", "World"], ["sports", "Sports"], ["tech", "Tech"], ["space", "Space"]];
+      const tabs = [["top", "Top Stories"], ["us", "U.S."], ["world", "World"], ["nyc", "NYC"], ["business", "Business"],
+        ["entertainment", "Entertainment"], ["sports", "Sports"], ["tech", "Tech"], ["space", "Space"]];
       body.innerHTML = `<div class="mb-tabs">${tabs.map(([k, l], i) => `<button class="mtab ${i ? "" : "on"}" data-t="${k}">${l}</button>`).join("")}</div>
         <div id="n-out" style="margin-top:8px"><p class="muted">📡 Loading the latest…</p></div>`;
       let news = null;
       const show = (k) => {
         body.querySelectorAll("[data-t]").forEach((b) => b.classList.toggle("on", b.dataset.t === k));
         const list = (news?.[k] || []).slice(0, 20);
-        body.querySelector("#n-out").innerHTML = list.length ? list.map((h) => `<a class="news-card" href="${esc(h.url || "#")}" target="_blank" rel="noopener">
+        body.querySelector("#n-out").innerHTML = list.length ? list.map((h) => `<a class="news-card" href="${esc(h.url || "#")}" target="_blank" rel="noopener" data-browse data-title="${esc(h.title)}" data-source="${esc(h.source)}" data-image="${esc(h.image || "")}">
             ${h.image ? `<img src="${esc(h.image)}" alt="" loading="lazy">` : ""}
             <div>${tag(h)} <b>${esc(h.title)}</b>${h.ts ? `<div class="small muted">${timeAgo(h.ts)}</div>` : ""}</div></a>`).join("")
           : `<p class="muted">Nothing here right now — check back soon.</p>`;

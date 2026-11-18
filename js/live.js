@@ -73,16 +73,39 @@ async function spaceNews() {
   } catch { return []; }
 }
 
-/** { world, sports, tech, space, top } — top mixes the best of each. */
+const NEWS_URL = "https://raw.githubusercontent.com/dialed-up/dialed-up.github.io/news-data/news.json";
+const sourceColors = {
+  CNN: "#cc0000", "NBC News": "#5b2a86", "CBS News": "#1a1a1a", "ABC News": "#0047ab", NPR: "#d62021", "Fox News": "#003366",
+  BBC: "#bb1919", NYT: "#333333", CNBC: "#005594", Variety: "#7b1fa2", Billboard: "#e91e63", Gothamist: "#ff5722",
+  "The Verge": "#e2127a", "Ars Technica": "#ff4e00",
+};
+const colorFor = (src) => sourceColors[src] || (src.startsWith("ESPN") ? "#d00" : "#5b2a86");
+
+/** Headlines by category: top, us, world, nyc, business, entertainment, tech, sports, space. */
 export async function getHeadlines() {
-  const cached = cacheGet("du.news", 10 * 60 * 1000);
+  const cached = cacheGet("du.news2", 5 * 60 * 1000);
   if (cached) return cached;
-  const [world, sports, tech, space] = await Promise.all([wikipediaNews(), espnNews(), techNews(), spaceNews()]);
-  const top = [];
-  const pools = [world, sports, tech, space].map((p) => [...p]);
-  while (top.length < 14 && pools.some((p) => p.length)) pools.forEach((p) => p.length && top.push(p.shift()));
-  const out = { world, sports, tech, space, top };
-  if (top.length) cacheSet("du.news", out);
+  let robot = null;
+  try { robot = await getJSON(NEWS_URL + "?t=" + Math.floor(Date.now() / 300000)); } catch {}
+  const tidy = (list) => (list || []).map((h) => ({ ...h, color: colorFor(h.source) }));
+  const [space, fallbackSports, tech2] = await Promise.all([
+    spaceNews(),
+    robot?.sports?.length ? Promise.resolve([]) : espnNews(),
+    robot?.tech?.length ? Promise.resolve([]) : techNews(),
+  ]);
+  const world = robot?.world?.length ? tidy(robot.world) : await wikipediaNews();
+  const out = {
+    top: tidy(robot?.top), us: tidy(robot?.us), world, nyc: tidy(robot?.nyc), business: tidy(robot?.business),
+    entertainment: tidy(robot?.entertainment), tech: robot?.tech?.length ? tidy(robot.tech) : tech2,
+    sports: robot?.sports?.length ? tidy(robot.sports) : fallbackSports, space,
+    updated: robot?.updated || 0,
+  };
+  if (!out.top.length) {
+    // the robot hasn't published yet: build a front page from what we have
+    const pools = [out.world, out.sports, out.tech, out.space].map((p) => [...p]);
+    while (out.top.length < 14 && pools.some((p) => p.length)) pools.forEach((p) => p.length && out.top.push(p.shift()));
+  }
+  if (out.top.length) cacheSet("du.news2", out);
   return out;
 }
 
