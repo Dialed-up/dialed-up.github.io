@@ -257,7 +257,6 @@ function refreshBuddyList() {
     ${show === "everyone" ? `<div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
     <div class="bl-bottom">
       <button class="bl-icon" data-act="im"><span>💬</span>Send IM</button>
-      <button class="bl-icon" data-act="chat"><span>🗨️</span>Buddy Chat</button>
       <button class="bl-icon" data-act="info"><span>🪪</span>Buddy Info</button>
       <button class="bl-icon" data-act="add"><span>➕</span>Add Buddy</button>
     </div>

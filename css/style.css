@@ -290,7 +290,7 @@ label.check input { width: auto; margin: 0; }
 .bl-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
 .bl-title { font: italic 900 16px/1 "Trebuchet MS", Verdana, sans-serif; color: var(--grape); }
 #bl-show { width: auto; padding: 2px 4px; font-size: 11px; border-radius: 6px; }
-.bl-bottom { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
+.bl-bottom { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
 .bl-icon { background: none; border: 1px solid transparent; border-radius: 8px; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; color: var(--grape); padding: 3px 0; }
 .bl-icon span { font-size: 20px; }
 .bl-icon:hover { border-color: var(--line); background: #fff; }
