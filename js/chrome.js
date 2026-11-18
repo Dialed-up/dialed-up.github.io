@@ -36,7 +36,7 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
 
   // Menu bar
   const menus = {
-    File: [["Open Keyword…", () => $("keyword").focus()], ["Favorite Places", () => openFavorites(go)], ["Preferences…", () => go("preferences")],
+    File: [["📲 Add to Home Screen", () => import("./install.js").then((m) => m.addToHomeScreen())], ["Open Keyword…", () => $("keyword").focus()], ["Favorite Places", () => openFavorites(go)], ["Preferences…", () => go("preferences")],
       "-", ["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
     Edit: [["Copy", () => document.execCommand("copy")], ["Paste into Keyword", async () => { try { $("keyword").value = await navigator.clipboard.readText(); } catch {} }]],
     Mail: [["Read Mail", () => go("mail")], ["Write Mail", () => go("write")], ["Send an E-Greeting", () => go("greetings")], ["Address Book", () => go("addressbook")]],

@@ -16,6 +16,7 @@ import { watchCalls, stopCalls } from "./voice.js";
 import { applyPrefs } from "./prefs.js";
 import { applyKidMode } from "./kids.js";
 import { userName } from "./chat.js";
+import { addToHomeScreen, refreshButtons } from "./install.js";
 import { me } from "./chat.js";
 import { writeMail } from "./mail.js";
 
@@ -24,6 +25,8 @@ const show = (id) => ["signon", "connecting", "app"].forEach((s) => ($(s).hidden
 
 applyPrefs();
 applyKidMode();
+document.querySelectorAll(".install-btn").forEach((b) => (b.onclick = addToHomeScreen));
+refreshButtons();
 
 // No zooming: block pinch and double-tap zoom (iPhone ignores the page setting on its own).
 ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => {
