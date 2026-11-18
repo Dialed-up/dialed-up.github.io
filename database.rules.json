@@ -8,8 +8,8 @@
       }
     },
     "users": {
-      ".read": "auth != null",
       "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid + '/' + $uid + '_' + auth.uid).exists() || root.child('inbox/' + auth.uid + '/' + auth.uid + '_' + $uid).exists())",
         ".write": "auth != null && auth.uid === $uid"
       }
     },
@@ -161,8 +161,8 @@
       }
     },
     "icons": {
-      ".read": "auth != null",
       "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid + '/' + $uid + '_' + auth.uid).exists() || root.child('inbox/' + auth.uid + '/' + auth.uid + '_' + $uid).exists())",
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "!newData.exists() || (newData.isString() && newData.val().length < 30000)"
       }
@@ -174,14 +174,14 @@
       }
     },
     "albumlist": {
-      ".read": "auth != null",
       "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid + '/' + $uid + '_' + auth.uid).exists() || root.child('inbox/' + auth.uid + '/' + auth.uid + '_' + $uid).exists())",
         ".write": "auth != null && auth.uid === $uid"
       }
     },
     "photos": {
-      ".read": "auth != null",
       "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid + '/' + $uid + '_' + auth.uid).exists() || root.child('inbox/' + auth.uid + '/' + auth.uid + '_' + $uid).exists())",
         ".write": "auth != null && auth.uid === $uid",
         "$album": {
           "$pid": {
