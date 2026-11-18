@@ -3,7 +3,7 @@ import {
   auth, db, ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect,
   query, orderByKey, limitToLast, normalize, conversationID,
 } from "./firebase.js";
-import { openWindow, closeWindow, getWindow, setTitle, flash, esc } from "./wm.js";
+import { openWindow, closeWindow, getWindow, setTitle, flash, esc, contextMenu, onMenu } from "./wm.js";
 import * as sfx from "./sounds.js";
 import { warningLevel, warn, alreadyWarned } from "./extras.js";
 import { openPeoplePlaza, openRoom as openPlazaRoom } from "./people.js";
@@ -166,7 +166,7 @@ function refreshBuddyList() {
   body.scrollTop = scroll;
   body.querySelectorAll("[data-buddy]").forEach((el) => {
     el.onclick = () => openIM(el.dataset.buddy);
-    el.oncontextmenu = (e) => { e.preventDefault(); openInfo(el.dataset.buddy); };
+    onMenu(el, (x, y) => buddyMenu(el.dataset.buddy, x, y));
   });
   body.querySelectorAll("[data-group]").forEach((b) => (b.onclick = () => {
     const g = state.groups.find((x) => x.id === b.dataset.group);
@@ -175,6 +175,74 @@ function refreshBuddyList() {
   }));
   const acts = { add: openAddBuddy, group: newGroup, away: openAway, profile: openProfile, people: openDirectory };
   body.querySelectorAll("[data-act]").forEach((b) => (b.onclick = acts[b.dataset.act]));
+}
+
+export function buddyMenu(uid, x, y) {
+  const isBuddy = buddyIDs().has(uid);
+  contextMenu(x, y, [
+    { label: "💬 Send Instant Message", action: () => openIM(uid) },
+    { label: "📎 Send File…", action: () => sendFileTo(uid) },
+    { label: "🪪 Get Info", action: () => openInfo(uid) },
+    { label: "✉️ Invite to Chat…", action: () => {
+      const room = prompt(`Invite ${name(uid)} to which chat room?`, "Lobby");
+      if (room) push(ref(db, `invites/${uid}`), { from: state.uid, room, message: "Come chat with me!", ts: serverTimestamp() }).catch(() => {});
+    } },
+    "-",
+    ...(isBuddy
+      ? [{ label: "📁 Move to Group…", action: () => moveToGroup(uid) }, { label: "🗑 Remove Buddy", danger: true, action: () => removeBuddy(uid) }]
+      : [{ label: "➕ Add Buddy", action: () => openAddBuddy(name(uid)) }]),
+    { label: state.blocked.has(uid) ? "✅ Unblock" : "⛔ Block", danger: !state.blocked.has(uid), action: () => toggleBlock(uid) },
+  ]);
+}
+
+function moveToGroup(uid) {
+  const names = state.groups.map((g, i) => `${i + 1}. ${g.name}`).join("\n");
+  const pick = Number(prompt(`Move ${name(uid)} to which group?\n${names}`)) - 1;
+  if (!state.groups[pick]) return;
+  state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
+  state.groups[pick].members.push(uid);
+  saveGroups();
+}
+
+async function removeBuddy(uid) {
+  state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
+  await saveGroups();
+}
+
+/** Opens a file picker, then sends the chosen file to `uid`. */
+export function sendFileTo(uid) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.onchange = () => { const f = input.files[0]; if (f) { openIM(uid, { quiet: true }); sendFile(uid, f); } };
+  input.click();
+}
+
+/** The classic "File Transfer" pop-up with a progress bar. Returns an updater. */
+function transferWindow(tid, { fileName, size, direction, who }) {
+  const id = "xfer." + tid;
+  const started = Date.now();
+  openWindow(id, {
+    title: direction === "send" ? `Sending to ${who}` : `Receiving from ${who}`, icon: "📎", width: 300, height: 230,
+    render(body) {
+      body.innerHTML = `<div><b>📎 ${esc(fileName)}</b> <span class="small muted">${sizeLabel(size)}</span></div>
+        <div class="xfer-bar"><div></div></div>
+        <div class="small" data-status>${direction === "send" ? "Starting upload…" : "Starting download…"}</div>
+        <div class="small muted" data-speed></div>
+        <div class="row" style="margin-top:8px"><span></span><button class="btn small-btn" data-x="close">Close</button></div>`;
+      body.querySelector("[data-x=close]").onclick = () => closeWindow(id);
+    },
+  });
+  return (fraction, statusText, done = false) => {
+    const w = getWindow(id);
+    if (!w) return;
+    w.body.querySelector(".xfer-bar > div").style.width = Math.round(fraction * 100) + "%";
+    w.body.querySelector("[data-status]").textContent = statusText;
+    const secs = Math.max(0.5, (Date.now() - started) / 1000);
+    const rate = (size * fraction) / secs;
+    w.body.querySelector("[data-speed]").textContent = done ? `Took ${Math.round(secs)} seconds`
+      : `${sizeLabel(rate)}/sec · about ${Math.max(1, Math.round((size - size * fraction) / Math.max(rate, 1)))} sec left`;
+    if (done) setTimeout(() => closeWindow(id), 4000);
+  };
 }
 
 function newGroup() {
@@ -404,8 +472,10 @@ async function sendFile(uid, file, body) {
     chunks, uploaded: 0, status: "uploading", ts: serverTimestamp() });
   await sendIM(uid, `📎 ${file.name} (${sizeLabel(bytes.length)})`, { font: "Verdana", size: 14, color: "#000000" },
     { file: { tid, name: file.name, size: bytes.length, mime } });
+  const progress = transferWindow(tid, { fileName: file.name, size: bytes.length, direction: "send", who: name(uid) });
   try {
     for (let i = 0; i < chunks; i++) {
+      progress(i / chunks, `Sending… ${Math.round((i / chunks) * 100)}%`);
       const part = bytes.subarray(i * CHUNK, Math.min(bytes.length, (i + 1) * CHUNK));
       let bin = "";
       for (let j = 0; j < part.length; j += 0x8000) bin += String.fromCharCode.apply(null, part.subarray(j, j + 0x8000));
@@ -413,8 +483,10 @@ async function sendFile(uid, file, body) {
       await update(ref(db, `filemeta/${conv}/${tid}`), { uploaded: i + 1 });
     }
     await update(ref(db, `filemeta/${conv}/${tid}`), { status: "ready" });
+    progress(1, `Sent! Waiting for ${name(uid)} to accept.`, true);
   } catch {
     await update(ref(db, `filemeta/${conv}/${tid}`), { status: "failed" }).catch(() => {});
+    progress(0, "Sending failed. Check your connection and try again.");
   }
 }
 
@@ -450,6 +522,7 @@ function paintFile(el, uid, conv, metas) {
 
 async function acceptFile(el, conv, tid, meta) {
   el.querySelector(".small").textContent = "Receiving… 0%";
+  const progress = transferWindow(tid, { fileName: el.dataset.name, size: Number(el.dataset.size), direction: "receive", who: name(meta.from) });
   await update(ref(db, `filemeta/${conv}/${tid}`), { status: "accepted" }).catch(() => {});
   const parts = [];
   for (let i = 0; i < (meta.chunks || 1); i++) {
@@ -460,10 +533,12 @@ async function acceptFile(el, conv, tid, meta) {
     for (let j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j);
     parts.push(arr);
     el.querySelector(".small").textContent = `Receiving… ${Math.round(((i + 1) / meta.chunks) * 100)}%`;
+    progress((i + 1) / meta.chunks, `Receiving… ${Math.round(((i + 1) / meta.chunks) * 100)}%`);
   }
   received[tid] = URL.createObjectURL(new Blob(parts, { type: el.dataset.mime || "application/octet-stream" }));
   await update(ref(db, `filemeta/${conv}/${tid}`), { status: "received" });
   remove(ref(db, `filechunks/${conv}/${tid}`));
+  progress(1, "Done! Tap 💾 Save in the IM window to keep it.", true);
   sfx.imIn();
 }
 
@@ -488,11 +563,13 @@ export function openInfo(uid) {
         ${u.interests || u.location ? `<div class="panel"><h3>Interests</h3>${esc(u.interests || "")}${u.location ? `<br><span class="small muted">📍 ${esc(u.location)}</span>` : ""}</div>` : ""}
         <div class="row">
           <button class="btn primary small-btn" data-x="im">Send IM</button>
+          <button class="btn small-btn" data-x="file">📎 Send File</button>
           <a class="btn small-btn" href="home.html?u=${encodeURIComponent(normalize(u.screenName || ""))}" target="_blank">🌐 Home Page</a>
           ${isBuddy ? `<button class="btn small-btn" data-x="remove">Remove Buddy</button>` : `<button class="btn small-btn" data-x="add">Add Buddy</button>`}
           <button class="btn danger small-btn" data-x="block">${state.blocked.has(uid) ? "Unblock" : "Block"}</button>
         </div>`;
       body.querySelector("[data-x=im]").onclick = () => openIM(uid);
+      body.querySelector("[data-x=file]").onclick = () => sendFileTo(uid);
       body.querySelector("[data-x=add]")?.addEventListener("click", () => openAddBuddy(u.screenName));
       body.querySelector("[data-x=remove]")?.addEventListener("click", async () => {
         state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));

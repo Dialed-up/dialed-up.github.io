@@ -11,12 +11,24 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   el.className = "win " + className;
   el.dataset.id = id;
   const dw = desk().clientWidth, dh = desk().clientHeight;
-  const w = Math.min(width, dw - 12), h = Math.min(height, dh - 12);
-  const step = (cascade++ % 6) * 26;
+  const small = dw < 600;
+  let w = Math.min(width, small ? Math.round(dw * 0.86) : dw - 12);
+  let h = Math.min(height, small ? Math.round(dh * 0.7) : dh - 12);
+  const step = (cascade++ % 6) * (small ? 18 : 26);
+  let left = x ?? Math.min(8 + step, dw - w - 6);
+  let top = y ?? Math.min(8 + step, dh - h - 6);
+  const saved = savedGeometry(id);
+  if (saved) {
+    w = Math.min(saved.w, dw); h = Math.min(saved.h, dh);
+    left = Math.min(Math.max(saved.x, 0), Math.max(0, dw - 80)); top = Math.min(Math.max(saved.y, 0), Math.max(0, dh - 40));
+  }
   el.style.width = w + "px";
   el.style.height = h + "px";
-  el.style.left = (x ?? Math.min(10 + step, dw - w - 6)) + "px";
-  el.style.top = (y ?? Math.min(10 + step, dh - h - 6)) + "px";
+  el.style.left = left + "px";
+  el.style.top = top + "px";
+  el.classList.add("opening");
+  el.addEventListener("animationend", () => el.classList.remove("opening"), { once: true });
+  popSound();
   el.innerHTML = `
     <header class="win-title">
       <span class="win-icon">${icon}</span><span class="win-name"></span>
@@ -66,9 +78,74 @@ export function closeWindow(id) {
   const w = wins.get(id);
   if (!w) return;
   w.onClose?.();
-  w.el.remove();
-  w.tb.remove();
   wins.delete(id);
+  w.tb.remove();
+  w.el.classList.add("closing");
+  setTimeout(() => w.el.remove(), 140);
+}
+
+// ---------- remembering where windows were ----------
+const geoKey = (id) => "du.win." + id.split(".")[0] + (id.startsWith("im.") || id === "buddies" ? "" : "." + id);
+function savedGeometry(id) {
+  try { return JSON.parse(localStorage.getItem(geoKey(id)) || "null"); } catch { return null; }
+}
+function saveGeometry(el) {
+  const id = el.dataset.id;
+  localStorage.setItem(geoKey(id), JSON.stringify({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }));
+}
+
+// ---------- a soft "pop" when a window opens ----------
+let popCtx = null;
+function popSound() {
+  if (localStorage.getItem("du.muted") === "1") return;
+  try {
+    popCtx = popCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = popCtx.createOscillator(), g = popCtx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(520, popCtx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(880, popCtx.currentTime + 0.06);
+    g.gain.setValueAtTime(0.06, popCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, popCtx.currentTime + 0.09);
+    o.connect(g).connect(popCtx.destination);
+    o.start(); o.stop(popCtx.currentTime + 0.1);
+  } catch {}
+}
+
+// ---------- right-click / long-press menus ----------
+let menuEl = null;
+export function contextMenu(x, y, items) {
+  closeMenu();
+  menuEl = document.createElement("div");
+  menuEl.className = "ctx glossy";
+  items.forEach((it) => {
+    if (it === "-") { menuEl.appendChild(Object.assign(document.createElement("hr"), {})); return; }
+    const b = document.createElement("button");
+    b.textContent = it.label;
+    if (it.danger) b.className = "danger";
+    b.onclick = () => { closeMenu(); it.action(); };
+    menuEl.appendChild(b);
+  });
+  document.body.appendChild(menuEl);
+  const r = menuEl.getBoundingClientRect();
+  menuEl.style.left = Math.min(x, innerWidth - r.width - 6) + "px";
+  menuEl.style.top = Math.min(y, innerHeight - r.height - 6) + "px";
+  setTimeout(() => document.addEventListener("pointerdown", outside, { once: true }), 0);
+}
+function outside(e) { if (menuEl && !menuEl.contains(e.target)) closeMenu(); else if (menuEl) document.addEventListener("pointerdown", outside, { once: true }); }
+export function closeMenu() { menuEl?.remove(); menuEl = null; }
+
+/** Calls `open(x, y)` on right-click or a long press (for phones). */
+export function onMenu(el, open) {
+  el.addEventListener("contextmenu", (e) => { e.preventDefault(); open(e.clientX, e.clientY); });
+  let timer = null, moved = false;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse") return;
+    moved = false;
+    timer = setTimeout(() => { el.dataset.longpress = "1"; open(e.clientX, e.clientY); }, 500);
+  });
+  el.addEventListener("pointermove", () => { moved = true; clearTimeout(timer); });
+  el.addEventListener("pointerup", () => clearTimeout(timer));
+  el.addEventListener("click", (e) => { if (el.dataset.longpress) { e.stopImmediatePropagation(); e.preventDefault(); delete el.dataset.longpress; } }, true);
 }
 
 export function closeAll() { [...wins.keys()].forEach(closeWindow); cascade = 0; }
@@ -99,7 +176,7 @@ function makeDraggable(el, handle) {
       el.style.left = Math.min(Math.max(ox + ev.clientX - sx, 60 - el.offsetWidth), d.clientWidth - 60) + "px";
       el.style.top = Math.min(Math.max(oy + ev.clientY - sy, 0), d.clientHeight - 30) + "px";
     };
-    const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); };
+    const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); saveGeometry(el); };
     handle.addEventListener("pointermove", move);
     handle.addEventListener("pointerup", up);
   });
@@ -114,7 +191,7 @@ function makeResizable(el, grip) {
       el.style.width = Math.max(220, ow + ev.clientX - sx) + "px";
       el.style.height = Math.max(160, oh + ev.clientY - sy) + "px";
     };
-    const up = () => { grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); };
+    const up = () => { grip.removeEventListener("pointermove", move); grip.removeEventListener("pointerup", up); saveGeometry(el); };
     grip.addEventListener("pointermove", move);
     grip.addEventListener("pointerup", up);
   });

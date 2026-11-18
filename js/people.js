@@ -1,8 +1,8 @@
 // People Plaza: browse chat rooms by category, see who's inside, make your own room.
 import { auth, db, ref, get, set, push, remove, update, onValue, off, serverTimestamp, query, orderByKey, limitToLast, normalize } from "./firebase.js";
-import { openWindow, closeWindow, getWindow, esc } from "./wm.js";
+import { openWindow, closeWindow, getWindow, esc, contextMenu } from "./wm.js";
 import * as sfx from "./sounds.js";
-import { me, openIM, openInfo, buddyList, userName } from "./chat.js";
+import { me, openIM, openInfo, buddyList, userName, sendFileTo } from "./chat.js";
 
 export const ROOM_LIMIT = 23;
 
@@ -175,19 +175,22 @@ export async function openRoom(displayName, category = "") {
         body.querySelector("#count").textContent = people.length;
         body.querySelector("#people").innerHTML = people.map((p) =>
           `<li><a href="#" data-p="${p}" class="${ignored.has(p) ? "muted" : ""}">${esc(userName(p))}</a></li>`).join("");
-        body.querySelectorAll("[data-p]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); personMenu(a.dataset.p); }));
+        body.querySelectorAll("[data-p]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); personMenu(a.dataset.p, e.clientX, e.clientY); }));
       });
       refs.push(allRef);
 
-      const personMenu = (p) => {
+      const personMenu = (p, x, y) => {
         if (p === uid) return openInfo(p);
-        const choice = prompt(`${userName(p)}: type 1 for Info, 2 to IM, 3 to ${ignored.has(p) ? "Un-ignore" : "Ignore"}`);
-        if (choice === "1") openInfo(p);
-        else if (choice === "2") openIM(p);
-        else if (choice === "3") {
-          ignored.has(p) ? ignored.delete(p) : ignored.add(p);
-          localStorage.setItem("du.ignored", JSON.stringify([...ignored]));
-        }
+        contextMenu(x, y, [
+          { label: "💬 Send Instant Message", action: () => openIM(p) },
+          { label: "📎 Send File…", action: () => sendFileTo(p) },
+          { label: "🪪 Get Info", action: () => openInfo(p) },
+          "-",
+          { label: ignored.has(p) ? "🔊 Stop Ignoring" : "🔇 Ignore", danger: !ignored.has(p), action: () => {
+            ignored.has(p) ? ignored.delete(p) : ignored.add(p);
+            localStorage.setItem("du.ignored", JSON.stringify([...ignored]));
+          } },
+        ]);
       };
 
       body.querySelector("#invite").onclick = () => inviteBuddy(displayName);
