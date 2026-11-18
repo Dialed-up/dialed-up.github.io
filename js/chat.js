@@ -211,7 +211,7 @@ async function syncBuddyOf() {
 export function openBuddyList() {
   const desk = document.getElementById("desk");
   const wide = desk.clientWidth > desk.clientHeight;
-  const w = Math.min(wide ? 250 : 230, Math.round(desk.clientWidth * (wide ? 0.32 : 0.5)));
+  const w = Math.max(220, Math.min(wide ? 250 : 230, Math.round(desk.clientWidth * (wide ? 0.32 : 0.5))));
   openWindow("buddies", {
     title: `${state.me.screenName}'s Buddy List`, icon: "👥", width: w, height: desk.clientHeight - 12,
     x: desk.clientWidth - w - 6, y: 6, render: () => refreshBuddyList(),

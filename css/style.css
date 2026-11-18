@@ -555,3 +555,16 @@ body.dim #signon { background: center bottom / cover no-repeat url(../img/dim-ba
 .switch-tab .short { display: none; }
 @media (max-width: 700px) { .switch-tab .long { display: none; } .switch-tab .short { display: inline; } }
 body.dim #taskbar .switch-tab { color: #1e5fc8; font-weight: bold; }
+
+/* ---------- Phone portrait: two-row taskbar with room to breathe ---------- */
+html { background: #dccdfa; }
+html:has(body.dim) { background: #1e5fc8; }
+@media (max-width: 600px) and (orientation: portrait) {
+  #taskbar { flex-wrap: wrap; gap: 6px; padding: 6px 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  #taskbar-windows { order: -1; flex: 1 1 100%; gap: 6px; padding-bottom: 2px; }
+  #taskbar-windows:empty { display: none; }
+  #taskbar .task { padding: 5px 10px; max-width: 160px; }
+  #taskbar > .start, #taskbar > .switch-tab, #taskbar > #signoff { flex: 1 1 0; justify-content: center; padding-top: 7px; padding-bottom: 7px; font-size: 14px; }
+  #taskbar > #clock { flex: 0 0 auto; font-size: 13px; padding-left: 2px; }
+  #taskbar > #radio-mini:not([hidden]) { flex: 1 1 100%; order: 0; max-width: none; }
+}

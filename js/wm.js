@@ -21,7 +21,7 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   const saved = savedGeometry(id);
   if (saved) {
     w = Math.min(saved.w, dw); h = Math.min(saved.h, dh);
-    left = Math.min(Math.max(saved.x, 0), Math.max(0, dw - 80)); top = Math.min(Math.max(saved.y, 0), Math.max(0, dh - 40));
+    left = Math.min(Math.max(saved.x, 0), Math.max(0, dw - w)); top = Math.min(Math.max(saved.y, 0), Math.max(0, dh - 40));
   }
   el.style.width = w + "px";
   el.style.height = h + "px";
