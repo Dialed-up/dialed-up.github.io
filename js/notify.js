@@ -72,24 +72,22 @@ export async function notify(title, body, { tag, force = false, url } = {}) {
 }
 
 // ---------- Red number on the app icon ----------
-const parts = { im: 0, mail: 0 };
-let badgeTimer = null;
-/** Each part of the app reports its unread count; the icon shows the total. */
-export function setBadgePart(kind, n) {
-  if (parts[kind] === n) return;
-  parts[kind] = n;
-  clearTimeout(badgeTimer);
-  badgeTimer = setTimeout(async () => {
-    const total = parts.im + parts.mail;
-    try { total ? await navigator.setAppBadge?.(total) : await navigator.clearAppBadge?.(); } catch {}
-    try {
-      const r = await navigator.serviceWorker?.getRegistration();
-      r?.active?.postMessage({ type: "badge", count: total });
-      // Opening the app clears the alerts sitting on the lock screen
-      if (document.visibilityState === "visible") (await r?.getNotifications?.())?.forEach((n) => n.close());
-    } catch {}
-  }, 400);
+// The Home Screen app works on its own: the bubble counts alerts that came in while it was closed,
+// and opening the app (only the app, never a browser tab) clears it.
+const isApp = () => window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
+async function clearBadge() {
+  if (!isApp() || document.visibilityState !== "visible") return;
+  try { await navigator.clearAppBadge?.(); } catch {}
+  try {
+    const r = await navigator.serviceWorker?.getRegistration();
+    r?.active?.postMessage({ type: "badge", count: 0 });
+    (await r?.getNotifications?.())?.forEach((n) => n.close());
+  } catch {}
 }
+clearBadge();
+document.addEventListener("visibilitychange", clearBadge);
+/** Kept so other parts of DialedUp can report unread counts; the app bubble only clears when the app is opened. */
+export function setBadgePart() {}
 
 // ---------- "This device has DialedUp on screen" (so only this device skips the alert) ----------
 let myDev = null, markedHere = false, beat = null;
