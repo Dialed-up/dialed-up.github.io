@@ -304,10 +304,12 @@ function refreshBuddyList() {
       ${g.collapsed ? "" : on.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>`;
   }).join("");
   const off_ = [...buddyIDs()].filter((m) => presence(state.users[m]) === "offline");
-  // Recent IMs: people who aren't buddies that you've talked with in the last 7 days
-  const weekAgo = Date.now() - 7 * 86400000;
-  const strangers = [...new Set(Object.values(state.inbox).filter((e) => (e.ts || 0) > weekAgo).map((e) => e.with)
-    .filter((u) => u && !buddyIDs().has(u) && u !== state.uid))];
+  // IM Requests: people who aren't buddies that messaged you (last 7 days)
+  const weekAgo = Date.now() - 7 * 86400000, hourAgo = Date.now() - 3600000;
+  const entries = Object.values(state.inbox).filter((e) => e.with && e.with !== state.uid && !state.blocked.has(e.with));
+  const strangers = [...new Set(entries.filter((e) => (e.ts || 0) > weekAgo && !buddyIDs().has(e.with) && e.from !== state.uid).map((e) => e.with))];
+  // Recent IMs: anyone you've talked with in the last hour, newest first
+  const recents = [...new Set(entries.filter((e) => (e.ts || 0) > hourAgo).sort((a, b) => (b.ts || 0) - (a.ts || 0)).map((e) => e.with))];
   body.innerHTML = `
     ${state.connected === false ? `<div class="bl-offline">📡 Reconnecting to DialedUp…</div>` : ""}
     <div class="bl-top"><b class="bl-title">Buddy List</b>
@@ -321,8 +323,10 @@ function refreshBuddyList() {
     <div class="group"><button>▾ Bots (1/1)</button>
       <div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div></div>
     ${groupsHTML}
-    ${strangers.length ? `<div class="group recent-ims"><div class="row" style="align-items:center"><button>▾ Recent IMs (${strangers.length})</button>
-      <a href="#" class="small" data-clear-recent title="Remove everyone from Recent IMs">Clear</a></div>${strangers.map((u) => row(u).replace('data-buddy=', 'data-recent="1" data-buddy=')).join("")}</div>` : ""}
+    ${recents.length ? `<div class="group recent-ims"><button>▾ Recent IMs (${recents.length})</button>
+      ${recents.map((u) => (buddyIDs().has(u) ? row(u) : row(u).replace('data-buddy=', 'data-recent="1" data-buddy='))).join("")}</div>` : ""}
+    ${strangers.length ? `<div class="group im-requests"><div class="row" style="align-items:center"><button>▾ IM Requests (${strangers.length})</button>
+      <a href="#" class="small" data-clear-recent title="Clear all IM Requests">Clear</a></div>${strangers.map((u) => row(u).replace('data-buddy=', 'data-recent="1" data-buddy=')).join("")}</div>` : ""}
     ${show === "everyone" ? `<div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
     <div class="bl-bottom">
       <button class="bl-icon" data-act="im"><span>💬</span>Send IM</button>
@@ -344,12 +348,13 @@ function refreshBuddyList() {
       { label: "➕ Add Buddy", action: () => openAddBuddy(name(el.dataset.buddy)) },
       { label: "🪪 Buddy Info", action: () => openInfo(el.dataset.buddy) },
       "-",
-      { label: "✖ Remove from Recent IMs", action: () => forgetRecent(el.dataset.buddy) },
+      { label: "✖ Remove Request", action: () => forgetRecent(el.dataset.buddy) },
+      { label: "⛔ Block", danger: true, action: () => { if (confirm(`Block ${name(el.dataset.buddy)}?`)) set(ref(db, `blocks/${state.uid}/${el.dataset.buddy}`), true); } },
     ]) : buddyMenu(el.dataset.buddy, x, y));
   });
   body.querySelector("[data-clear-recent]")?.addEventListener("click", (e) => {
     e.preventDefault();
-    if (confirm("Clear everyone from Recent IMs? Your chat history stays in IM History.")) strangers.forEach((u) => forgetRecent(u));
+    if (confirm("Clear all IM Requests? Your chat history stays in IM History.")) strangers.forEach((u) => forgetRecent(u));
   });
   body.querySelectorAll("[data-group]").forEach((b) => onMenu(b, (x, y) => groupMenu(b.dataset.group, x, y)));
   body.querySelectorAll("[data-group]").forEach((b) => (b.onclick = () => {
