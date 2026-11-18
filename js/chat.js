@@ -1036,7 +1036,7 @@ async function toggleBlock(uid) {
 
 export function openInfo(uid) {
   openWindow("info." + uid, {
-    title: `Info: ${name(uid)}`, icon: "🪪", width: 320, height: 420,
+    title: `Info: ${name(uid)}`, icon: "🪪", width: 360, height: 520,
     render(body) {
       const u = state.users[uid] || {};
       const p = presence(u);
@@ -1044,8 +1044,7 @@ export function openInfo(uid) {
       body.innerHTML = `<div style="display:flex;gap:10px;align-items:center">${iconHTML(uid, 56)}<h2 style="margin:0 0 4px;color:var(--grape)">${esc(u.screenName || "…")}</h2></div>
         <p class="small">${{ online: "🟢 Online", away: "🟠 Away", idle: `⚪ Idle ${idleMin(u)} min`, offline: `⚫ Offline${u.lastSeen ? " · last seen " + new Date(u.lastSeen).toLocaleString() : ""}` }[p]}</p>
         ${u.away ? `<div class="panel"><h3>Away Message</h3>${formatText(u.away)}</div>` : ""}
-        <div class="panel"><h3>Profile</h3>${u.profile ? formatText(u.profile) : "<span class='muted'>(no profile)</span>"}</div>
-        ${u.interests || u.location ? `<div class="panel"><h3>Interests</h3>${esc(u.interests || "")}${u.location ? `<br><span class="small muted">📍 ${esc(u.location)}</span>` : ""}</div>` : ""}
+        <div class="info-profile"></div>
         <div class="row">
           <button class="btn primary small-btn" data-x="im">Send IM</button>
           <button class="btn small-btn" data-x="file">📎 Send File</button>
@@ -1053,6 +1052,7 @@ export function openInfo(uid) {
           ${isBuddy ? `<button class="btn small-btn" data-x="remove">Remove Buddy</button>` : `<button class="btn small-btn" data-x="add">Add Buddy</button>`}
           <button class="btn danger small-btn" data-x="block">${state.blocked.has(uid) ? "Unblock" : "Block"}</button>
         </div>`;
+      import("./profile.js").then((m) => m.renderProfile(body.querySelector(".info-profile"), u, uid, { viewer: state.me.screenName, openDirectory }));
       body.querySelector("[data-x=im]").onclick = () => openIM(uid);
       body.querySelector("[data-x=file]").onclick = () => sendFileTo(uid);
       body.querySelector("[data-x=add]")?.addEventListener("click", () => openAddBuddy(u.screenName));
@@ -1106,45 +1106,19 @@ export function openAway() {
 }
 
 export function openProfile() {
-  openWindow("profile", {
-    title: "My Profile", icon: "🪪", width: 340, height: 460,
-    render(body) {
-      const u = state.users[state.uid] || state.me;
-      body.innerHTML = `<div class="panel" style="display:flex;gap:10px;align-items:center"><span id="pf-icon">${iconHTML(state.uid, 56)}</span>
-          <div><b>Buddy Icon</b><br><label class="btn small-btn" style="margin:4px 0 0;display:inline-block;font-weight:normal">Choose a picture<input type="file" accept="image/*" id="pf-file" hidden></label>
-          <span class="small muted" id="pf-msg"></span></div></div>
-        <label>About me<textarea id="pf" rows="6">${esc(u.profile || "")}</textarea></label>
-        <label>Interests (for the Member Directory)<input id="pi" value="${esc(u.interests || "")}" placeholder="music, sneakers, basketball"></label>
-        <label>Location<input id="pl" value="${esc(u.location || "")}" placeholder="Brooklyn, NY"></label>
-        <label class="check"><input type="checkbox" id="pd" ${localStorage.getItem("du.listed." + state.uid) === "1" ? "checked" : ""}> List me in the Member Directory (screen name, interests and location only)</label>
-        <div class="row"><span class="small muted">Buddies see this in Info.</span><button class="btn primary" id="ps">Save</button></div>`;
-      body.querySelector("#pf-file").onchange = async (e) => {
-        const f = e.target.files[0];
-        if (!f) return;
-        body.querySelector("#pf-msg").textContent = "Saving…";
-        try { await setMyIcon(f); body.querySelector("#pf-msg").textContent = "Saved!"; }
-        catch { body.querySelector("#pf-msg").textContent = "Couldn't use that picture."; }
-      };
-      document.addEventListener("du:icons", () => { const el = body.querySelector("#pf-icon"); if (el) el.innerHTML = iconHTML(state.uid, 56); });
-      body.querySelector("#ps").onclick = async () => {
-        const interests = body.querySelector("#pi").value, location = body.querySelector("#pl").value;
-        await update(ref(db, `users/${state.uid}`), { profile: body.querySelector("#pf").value, interests, location });
-        const listed = body.querySelector("#pd").checked;
-        localStorage.setItem("du.listed." + state.uid, listed ? "1" : "0");
-        if (listed) await set(ref(db, `directory/${state.uid}`), { screenName: state.me.screenName, interests, location }).catch(() => {});
-        else await remove(ref(db, `directory/${state.uid}`)).catch(() => {});
-        closeWindow("profile");
-      };
-    },
-  });
+  import("./profile.js").then((m) => m.openProfileEditor({
+    uid: state.uid, user: state.users[state.uid] || state.me, screenName: state.me.screenName,
+    iconHTML, setMyIcon, openDirectory,
+  }));
 }
 
-export function openDirectory() {
+export function openDirectory(startQuery = "") {
+  if (getWindow("directory")) closeWindow("directory");
   openWindow("directory", {
     title: "Member Directory", icon: "🔎", width: 340, height: 460,
     async render(body) {
       body.innerHTML = `<p class="small muted" style="margin-top:0">Only members who chose to be listed (in My Profile) show up here.</p>
-        <input id="dq" placeholder="Search names, interests, places…"><ul class="list" id="dr" style="margin-top:8px"><li class="muted">Loading…</li></ul>`;
+        <input id="dq" placeholder="Search names, interests, places…" value="${esc(typeof startQuery === "string" ? startQuery : "")}"><ul class="list" id="dr" style="margin-top:8px"><li class="muted">Loading…</li></ul>`;
       const all = (await get(ref(db, "directory")).catch(() => null))?.val() || {};
       const paint = () => {
         const q = body.querySelector("#dq").value.toLowerCase().trim();

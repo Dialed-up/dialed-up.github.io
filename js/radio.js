@@ -11,6 +11,7 @@ const genres = [
 const audio = new Audio();
 audio.preload = "none";
 let nowPlaying = null;
+export const getNowPlaying = () => nowPlaying;
 
 function setNowPlaying(st) {
   nowPlaying = st;
