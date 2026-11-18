@@ -1,0 +1,627 @@
+// Buddy List, IMs, chat rooms, away messages and profiles — shared with the BuddyChat iPhone app.
+import {
+  auth, db, ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect,
+  query, orderByKey, limitToLast, normalize, conversationID,
+} from "./firebase.js";
+import { openWindow, closeWindow, getWindow, setTitle, flash, esc } from "./wm.js";
+import * as sfx from "./sounds.js";
+
+const state = {
+  uid: null, me: { screenName: "" }, users: {}, groups: [], inbox: {}, blocked: new Set(),
+  away: "", listeners: [], timers: [], known: {}, loadedUsers: false, loadedInbox: false, lastAuto: {},
+};
+
+export const me = () => state.me;
+const name = (uid) => state.users[uid]?.screenName ?? "…";
+
+// ---------- Presence ----------
+function presence(u, now = Date.now()) {
+  if (!u || !u.signedOn || u.invisible) return "offline";
+  const age = now - (u.lastSeen || 0);
+  if (!u.idleSince && age < 150000) return u.away ? "away" : "online";
+  if (u.idleSince && age < 7200000) return u.away ? "away" : "idle";
+  return "offline";
+}
+const idleMin = (u) => (u?.idleSince ? Math.max(1, Math.round((Date.now() - u.idleSince) / 60000)) : 0);
+
+function listen(path, cb, q) {
+  const r = q || ref(db, path);
+  onValue(r, (snap) => cb(snap.val()));
+  state.listeners.push(r);
+}
+
+export async function startChat() {
+  const uid = auth.currentUser.uid;
+  state.uid = uid;
+  const meRef = ref(db, `users/${uid}`);
+  state.me = (await get(meRef)).val() || { screenName: "Me" };
+  state.away = state.me.away || "";
+  try {
+    const raw = (await get(ref(db, `buddylists/${uid}`))).val();
+    state.groups = raw ? JSON.parse(raw) : [];
+  } catch { state.groups = []; }
+  if (!state.groups.length) state.groups = [{ id: crypto.randomUUID().toUpperCase(), name: "Buddies", members: [], collapsed: false }];
+
+  await update(meRef, { signedOn: true, lastSeen: serverTimestamp(), idleSince: null });
+  onDisconnect(meRef).update({ signedOn: false, lastSeen: serverTimestamp() });
+  state.timers.push(setInterval(() => update(meRef, { lastSeen: serverTimestamp(), signedOn: true }), 45000));
+  state.timers.push(setInterval(refreshBuddyList, 10000));
+  document.addEventListener("visibilitychange", onVisibility);
+
+  listen("users", (v) => {
+    state.users = v || {};
+    state.me = state.users[uid] || state.me;
+    checkPresenceChanges();
+    state.loadedUsers = true;
+    refreshBuddyList();
+    document.querySelectorAll("[data-im]").forEach((el) => renderIMStatus(el.dataset.im));
+  });
+  listen(`inbox/${uid}`, onInbox);
+  listen(`blocks/${uid}`, (v) => { state.blocked = new Set(Object.keys(v || {})); refreshBuddyList(); });
+  listen(`buddylists/${uid}`, (v) => {
+    try { if (v) { state.groups = JSON.parse(v); refreshBuddyList(); } } catch {}
+  });
+}
+
+export function stopChat() {
+  state.listeners.forEach((r) => off(r));
+  state.timers.forEach(clearInterval);
+  document.removeEventListener("visibilitychange", onVisibility);
+  Object.assign(state, { uid: null, listeners: [], timers: [], known: {}, loadedUsers: false, loadedInbox: false, users: {}, inbox: {} });
+}
+
+function onVisibility() {
+  if (!state.uid) return;
+  const r = ref(db, `users/${state.uid}`);
+  if (document.hidden) update(r, { idleSince: serverTimestamp(), lastSeen: serverTimestamp() });
+  else update(r, { idleSince: null, lastSeen: serverTimestamp(), signedOn: true });
+}
+
+const buddyIDs = () => new Set(state.groups.flatMap((g) => g.members));
+
+function checkPresenceChanges() {
+  for (const uid of buddyIDs()) {
+    const p = presence(state.users[uid]);
+    const before = state.known[uid];
+    state.known[uid] = p;
+    if (!state.loadedUsers || !before || before === p) continue;
+    if (before === "offline") sfx.buddyIn();
+    else if (p === "offline") sfx.buddyOut();
+  }
+}
+
+function onInbox(v) {
+  const old = state.inbox;
+  state.inbox = v || {};
+  if (state.loadedInbox) {
+    for (const [conv, e] of Object.entries(state.inbox)) {
+      if (e.from === state.uid || state.blocked.has(e.from) || (e.ts || 0) <= (old[conv]?.ts || 0)) continue;
+      sfx.imIn();
+      const existed = !!getWindow("im." + e.from);
+      openIM(e.from, { quiet: true });
+      if (existed) flash("im." + e.from);
+      autoReply(e.from, conv);
+    }
+  }
+  state.loadedInbox = true;
+  refreshBuddyList();
+}
+
+async function saveGroups() {
+  await set(ref(db, `buddylists/${state.uid}`), JSON.stringify(state.groups));
+  refreshBuddyList();
+}
+
+// ---------- Buddy List ----------
+export function openBuddyList() {
+  const desk = document.getElementById("desk");
+  const w = Math.min(230, Math.round(desk.clientWidth * 0.5));
+  openWindow("buddies", {
+    title: `${state.me.screenName}'s Buddy List`, icon: "👥", width: w, height: desk.clientHeight - 12,
+    x: desk.clientWidth - w - 6, y: 6, render: () => refreshBuddyList(),
+  });
+}
+
+function refreshBuddyList() {
+  const win = getWindow("buddies");
+  if (!win) return;
+  const body = win.body;
+  const scroll = body.scrollTop;
+  const myStatus = state.away ? `<span class="status away">Away: ${esc(state.away)}</span>` : `<span class="status">Available</span>`;
+  const row = (uid) => {
+    const u = state.users[uid];
+    const p = presence(u);
+    const conv = conversationID(state.uid, uid);
+    const unread = state.inbox[conv] && state.inbox[conv].from !== state.uid && (state.inbox[conv].ts || 0) > Number(localStorage.getItem("du.read." + conv) || 0);
+    return `<div class="buddy ${p}" data-buddy="${uid}" title="${p}">
+      <span class="dot"></span><span>${esc(name(uid))}</span>
+      ${p === "idle" ? `<span class="small">(idle ${idleMin(u)})</span>` : ""}
+      ${p === "away" ? `<span class="small" title="${esc(u.away)}">📝</span>` : ""}
+      ${unread ? `<span class="unread">✉️</span>` : ""}</div>`;
+  };
+  const groupsHTML = state.groups.map((g) => {
+    const on = g.members.filter((m) => presence(state.users[m]) !== "offline");
+    return `<div class="group"><button data-group="${g.id}">${g.collapsed ? "▸" : "▾"} ${esc(g.name)} (${on.length}/${g.members.length})</button>
+      ${g.collapsed ? "" : on.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>`;
+  }).join("");
+  const off_ = [...buddyIDs()].filter((m) => presence(state.users[m]) === "offline");
+  const strangers = Object.values(state.inbox).map((e) => e.with).filter((u) => u && !buddyIDs().has(u) && u !== state.uid);
+  body.innerHTML = `
+    <div class="bl-me"><img src="img/logo.svg" width="34" height="34" alt="">
+      <div><b>${esc(state.me.screenName)}</b><br>${myStatus}</div></div>
+    ${groupsHTML}
+    ${strangers.length ? `<div class="group"><button>▾ Recent IMs (${strangers.length})</button>${[...new Set(strangers)].map(row).join("")}</div>` : ""}
+    <div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>
+    <div class="bl-actions">
+      <button class="btn small-btn" data-act="add">➕ Add Buddy</button>
+      <button class="btn small-btn" data-act="group">📁 New Group</button>
+      <button class="btn small-btn" data-act="away">📝 Away</button>
+      <button class="btn small-btn" data-act="profile">🪪 Profile</button>
+      <button class="btn small-btn" data-act="people">🔎 People</button>
+    </div>`;
+  body.scrollTop = scroll;
+  body.querySelectorAll("[data-buddy]").forEach((el) => {
+    el.onclick = () => openIM(el.dataset.buddy);
+    el.oncontextmenu = (e) => { e.preventDefault(); openInfo(el.dataset.buddy); };
+  });
+  body.querySelectorAll("[data-group]").forEach((b) => (b.onclick = () => {
+    const g = state.groups.find((x) => x.id === b.dataset.group);
+    g.collapsed = !g.collapsed;
+    saveGroups();
+  }));
+  const acts = { add: openAddBuddy, group: newGroup, away: openAway, profile: openProfile, people: openDirectory };
+  body.querySelectorAll("[data-act]").forEach((b) => (b.onclick = acts[b.dataset.act]));
+}
+
+function newGroup() {
+  const n = prompt("Name for the new group:");
+  if (!n || !n.trim()) return;
+  state.groups.push({ id: crypto.randomUUID().toUpperCase(), name: n.trim(), members: [], collapsed: false });
+  saveGroups();
+}
+
+export function openAddBuddy(prefill = "") {
+  openWindow("addbuddy", {
+    title: "Add a Buddy", icon: "➕", width: 300, height: 300,
+    render(body) {
+      body.innerHTML = `<form id="ab">
+        <label>Buddy's Screen Name <input id="ab-sn" value="${esc(typeof prefill === "string" ? prefill : "")}" required></label>
+        <label>Group <select id="ab-g">${state.groups.map((g) => `<option value="${g.id}">${esc(g.name)}</option>`).join("")}</select></label>
+        <p class="error" id="ab-err"></p>
+        <div class="row"><span></span><button class="btn primary">Add Buddy</button></div></form>`;
+      body.querySelector("#ab").onsubmit = async (e) => {
+        e.preventDefault();
+        const err = body.querySelector("#ab-err");
+        const key = normalize(body.querySelector("#ab-sn").value);
+        const uid = key && (await get(ref(db, `screennames/${key}`))).val();
+        if (!uid) { err.textContent = "No one has that screen name."; return; }
+        if (uid === state.uid) { err.textContent = "That's you!"; return; }
+        state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
+        state.groups.find((g) => g.id === body.querySelector("#ab-g").value)?.members.push(uid);
+        await saveGroups();
+        err.style.color = "green";
+        err.textContent = `Added ${name(uid)}!`;
+        body.querySelector("#ab-sn").value = "";
+      };
+    },
+  });
+}
+
+// ---------- IM windows ----------
+const smileys = [[/:-?\)/g, "🙂"], [/;-?\)/g, "😉"], [/:-?\(/g, "🙁"], [/:-?D/g, "😀"], [/:-?P/gi, "😛"], [/:-?O/g, "😮"],
+  [/8-?\)/g, "😎"], [/:'\(/g, "😢"], [/>:-?\(/g, "😠"], [/:-?\//g, "😕"], [/<3/g, "❤️"]];
+
+function formatText(text) {
+  let html = esc(text);
+  html = html.replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+  for (const [re, emoji] of smileys) html = html.replace(re, (m, off_, full) => {
+    // skip anything inside a link we just made
+    const before = full.slice(0, off_);
+    return before.lastIndexOf("<a ") > before.lastIndexOf("</a>") ? m : emoji;
+  });
+  return html.replace(/\n/g, "<br>");
+}
+
+function styleCSS(s = {}) {
+  return `font-family:${esc(s.font || "Verdana")}, Verdana, sans-serif;font-size:${Math.min(28, Math.max(10, Number(s.size) || 14))}px;`
+    + `color:${/^#[0-9a-f]{6}$/i.test(s.color || "") ? s.color : "#000"};${s.bold ? "font-weight:bold;" : ""}`
+    + `${s.italic ? "font-style:italic;" : ""}${s.underline ? "text-decoration:underline;" : ""}`;
+}
+
+const sizeLabel = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
+
+export function openIM(uid, { quiet = false } = {}) {
+  const id = "im." + uid;
+  const conv = conversationID(state.uid, uid);
+  const existing = getWindow(id);
+  if (existing) { if (!quiet) existing.el.classList.remove("minimized"); return; }
+  const myStyle = JSON.parse(localStorage.getItem("du.style") || "null") || { font: "Verdana", size: 14, color: "#000000", bold: false, italic: false, underline: false };
+  const refs = [];
+  let lastTyping = 0;
+  let metas = {};
+
+  openWindow(id, {
+    title: `${name(uid)} — Instant Message`, icon: "💬", width: 340, height: 420,
+    onClose: () => refs.forEach((r) => off(r)),
+    render(body) {
+      body.innerHTML = `<div class="im" data-im="${uid}">
+        <div class="im-status"><span class="st"></span>
+          <span><button class="btn small-btn" data-a="info">Info</button> <button class="btn small-btn" data-a="block"></button></span></div>
+        <div class="transcript"></div>
+        <div class="typing"></div>
+        <div class="fmt">
+          <select data-f="font">${["Verdana", "Arial", "Georgia", "Courier New", "Trebuchet MS", "Times New Roman", "Comic Sans MS", "Impact"]
+            .map((f) => `<option ${f === myStyle.font ? "selected" : ""}>${f}</option>`).join("")}</select>
+          <button data-f="smaller">A-</button><button data-f="bigger">A+</button>
+          <button data-f="bold"><b>B</b></button><button data-f="italic"><i>I</i></button><button data-f="underline"><u>U</u></button>
+          <input type="color" data-f="color" value="${myStyle.color}">
+          <button data-f="smiley" title="Smileys">🙂</button>
+          <label class="btn small-btn" style="margin:0;font-weight:normal" title="Send a file (up to 10 MB)">📎<input type="file" data-f="file" hidden></label>
+        </div>
+        <div class="compose"><textarea placeholder="Type a message…"></textarea><button class="btn primary">Send</button></div>
+      </div>`;
+      const tx = body.querySelector(".transcript");
+      const ta = body.querySelector("textarea");
+      const paintStyle = () => {
+        ta.style.cssText = styleCSS(myStyle);
+        ["bold", "italic", "underline"].forEach((k) => body.querySelector(`[data-f=${k}]`).classList.toggle("on", !!myStyle[k]));
+        localStorage.setItem("du.style", JSON.stringify(myStyle));
+      };
+      paintStyle();
+      body.querySelector("[data-f=font]").onchange = (e) => { myStyle.font = e.target.value; paintStyle(); };
+      body.querySelector("[data-f=smaller]").onclick = () => { myStyle.size = Math.max(11, myStyle.size - 2); paintStyle(); };
+      body.querySelector("[data-f=bigger]").onclick = () => { myStyle.size = Math.min(28, myStyle.size + 2); paintStyle(); };
+      ["bold", "italic", "underline"].forEach((k) => (body.querySelector(`[data-f=${k}]`).onclick = () => { myStyle[k] = !myStyle[k]; paintStyle(); }));
+      body.querySelector("[data-f=color]").oninput = (e) => { myStyle.color = e.target.value; paintStyle(); };
+      body.querySelector("[data-f=smiley]").onclick = () => { ta.value += " :) "; ta.focus(); };
+      body.querySelector("[data-f=file]").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) sendFile(uid, f, body); };
+      body.querySelector("[data-a=info]").onclick = () => openInfo(uid);
+      body.querySelector("[data-a=block]").onclick = () => toggleBlock(uid);
+
+      const send = async () => {
+        const text = ta.value.trim();
+        if (!text) return;
+        ta.value = "";
+        try { await sendIM(uid, text, myStyle); sfx.imOut(); }
+        catch { ta.value = text; tx.insertAdjacentHTML("beforeend", `<div class="error">Couldn't send — they may have blocked you.</div>`); }
+      };
+      body.querySelector(".compose .btn").onclick = send;
+      ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+      ta.oninput = () => {
+        if (Date.now() - lastTyping > 3000) { lastTyping = Date.now(); set(ref(db, `typing/${conv}/${state.uid}`), serverTimestamp()); }
+      };
+
+      const metaRef = ref(db, `filemeta/${conv}`);
+      onValue(metaRef, (s) => { metas = s.val() || {}; tx.querySelectorAll("[data-file]").forEach((el) => paintFile(el, uid, conv, metas)); });
+      refs.push(metaRef);
+
+      const q = query(ref(db, `messages/${conv}`), orderByKey(), limitToLast(150));
+      onValue(q, (snap) => {
+        const atBottom = tx.scrollHeight - tx.scrollTop - tx.clientHeight < 60;
+        const msgs = [];
+        snap.forEach((c) => { msgs.push([c.key, c.val()]); });
+        tx.innerHTML = msgs.map(([k, m]) => renderMessage(k, m)).join("");
+        tx.querySelectorAll("[data-file]").forEach((el) => paintFile(el, uid, conv, metas));
+        if (atBottom || msgs.length < 20) tx.scrollTop = tx.scrollHeight;
+        const last = msgs[msgs.length - 1];
+        localStorage.setItem("du.read." + conv, String(last?.[1]?.ts || Date.now()));
+        refreshBuddyList();
+      });
+      refs.push(q);
+
+      const typRef = ref(db, `typing/${conv}`);
+      onValue(typRef, (s) => {
+        const v = s.val() || {};
+        const on = v[uid] && Date.now() - v[uid] < 8000;
+        body.querySelector(".typing").textContent = on ? `${name(uid)} is typing…` : "";
+      });
+      refs.push(typRef);
+      renderIMStatus(uid);
+      if (!quiet) ta.focus();
+    },
+  });
+}
+
+function renderMessage(key, m) {
+  const mine = m.from === state.uid;
+  const who = mine ? state.me.screenName : (m.name || name(m.from));
+  const time = m.ts ? new Date(m.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) : "";
+  let content;
+  if (m.file) {
+    content = `<div class="panel" data-file="${esc(m.file.tid)}" data-name="${esc(m.file.name)}" data-size="${Number(m.file.size) || 0}"
+      data-mime="${esc(m.file.mime || "")}" data-mine="${mine ? 1 : 0}" style="margin:3px 0"></div>`;
+  } else if (Array.isArray(m.rich) && m.rich.length) {
+    content = m.rich.map((seg) => `<span style="${styleCSS(seg.s)}">${formatText(seg.t)}</span>`).join("");
+  } else {
+    content = `<span style="${styleCSS(m.style)}">${formatText(m.text)}</span>`;
+  }
+  return `<div class="msg"><span class="who ${mine ? "me" : "them"}">${m.auto ? "Auto response from " : ""}${esc(who)}</span>
+    <time>(${time})</time>: ${content}</div>`;
+}
+
+function renderIMStatus(uid) {
+  const win = getWindow("im." + uid);
+  if (!win) return;
+  const u = state.users[uid];
+  const p = presence(u);
+  const st = win.body.querySelector(".st");
+  if (st) st.innerHTML = { online: "🟢 Online", away: `🟠 Away: ${esc(u?.away || "")}`, idle: `⚪ Idle ${idleMin(u)} min`,
+    offline: "⚫ Offline — they'll get it when they sign on" }[p];
+  const b = win.body.querySelector("[data-a=block]");
+  if (b) b.textContent = state.blocked.has(uid) ? "Unblock" : "Block";
+  setTitle("im." + uid, `${name(uid)} — Instant Message`);
+}
+
+async function sendIM(uid, text, style, { auto = false, file = null } = {}) {
+  const conv = conversationID(state.uid, uid);
+  const msg = { from: state.uid, name: state.me.screenName, text, ts: serverTimestamp(),
+    style: { font: style.font, size: style.size, color: style.color, bold: !!style.bold, italic: !!style.italic, underline: !!style.underline } };
+  if (auto) msg.auto = true;
+  if (file) msg.file = file;
+  await push(ref(db, `messages/${conv}`), msg);
+  const preview = text.slice(0, 80);
+  await set(ref(db, `inbox/${uid}/${conv}`), { with: state.uid, from: state.uid, ts: serverTimestamp(), preview }).catch(() => {});
+  await set(ref(db, `inbox/${state.uid}/${conv}`), { with: uid, from: state.uid, ts: serverTimestamp(), preview }).catch(() => {});
+  remove(ref(db, `typing/${conv}/${state.uid}`)).catch(() => {});
+}
+
+function autoReply(uid, conv) {
+  if (!state.away) return;
+  if (Date.now() - (state.lastAuto[conv] || 0) < 300000) return;
+  state.lastAuto[conv] = Date.now();
+  const text = state.away.replaceAll("%n", name(uid)).replaceAll("%t", new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))
+    .replaceAll("%d", new Date().toLocaleDateString());
+  sendIM(uid, text, { font: "Verdana", size: 14, color: "#000000" }, { auto: true }).catch(() => {});
+}
+
+// ---------- File transfer (same format as the iPhone app) ----------
+const CHUNK = 192 * 1024;
+
+async function sendFile(uid, file, body) {
+  if (file.size > 10 * 1024 * 1024) { alert("That file is over 10 MB. DialedUp can send files up to 10 MB."); return; }
+  const conv = conversationID(state.uid, uid);
+  const tid = "f" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const chunks = Math.max(1, Math.ceil(bytes.length / CHUNK));
+  const mime = file.type || "application/octet-stream";
+  await set(ref(db, `filemeta/${conv}/${tid}`), { from: state.uid, to: uid, name: file.name, size: bytes.length, mime,
+    chunks, uploaded: 0, status: "uploading", ts: serverTimestamp() });
+  await sendIM(uid, `📎 ${file.name} (${sizeLabel(bytes.length)})`, { font: "Verdana", size: 14, color: "#000000" },
+    { file: { tid, name: file.name, size: bytes.length, mime } });
+  try {
+    for (let i = 0; i < chunks; i++) {
+      const part = bytes.subarray(i * CHUNK, Math.min(bytes.length, (i + 1) * CHUNK));
+      let bin = "";
+      for (let j = 0; j < part.length; j += 0x8000) bin += String.fromCharCode.apply(null, part.subarray(j, j + 0x8000));
+      await set(ref(db, `filechunks/${conv}/${tid}/${i}`), btoa(bin));
+      await update(ref(db, `filemeta/${conv}/${tid}`), { uploaded: i + 1 });
+    }
+    await update(ref(db, `filemeta/${conv}/${tid}`), { status: "ready" });
+  } catch {
+    await update(ref(db, `filemeta/${conv}/${tid}`), { status: "failed" }).catch(() => {});
+  }
+}
+
+const received = {};   // tid → object URL (this visit only)
+
+function paintFile(el, uid, conv, metas) {
+  const tid = el.dataset.file;
+  const meta = metas[tid];
+  const mine = el.dataset.mine === "1";
+  const fname = el.dataset.name, size = Number(el.dataset.size);
+  const pct = meta ? Math.round(((meta.uploaded || 0) / Math.max(1, meta.chunks || 1)) * 100) : 0;
+  let status = "";
+  if (received[tid]) {
+    status = el.dataset.mime.startsWith("image/") ? `<img src="${received[tid]}" style="max-width:100%;border-radius:6px" alt=""><br>` : "";
+    status += `<a class="btn small-btn" href="${received[tid]}" download="${esc(fname)}">💾 Save</a>`;
+  } else if (!meta) status = `<span class="small muted">No longer available.</span>`;
+  else if (mine) {
+    status = { uploading: `Sending… ${pct}%`, ready: `Waiting for ${esc(name(uid))} to accept`, accepted: `${esc(name(uid))} is receiving it…`,
+      received: `✅ Received by ${esc(name(uid))}`, declined: `${esc(name(uid))} declined.`, canceled: "Canceled.", failed: "Sending failed." }[meta.status] || "";
+  } else {
+    if (meta.status === "uploading") status = `${esc(name(uid))} is sending… ${pct}%`;
+    else if (meta.status === "ready" || meta.status === "accepted")
+      status = `<button class="btn small-btn" data-x="decline">Decline</button> <button class="btn primary small-btn" data-x="accept">Accept</button>`;
+    else status = { received: "Received on another device.", declined: "You declined this file.", canceled: "They canceled it.", failed: "It didn't finish." }[meta.status] || "";
+  }
+  el.innerHTML = `<b>📎 ${esc(fname)}</b> <span class="small muted">${sizeLabel(size)}</span><div class="small" style="margin-top:4px">${status}</div>`;
+  el.querySelector("[data-x=accept]")?.addEventListener("click", () => acceptFile(el, conv, tid, meta));
+  el.querySelector("[data-x=decline]")?.addEventListener("click", async () => {
+    await update(ref(db, `filemeta/${conv}/${tid}`), { status: "declined" });
+    remove(ref(db, `filechunks/${conv}/${tid}`));
+  });
+}
+
+async function acceptFile(el, conv, tid, meta) {
+  el.querySelector(".small").textContent = "Receiving… 0%";
+  await update(ref(db, `filemeta/${conv}/${tid}`), { status: "accepted" }).catch(() => {});
+  const parts = [];
+  for (let i = 0; i < (meta.chunks || 1); i++) {
+    const b64 = (await get(ref(db, `filechunks/${conv}/${tid}/${i}`))).val();
+    if (!b64) { el.querySelector(".small").textContent = "That file isn't available anymore."; return; }
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j);
+    parts.push(arr);
+    el.querySelector(".small").textContent = `Receiving… ${Math.round(((i + 1) / meta.chunks) * 100)}%`;
+  }
+  received[tid] = URL.createObjectURL(new Blob(parts, { type: el.dataset.mime || "application/octet-stream" }));
+  await update(ref(db, `filemeta/${conv}/${tid}`), { status: "received" });
+  remove(ref(db, `filechunks/${conv}/${tid}`));
+  sfx.imIn();
+}
+
+// ---------- Info / block ----------
+async function toggleBlock(uid) {
+  const r = ref(db, `blocks/${state.uid}/${uid}`);
+  if (state.blocked.has(uid)) await remove(r); else await set(r, true);
+  renderIMStatus(uid);
+}
+
+export function openInfo(uid) {
+  openWindow("info." + uid, {
+    title: `Info: ${name(uid)}`, icon: "🪪", width: 320, height: 420,
+    render(body) {
+      const u = state.users[uid] || {};
+      const p = presence(u);
+      const isBuddy = buddyIDs().has(uid);
+      body.innerHTML = `<h2 style="margin:0 0 4px;color:var(--grape)">${esc(u.screenName || "…")}</h2>
+        <p class="small">${{ online: "🟢 Online", away: "🟠 Away", idle: `⚪ Idle ${idleMin(u)} min`, offline: `⚫ Offline${u.lastSeen ? " · last seen " + new Date(u.lastSeen).toLocaleString() : ""}` }[p]}</p>
+        ${u.away ? `<div class="panel"><h3>Away Message</h3>${formatText(u.away)}</div>` : ""}
+        <div class="panel"><h3>Profile</h3>${u.profile ? formatText(u.profile) : "<span class='muted'>(no profile)</span>"}</div>
+        ${u.interests || u.location ? `<div class="panel"><h3>Interests</h3>${esc(u.interests || "")}${u.location ? `<br><span class="small muted">📍 ${esc(u.location)}</span>` : ""}</div>` : ""}
+        <div class="row">
+          <button class="btn primary small-btn" data-x="im">Send IM</button>
+          <a class="btn small-btn" href="home.html?u=${encodeURIComponent(normalize(u.screenName || ""))}" target="_blank">🌐 Home Page</a>
+          ${isBuddy ? `<button class="btn small-btn" data-x="remove">Remove Buddy</button>` : `<button class="btn small-btn" data-x="add">Add Buddy</button>`}
+          <button class="btn danger small-btn" data-x="block">${state.blocked.has(uid) ? "Unblock" : "Block"}</button>
+        </div>`;
+      body.querySelector("[data-x=im]").onclick = () => openIM(uid);
+      body.querySelector("[data-x=add]")?.addEventListener("click", () => openAddBuddy(u.screenName));
+      body.querySelector("[data-x=remove]")?.addEventListener("click", async () => {
+        state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
+        await saveGroups();
+        closeWindow("info." + uid);
+      });
+      body.querySelector("[data-x=block]").onclick = async () => { await toggleBlock(uid); closeWindow("info." + uid); };
+    },
+  });
+}
+
+// ---------- Away & profile ----------
+export function openAway() {
+  openWindow("away", {
+    title: "Away Message", icon: "📝", width: 340, height: 440,
+    render(body) {
+      const saved = JSON.parse(localStorage.getItem("du.awaySaved") || "null") || ["Away from my desk. Leave a message!", "brb", "Out living my best life. Back at %t."];
+      body.innerHTML = `<label>Your away message<textarea id="aw" rows="4">${esc(state.away)}</textarea></label>
+        <p class="small muted">%n = their screen name · %t = time · %d = date</p>
+        <div class="row"><button class="btn" id="back" ${state.away ? "" : "disabled"}>I'm Back</button>
+          <button class="btn" id="save">Save</button><button class="btn primary" id="go">I'm Away</button></div>
+        <div class="panel" style="margin-top:10px"><h3>Saved messages</h3><ul class="list" id="saved"></ul></div>`;
+      const ta = body.querySelector("#aw");
+      const paint = () => {
+        body.querySelector("#saved").innerHTML = saved.map((m, i) =>
+          `<li class="row"><a href="#" data-i="${i}">${esc(m)}</a><button class="btn small-btn" data-del="${i}">🗑</button></li>`).join("");
+        body.querySelectorAll("[data-i]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); ta.value = saved[a.dataset.i]; }));
+        body.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => { saved.splice(b.dataset.del, 1); store(); paint(); }));
+      };
+      const store = () => localStorage.setItem("du.awaySaved", JSON.stringify(saved));
+      paint();
+      const setAway = async (msg) => {
+        state.away = msg;
+        await update(ref(db, `users/${state.uid}`), { away: msg });
+        refreshBuddyList();
+        closeWindow("away");
+      };
+      body.querySelector("#go").onclick = () => setAway(ta.value.trim() || "I am away right now.");
+      body.querySelector("#back").onclick = () => setAway("");
+      body.querySelector("#save").onclick = () => { const t = ta.value.trim(); if (t && !saved.includes(t)) { saved.unshift(t); store(); paint(); } };
+    },
+  });
+}
+
+export function openProfile() {
+  openWindow("profile", {
+    title: "My Profile", icon: "🪪", width: 340, height: 460,
+    render(body) {
+      const u = state.users[state.uid] || state.me;
+      body.innerHTML = `<label>About me<textarea id="pf" rows="6">${esc(u.profile || "")}</textarea></label>
+        <label>Interests (for the Member Directory)<input id="pi" value="${esc(u.interests || "")}" placeholder="music, sneakers, basketball"></label>
+        <label>Location<input id="pl" value="${esc(u.location || "")}" placeholder="Brooklyn, NY"></label>
+        <div class="row"><span class="small muted">Buddies see this in Info.</span><button class="btn primary" id="ps">Save</button></div>`;
+      body.querySelector("#ps").onclick = async () => {
+        await update(ref(db, `users/${state.uid}`), {
+          profile: body.querySelector("#pf").value, interests: body.querySelector("#pi").value, location: body.querySelector("#pl").value,
+        });
+        closeWindow("profile");
+      };
+    },
+  });
+}
+
+export function openDirectory() {
+  openWindow("directory", {
+    title: "Member Directory", icon: "🔎", width: 340, height: 460,
+    render(body) {
+      body.innerHTML = `<input id="dq" placeholder="Search names, interests, places…"><ul class="list" id="dr" style="margin-top:8px"></ul>`;
+      const paint = () => {
+        const q = body.querySelector("#dq").value.toLowerCase().trim();
+        const people = Object.entries(state.users).filter(([id, u]) => id !== state.uid && u.screenName &&
+          (!q || [u.screenName, u.interests, u.location, u.profile].some((x) => (x || "").toLowerCase().includes(q))))
+          .sort((a, b) => a[1].screenName.localeCompare(b[1].screenName)).slice(0, 100);
+        body.querySelector("#dr").innerHTML = people.map(([id, u]) =>
+          `<li><a href="#" data-u="${id}"><b>${esc(u.screenName)}</b></a> <span class="small muted">${esc(u.interests || "")}</span></li>`).join("")
+          || `<li class="muted">No members found.</li>`;
+        body.querySelectorAll("[data-u]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openInfo(a.dataset.u); }));
+      };
+      body.querySelector("#dq").oninput = paint;
+      paint();
+    },
+  });
+}
+
+// ---------- Chat rooms ----------
+export function openChatRooms(room) {
+  if (typeof room === "string" && room) return openRoom(normalize(room));
+  openWindow("chatrooms", {
+    title: "Chat Rooms", icon: "💬", width: 320, height: 380,
+    render(body) {
+      const popular = ["lobby", "nyc", "music", "sports", "tech", "late night"];
+      body.innerHTML = `<div class="panel"><h3>Popular Rooms</h3><div class="row" style="justify-content:flex-start">${popular.map((r) =>
+          `<button class="btn small-btn" data-r="${r}">${r}</button>`).join("")}</div></div>
+        <form id="rf"><label>Or enter any room name<input id="rn" placeholder="e.g. friends2026"></label>
+        <div class="row"><span class="small muted">Same rooms as BuddyChat on iPhone.</span><button class="btn primary">Join</button></div></form>`;
+      body.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => openRoom(normalize(b.dataset.r))));
+      body.querySelector("#rf").onsubmit = (e) => { e.preventDefault(); const k = normalize(body.querySelector("#rn").value); if (k) openRoom(k); };
+    },
+  });
+}
+
+function openRoom(room) {
+  const refs = [];
+  let ping;
+  openWindow("room." + room, {
+    title: `Chat: ${room}`, icon: "💬", width: 360, height: 440,
+    onClose: () => {
+      refs.forEach((r) => off(r));
+      clearInterval(ping);
+      remove(ref(db, `rooms/${room}/members/${state.uid}`)).catch(() => {});
+    },
+    render(body) {
+      body.innerHTML = `<div class="im"><div class="small" id="here"></div><div class="transcript"></div>
+        <div class="compose"><textarea placeholder="Say hi to the room…"></textarea><button class="btn primary">Send</button></div></div>`;
+      const tx = body.querySelector(".transcript");
+      const ta = body.querySelector("textarea");
+      const memRef = ref(db, `rooms/${room}/members/${state.uid}`);
+      const beat = () => set(memRef, serverTimestamp()).catch(() => {});
+      beat();
+      ping = setInterval(beat, 45000);
+      const q = query(ref(db, `rooms/${room}/messages`), orderByKey(), limitToLast(100));
+      let first = true;
+      onValue(q, (snap) => {
+        const rows = [];
+        snap.forEach((c) => { const m = c.val(); rows.push(`<div class="msg"><span class="who ${m.from === state.uid ? "me" : "them"}">${esc(m.name || name(m.from))}</span>: ${formatText(m.text)}</div>`); });
+        tx.innerHTML = rows.join("");
+        tx.scrollTop = tx.scrollHeight;
+        if (!first) sfx.imIn();
+        first = false;
+      });
+      refs.push(q);
+      const membersRef = ref(db, `rooms/${room}/members`);
+      onValue(membersRef, (s) => {
+        const here = Object.entries(s.val() || {}).filter(([, t]) => Date.now() - t < 120000).map(([id]) => name(id));
+        body.querySelector("#here").textContent = "In the room: " + (here.length ? here.join(", ") : "just you");
+      });
+      refs.push(membersRef);
+      const send = () => {
+        const t = ta.value.trim();
+        if (!t) return;
+        ta.value = "";
+        push(ref(db, `rooms/${room}/messages`), { from: state.uid, name: state.me.screenName, text: t, ts: serverTimestamp() });
+      };
+      body.querySelector(".btn").onclick = send;
+      ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
+    },
+  });
+}

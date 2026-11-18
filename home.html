@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Page — DialedUp</title>
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { overflow: auto; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+  .topbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #fff; }
+  .topbar img { width: 34px; height: 34px; }
+  .topbar a { color: #fff; margin-left: auto; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar"><img src="img/logo.svg" alt=""><b class="brand" style="font-size:22px;color:#fff">Dialed<span>Up</span></b>
+      <a href="./">Sign on to DialedUp →</a></div>
+    <div id="page"><div class="panel">Loading…</div></div>
+    <div class="panel" id="guestbook" style="margin-top:12px">
+      <h3>📖 Guestbook</h3>
+      <form id="gb-form">
+        <textarea rows="3" maxlength="500" placeholder="Leave a message!"></textarea>
+        <div class="row" style="margin-top:6px"><span class="small muted" id="gb-hint"></span><button class="btn primary">Sign the Guestbook</button></div>
+      </form>
+      <div id="gb-list" style="margin-top:10px"></div>
+    </div>
+  </div>
+  <script type="module">
+    import { auth, onAuthStateChanged } from "./js/firebase.js";
+    import { showPublicPage } from "./js/homepage.js";
+    const key = (new URLSearchParams(location.search).get("u") || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!key) document.getElementById("page").innerHTML = '<div class="panel">No page picked. Try a link like home.html?u=screenname</div>';
+    else showPublicPage(key, document.getElementById("page"), document.getElementById("guestbook"));
+    onAuthStateChanged(auth, (u) => {
+      const f = document.getElementById("gb-form");
+      f.querySelector("button").disabled = !u;
+      document.getElementById("gb-hint").innerHTML = u ? "" : 'Sign on to DialedUp to sign the guestbook.';
+    });
+  </script>
+</body>
+</html>
