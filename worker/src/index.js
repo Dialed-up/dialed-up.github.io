@@ -35,12 +35,13 @@ async function dbGet(path, token) {
 const hash = async (s) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)))].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
 const clip = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
 
-async function sendTo(env, uid, note) {
+async function sendTo(env, uid, note, skipDevice = null) {
   const list = await env.SUBS.list({ prefix: `sub:${uid}:` });
   const results = [];
   const vapid = { subject: "https://dialedup.lol", publicKey: env.VAPID_PUBLIC, privateKey: env.VAPID_PRIVATE };
   let sent = 0;
   await Promise.all(list.keys.map(async ({ name }) => {
+    if (skipDevice && name.endsWith(":" + skipDevice)) { results.push("skipped: open on that device"); return; }
     const sub = await env.SUBS.get(name, "json");
     if (!sub) return;
     try {
@@ -109,13 +110,13 @@ export default {
         note = { title: "📬 You have mail!", body: `From ${clip(name, 24)}: ${clip(item.val.subject, 80) || "(no subject)"}`, tag: "mail", url: "./" };
       } else return json(req, { error: "bad kind" }, 400);
 
-      // Skip the alert only if DialedUp is open on their screen right now (they'll see it in the app).
+      // Don't buzz the one device that has DialedUp open on screen right now; every other device still gets it.
       const them = await dbGet(`users/${to}`, token);
-      const onScreen = them.ok && them.val && them.val.fg === true && them.val.signedOn && Date.now() - (them.val.lastSeen || 0) < 75000;
+      const v = them.ok && them.val ? them.val : {};
+      const openDevice = v.fg === true && typeof v.fgDev === "string" && /^[0-9a-f]{24}$/.test(v.fgDev) && Date.now() - (v.fgAt || 0) < 150000 ? v.fgDev : null;
       const log = (o) => env.SUBS.put(`last:${to}`, JSON.stringify({ at: new Date().toISOString(), kind: body.kind, from: me.slice(0, 5), ...o }), { expirationTtl: 86400 * 3 });
-      if (onScreen) { await log({ skipped: "app open on screen" }); return json(req, { ok: true, skipped: "active" }); }
 
-      const out = await sendTo(env, to, note);
+      const out = await sendTo(env, to, note, openDevice);
       await log(out);
       return json(req, { ok: true, ...out });
     }

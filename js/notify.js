@@ -1,6 +1,6 @@
 // Notifications: real push alerts (even when DialedUp is closed) through our free Cloudflare sender,
 // plus pop-ups while the app is open in the background.
-import { auth } from "./firebase.js";
+import { auth, db, ref, update, serverTimestamp } from "./firebase.js";
 
 const PUSH = "https://dialedup-push.stickyarcadecloud.workers.dev";   // free Cloudflare Worker (see worker/)
 const VAPID_PUBLIC = "BFk3S49eezM1VA09c-2mfLO8Im1Qvew7PH1CdLkWNhlCbsQOrtd8O2VG0leGU9Kys6UF_tpHu_uke8nxsYlKfPw";
@@ -38,6 +38,7 @@ export async function subscribePush() {
     let sub = await r.pushManager.getSubscription();
     if (!sub) sub = await r.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) });
     const res = await post("/subscribe", { sub: sub.toJSON() });
+    startOnScreen();
     return !!res?.ok;
   } catch { return false; }
 }
@@ -89,3 +90,35 @@ export function setBadgePart(kind, n) {
     } catch {}
   }, 400);
 }
+
+// ---------- "This device has DialedUp on screen" (so only this device skips the alert) ----------
+let myDev = null, markedHere = false, beat = null;
+async function deviceId() {
+  if (myDev !== null) return myDev;
+  try {
+    const r = await navigator.serviceWorker?.getRegistration();
+    const sub = await r?.pushManager?.getSubscription();
+    if (!sub) return (myDev = "");
+    const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sub.endpoint));
+    myDev = [...new Uint8Array(d)].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch { myDev = ""; }
+  return myDev;
+}
+async function markOnScreen() {
+  const user = auth.currentUser;
+  if (!user || !PUSH) return;
+  const dev = await deviceId();
+  if (document.visibilityState === "visible" && dev) {
+    markedHere = true;
+    update(ref(db, `users/${user.uid}`), { fgDev: dev, fgAt: serverTimestamp() }).catch(() => {});
+    clearInterval(beat);
+    beat = setInterval(() => document.visibilityState === "visible" && auth.currentUser && update(ref(db, `users/${auth.currentUser.uid}`), { fgAt: serverTimestamp() }).catch(() => {}), 60000);
+  } else if (markedHere) {
+    markedHere = false;
+    clearInterval(beat);
+    update(ref(db, `users/${user.uid}`), { fgDev: null }).catch(() => {});
+  }
+}
+document.addEventListener("visibilitychange", markOnScreen);
+window.addEventListener("pagehide", () => { if (markedHere && auth.currentUser) update(ref(db, `users/${auth.currentUser.uid}`), { fgDev: null }).catch(() => {}); });
+export const startOnScreen = () => { myDev = null; markOnScreen(); };
