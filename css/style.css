@@ -697,3 +697,7 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 .pp-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; display: block; }
 .pp-grid button { position: absolute; top: 3px; right: 3px; border: 0; border-radius: 50%; width: 22px; height: 22px; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; font-size: 12px; }
 .profile-body ul, .profile-body ol { margin: 4px 0; padding-left: 22px; }
+.fs-btn[hidden] { display: none !important; }
+#menubar .fs-btn { margin-left: auto; font-weight: bold; color: var(--grape); border: 1px solid var(--line); border-radius: 10px; background: #fff; margin-right: 4px; flex-shrink: 0; }
+#menubar .fs-btn:not([hidden]) + .install-btn { margin-left: 0; }
+body.dim #taskbar .fs-btn { color: #1e5fc8; font-weight: bold; }
