@@ -537,8 +537,8 @@ export function openIM(uid, { quiet = false } = {}) {
     onClose: () => refs.forEach((r) => off(r)),
     render(body) {
       body.innerHTML = `<div class="im" data-im="${uid}">
-        <div class="im-status"><span class="st"></span>
-          <span><button class="btn small-btn" data-a="info">Info</button> <button class="btn small-btn" data-a="warn">Warn</button> <button class="btn small-btn" data-a="hist">History</button> <button class="btn small-btn" data-a="talk">📞 Talk</button> <button class="btn small-btn" data-a="video">📹 Video</button> <button class="btn small-btn" data-a="block"></button></span></div>
+        <div class="im-head"><button class="im-who" data-a="menu" title="Tap for IM options"><span class="im-ic"></span><b class="im-name"></b><span class="im-caret">▾</span></button>
+          <span class="st"></span></div>
         <div class="transcript" data-conv="${conv}" style="background:${imBackgroundFor(conv)}"></div>
         <div class="typing"></div>
         <div class="fmt">
@@ -567,16 +567,25 @@ export function openIM(uid, { quiet = false } = {}) {
       body.querySelector("[data-f=color]").oninput = (e) => { myStyle.color = e.target.value; paintStyle(); };
       body.querySelector("[data-f=smiley]").onclick = () => { ta.value += " :) "; ta.focus(); };
       body.querySelector("[data-f=file]").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) sendFile(uid, f, body); };
-      body.querySelector("[data-a=info]").onclick = () => openInfo(uid);
-      body.querySelector("[data-a=hist]").onclick = () => openHistory(uid);
-      body.querySelector("[data-a=talk]").onclick = () => import("./voice.js").then((m) => m.startCall(uid, name(uid)));
-      body.querySelector("[data-a=video]").onclick = () => import("./voice.js").then((m) => m.startCall(uid, name(uid), { video: true }));
-      body.querySelector("[data-a=block]").onclick = () => toggleBlock(uid);
-      body.querySelector("[data-a=warn]").onclick = async () => {
+      const doWarn = async () => {
         if (alreadyWarned(uid)) { alert(`You already warned ${name(uid)} today.`); return; }
         if (!confirm(`Warn ${name(uid)}? It raises their warning level by 10% for 24 hours.`)) return;
         try { await warn(uid); alert(`${name(uid)} has been warned.`); } catch { alert("Couldn't warn right now."); }
       };
+      const imMenu = (x, y) => contextMenu(x, y, [
+        { label: "🪪 Buddy Info", action: () => openInfo(uid) },
+        { label: "📎 Send a File", action: () => body.querySelector("[data-f=file]").click() },
+        { label: "📞 Talk", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid))) },
+        { label: "📹 Video Chat", action: () => import("./voice.js").then((m) => m.startCall(uid, name(uid), { video: true })) },
+        { label: "📜 IM History", action: () => openHistory(uid) },
+        ...(buddyIDs().has(uid) ? [] : [{ label: "➕ Add Buddy", action: () => openAddBuddy(name(uid)) }]),
+        "-",
+        { label: "⚠️ Warn", action: doWarn },
+        { label: state.blocked.has(uid) ? "✅ Unblock" : "⛔ Block", danger: !state.blocked.has(uid), action: () => toggleBlock(uid) },
+      ]);
+      const who = body.querySelector("[data-a=menu]");
+      who.onclick = () => { const r = who.getBoundingClientRect(); imMenu(r.left, r.bottom + 2); };
+      onMenu(who, imMenu);
 
       let lastSend = 0;
       const send = async () => {
@@ -652,10 +661,20 @@ function renderIMStatus(uid) {
   const u = state.users[uid];
   const p = presence(u);
   const st = win.body.querySelector(".st");
-  if (st) st.innerHTML = iconHTML(uid, 26) + " " + { online: "🟢 Online", away: `🟠 Away: ${esc(u?.away || "")}`, idle: `⚪ Idle ${idleMin(u)} min`,
-    offline: "⚫ Offline — they'll get it when they sign on" }[p] + (warningLevel(uid) ? ` · ⚠️ ${warningLevel(uid)}%` : "");
-  const b = win.body.querySelector("[data-a=block]");
-  if (b) b.textContent = state.blocked.has(uid) ? "Unblock" : "Block";
+  if (st) {
+    st.innerHTML = { online: "🟢 Online", away: "🟠 Away", idle: `⚪ Idle ${idleMin(u)}m`, offline: "⚫ Offline" }[p]
+      + (state.blocked.has(uid) ? " · ⛔ Blocked" : "") + (warningLevel(uid) ? ` · ⚠️ ${warningLevel(uid)}%` : "");
+    st.title = p === "away" ? `Away: ${u?.away || ""}` : p === "offline" ? "Offline — they'll get it when they sign on" : "";
+  }
+  const ic = win.body.querySelector(".im-ic");
+  if (ic) ic.innerHTML = iconHTML(uid, 22);
+  const nm = win.body.querySelector(".im-name");
+  if (nm) nm.textContent = name(uid);
+  const aw = win.body.querySelector(".im-away");
+  if (p === "away" && u?.away) {
+    if (!aw) win.body.querySelector(".im-head")?.insertAdjacentHTML("afterend", `<div class="im-away small"></div>`);
+    win.body.querySelector(".im-away").textContent = "📝 " + u.away;
+  } else aw?.remove();
   setTitle("im." + uid, `${name(uid)} — Instant Message`);
 }
 

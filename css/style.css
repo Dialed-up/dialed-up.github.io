@@ -572,3 +572,21 @@ html:has(body.dim) { background: #1e5fc8; }
 .switch-tab { display: inline-flex; align-items: center; gap: 4px; }
 
 body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; background: linear-gradient(180deg, #7fb8ff, #2e6fd6); }
+
+/* ---------- Compact IM window: name menu + slim formatting row ---------- */
+.im { gap: 4px; }
+.im-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.im-who { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 70%; padding: 2px 8px 2px 3px;
+  border: 1px solid var(--line); border-radius: 14px; background: #fff; cursor: pointer; color: var(--grape); font-size: 13px; }
+.im-who:hover { background: #f1eaff; }
+.im-who .im-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.im-caret { font-size: 10px; opacity: .8; }
+.im-head .st { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #555; }
+.im-away { margin: 0; padding: 2px 8px; border-radius: 8px; background: #fff7e0; color: #8a5a00; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.transcript { min-height: 60px; }
+.fmt { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 2px; }
+.fmt::-webkit-scrollbar { display: none; }
+.fmt select { max-width: 92px; flex-shrink: 0; }
+.fmt button, .fmt label { flex-shrink: 0; padding: 1px 6px; font-size: 12px; }
+.fmt input[type=color] { width: 24px; height: 22px; flex-shrink: 0; }
+.compose textarea { min-height: 36px; }
