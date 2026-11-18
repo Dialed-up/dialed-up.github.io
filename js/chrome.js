@@ -36,18 +36,18 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
 
   // Menu bar
   const menus = {
-    File: [["📲 Add to Home Screen", () => import("./install.js").then((m) => m.addToHomeScreen())], ["Open Keyword…", () => $("keyword").focus()], ["Favorite Places", () => openFavorites(go)], ["Preferences…", () => go("preferences")],
+    File: [["📲 Add to Home Screen", () => import("./install.js").then((m) => m.addToHomeScreen())], ["Open Keyword…", () => $("keyword").focus()], ["Favorite Places", () => openFavorites(go)], ["Preferences…", () => go("preferences")], ["🔔 Turn On Notifications", () => import("./notify.js").then((m) => m.enableNotifications())],
       "-", ["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
     Edit: [["Copy", () => document.execCommand("copy")], ["Paste into Keyword", async () => { try { $("keyword").value = await navigator.clipboard.readText(); } catch {} }]],
     Mail: [["Read Mail", () => go("mail")], ["Write Mail", () => go("write")], ["Mail Signature…", () => import("./mail.js").then((m) => m.editSignature())], ["Send an E-Greeting", () => go("greetings")], ["Address Book", () => go("addressbook")]],
     People: [["Buddy List", () => go("buddies")], ["People Plaza (Chat)", () => go("chat")], ["Member Directory", () => go("people")],
       ["My Profile & Buddy Icon", () => go("profile")], ["Away Message", () => go("away")], ["Photo Albums", () => go("albums")], ["Address Book", () => go("addressbook")], "-",
-      ["Locate a Member Online", () => go("locate")], ["Live Events", () => go("events")], ["Polls", () => go("polls")], ["Classifieds", () => go("classifieds")]],
+      ["Locate a Member Online", () => go("locate")], ["🤖 IM DialBot", () => go("dialbot")], ["Live Events", () => go("events")], ["Polls", () => go("polls")], ["Classifieds", () => go("classifieds")]],
     Channels: [["All Channels", () => go("channels")], ["News", () => go("news")], ["Weather", () => go("weather")], ["Sports", () => go("sports")],
       ["Tech", () => go("tech")], ["Stocks & Finance", () => go("stocks")], ["Radio", () => go("radio")], ["Maps", () => go("maps")],
       ["Horoscopes", () => go("horoscopes")], ["NYC", () => go("nyc")], ["Message Boards", () => go("boards")], "-",
       ["Today in History", () => go("today")], ["Movies", () => go("movies")], ["TV Listings", () => go("tv")], ["Recipes", () => go("recipes")],
-      ["Dictionary", () => go("dictionary")], ["Lottery", () => go("lottery")], ["Reminders", () => go("reminders")]],
+      ["Dictionary", () => go("dictionary")], ["Podcasts", () => go("podcasts")], ["Lottery", () => go("lottery")], ["Reminders", () => go("reminders")]],
     Games: [["Games Arcade", () => go("games")], ["Trivia Night", () => go("games")], ["Byte Snake", () => go("snake")]],
     Internet: [["DialedUp Browser", () => openBrowser()], ["CNN", () => go("cnn.com")], ["ESPN", () => go("espn.com")],
       ["YouTube", () => go("youtube.com")], ["Wikipedia", () => go("en.wikipedia.org")]],

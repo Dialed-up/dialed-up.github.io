@@ -8,6 +8,8 @@ import * as sfx from "./sounds.js";
 import { warningLevel, warn, alreadyWarned } from "./extras.js";
 import { imBackgroundFor } from "./prefs.js";
 import { openPeoplePlaza, openRoom as openPlazaRoom } from "./people.js";
+import { pickEmoji, QUICK_REACTIONS } from "./emoji.js";
+import { uploadMedia, paintMedia, isMedia, startRecording } from "./media.js";
 
 const state = {
   uid: null, me: { screenName: "" }, users: {}, groups: [], inbox: {}, blocked: new Set(),
@@ -180,6 +182,7 @@ function onInbox(v) {
     for (const [conv, e] of Object.entries(state.inbox)) {
       if (e.from === state.uid || state.blocked.has(e.from) || (e.ts || 0) <= (old[conv]?.ts || 0)) continue;
       sfx.imIn();
+      import("./notify.js").then((m) => m.notify(`💬 ${name(e.from)}`, e.preview || "New Instant Message", { tag: "im-" + e.from }));
       const existed = !!getWindow("im." + e.from);
       if (!existed && needsKnock(e.from)) { openKnock(e.from, e.preview); continue; }
       openIM(e.from, { quiet: true });
@@ -259,6 +262,8 @@ function refreshBuddyList() {
       </select></div>
     <div class="bl-me">${state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="${document.body.classList.contains("dim") ? "img/dim-logo.png" : "img/logo.png"}" width="40" height="28" alt="" style="object-fit:contain">`}
       <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
+    <div class="group"><button>▾ Bots (1/1)</button>
+      <div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div></div>
     ${groupsHTML}
     ${strangers.length ? `<div class="group"><button>▾ Recent IMs (${strangers.length})</button>${[...new Set(strangers)].map(row).join("")}</div>` : ""}
     ${show === "everyone" ? `<div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
@@ -266,11 +271,13 @@ function refreshBuddyList() {
       <button class="bl-icon" data-act="im"><span>💬</span>Send IM</button>
       <button class="bl-icon${state.away ? " on" : ""}" data-act="awaymenu" title="Away Message"><span>🌙<i class="bl-caret">▾</i></span>Away Message</button>
       <button class="bl-icon" data-act="add"><span>➕</span>Add Buddy</button>
+      <button class="bl-icon" data-act="rooms"><span>🗨️</span>Chat Rooms</button>
     </div>
     <div class="bl-bottom2">
       <button class="btn small-btn" data-act="setup">Setup</button>
     </div>`;
   body.scrollTop = scroll;
+  body.querySelector("[data-bot]").onclick = () => import("./bot.js").then((m) => m.openBot());
   body.querySelectorAll("[data-buddy]").forEach((el) => {
     el.onclick = () => openIM(el.dataset.buddy);
     onMenu(el, (x, y) => buddyMenu(el.dataset.buddy, x, y));
@@ -289,6 +296,7 @@ function refreshBuddyList() {
   const at = (b) => { const r = b.getBoundingClientRect(); return [r.left, r.top - 4]; };
   const acts = {
     add: () => openAddBuddy(),
+    rooms: () => openPeoplePlaza(),
     im: () => pickBuddy("Send an Instant Message", openIM),
     info: () => pickBuddy("Get Buddy Info", openInfo),
     chat: () => {
@@ -534,7 +542,7 @@ export function openIM(uid, { quiet = false } = {}) {
 
   openWindow(id, {
     title: `${name(uid)} — Instant Message`, icon: "💬", width: 340, height: 420,
-    onClose: () => refs.forEach((r) => off(r)),
+    onClose: () => refs.forEach((r) => (r.__cleanup ? r.__cleanup() : off(r))),
     render(body) {
       body.innerHTML = `<div class="im" data-im="${uid}">
         <div class="im-head"><button class="im-who" data-a="menu" title="Tap for IM options"><span class="im-ic"></span><b class="im-name"></b><span class="im-caret">▾</span></button>
@@ -547,10 +555,13 @@ export function openIM(uid, { quiet = false } = {}) {
           <button data-f="smaller">A-</button><button data-f="bigger">A+</button>
           <button data-f="bold"><b>B</b></button><button data-f="italic"><i>I</i></button><button data-f="underline"><u>U</u></button>
           <input type="color" data-f="color" value="${myStyle.color}">
-          <button data-f="smiley" title="Smileys">🙂</button>
-          <label class="btn small-btn" style="margin:0;font-weight:normal" title="Send a file (up to 10 MB)">📎<input type="file" data-f="file" hidden></label>
+          <button data-f="smiley" title="Emojis">😀</button>
+          <button data-f="mic" title="Record a voice note">🎙</button>
+          <label class="btn small-btn" style="margin:0;font-weight:normal" title="Send a photo, video or file">📎<input type="file" data-f="file" hidden></label>
         </div>
         <div class="compose"><textarea placeholder="Type a message…"></textarea><button class="btn primary">Send</button></div>
+        <div class="recbar" hidden><span class="rec-dot"></span><b class="rec-time">0:00</b><span class="small muted">Recording voice note…</span>
+          <span style="flex:1"></span><button class="btn small-btn" data-r="cancel">Cancel</button><button class="btn primary small-btn" data-r="send">Send 🎙</button></div>
       </div>`;
       const tx = body.querySelector(".transcript");
       const ta = body.querySelector("textarea");
@@ -565,8 +576,37 @@ export function openIM(uid, { quiet = false } = {}) {
       body.querySelector("[data-f=bigger]").onclick = () => { myStyle.size = Math.min(28, myStyle.size + 2); paintStyle(); };
       ["bold", "italic", "underline"].forEach((k) => (body.querySelector(`[data-f=${k}]`).onclick = () => { myStyle[k] = !myStyle[k]; paintStyle(); }));
       body.querySelector("[data-f=color]").oninput = (e) => { myStyle.color = e.target.value; paintStyle(); };
-      body.querySelector("[data-f=smiley]").onclick = () => { ta.value += " :) "; ta.focus(); };
-      body.querySelector("[data-f=file]").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) sendFile(uid, f, body); };
+      const smileyBtn = body.querySelector("[data-f=smiley]");
+      smileyBtn.onclick = () => pickEmoji(smileyBtn, (emo) => {
+        const at = ta.selectionStart ?? ta.value.length;
+        ta.value = ta.value.slice(0, at) + emo + ta.value.slice(ta.selectionEnd ?? at);
+        ta.selectionStart = ta.selectionEnd = at + emo.length;
+      });
+      body.querySelector("[data-f=file]").onchange = (e) => {
+        const f = e.target.files[0]; e.target.value = "";
+        if (!f) return;
+        if (isMedia(f)) sendMediaIM(uid, f, {}, tx); else sendFile(uid, f, body);
+      };
+      // Voice notes
+      const recbar = body.querySelector(".recbar"), compose = body.querySelector(".compose");
+      let rec = null;
+      const endRec = () => { rec = null; recbar.hidden = true; compose.hidden = false; };
+      body.querySelector("[data-f=mic]").onclick = async () => {
+        if (rec) return;
+        try {
+          rec = await startRecording((s) => (recbar.querySelector(".rec-time").textContent = `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`));
+        } catch { alert("DialedUp needs microphone permission to record a voice note."); return; }
+        recbar.querySelector(".rec-time").textContent = "0:00";
+        recbar.hidden = false; compose.hidden = true;
+      };
+      recbar.querySelector("[data-r=cancel]").onclick = () => { rec?.cancel(); endRec(); };
+      recbar.querySelector("[data-r=send]").onclick = async () => {
+        if (!rec) return;
+        const { blob, dur } = await rec.stop();
+        endRec();
+        if (dur < 0.7) return;
+        sendMediaIM(uid, blob, { kind: "audio", dur }, tx);
+      };
       const doWarn = async () => {
         if (alreadyWarned(uid)) { alert(`You already warned ${name(uid)} today.`); return; }
         if (!confirm(`Warn ${name(uid)}? It raises their warning level by 10% for 24 hours.`)) return;
@@ -616,14 +656,45 @@ export function openIM(uid, { quiet = false } = {}) {
         const atBottom = tx.scrollHeight - tx.scrollTop - tx.clientHeight < 60;
         const msgs = [];
         snap.forEach((c) => { msgs.push([c.key, c.val()]); });
-        tx.innerHTML = msgs.map(([k, m]) => renderMessage(k, m)).join("");
+        lastMsgs = msgs;
+        tx.innerHTML = msgs.map(([k, m]) => renderMessage(k, m)).join("") + `<div class="seen-line small"></div>`;
         tx.querySelectorAll("[data-file]").forEach((el) => paintFile(el, uid, conv, metas));
+        tx.querySelectorAll("[data-media]").forEach((el) => paintMedia(el, conv));
+        tx.querySelectorAll(".msg[data-k]").forEach((el) => onMenu(el, (x, y) => reactMenu(conv, el.dataset.k, x, y, el)));
+        tx.querySelectorAll(".react-chip").forEach((c) => (c.onclick = () => toggleReaction(conv, c.closest(".msg").dataset.k, c.dataset.e, lastMsgs)));
+        paintSeen();
+        markSeen();
         if (atBottom || msgs.length < 20) tx.scrollTop = tx.scrollHeight;
         const last = msgs[msgs.length - 1];
         localStorage.setItem("du.read." + conv, String(last?.[1]?.ts || Date.now()));
         refreshBuddyList();
       });
       refs.push(q);
+
+      // Seen receipts
+      let theirSeen = 0, lastMsgs = [], seenWritten = 0;
+      const paintSeen = () => {
+        const line = tx.querySelector(".seen-line");
+        if (!line) return;
+        const mineLast = [...lastMsgs].reverse().find(([, m]) => m.from === state.uid);
+        const theirsAfter = mineLast && lastMsgs.some(([, m]) => m.from !== state.uid && (m.ts || 0) > (mineLast[1].ts || 0));
+        line.textContent = mineLast && !theirsAfter && theirSeen >= (mineLast[1].ts || 0) ? `✓✓ Seen ${new Date(theirSeen).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
+      };
+      const markSeen = () => {
+        const w = getWindow(id);
+        if (!w || w.el.classList.contains("minimized") || document.visibilityState !== "visible") return;
+        const newest = [...lastMsgs].reverse().find(([, m]) => m.from !== state.uid);
+        if (!newest || (newest[1].ts || 0) <= seenWritten) return;
+        seenWritten = newest[1].ts || Date.now();
+        set(ref(db, `seen/${conv}/${state.uid}`), serverTimestamp()).catch(() => {});
+      };
+      const seenRef = ref(db, `seen/${conv}/${uid}`);
+      onValue(seenRef, (s) => { theirSeen = s.val() || 0; paintSeen(); }, () => {});
+      refs.push(seenRef);
+      const onVis = () => markSeen();
+      document.addEventListener("visibilitychange", onVis);
+      body.addEventListener("pointerdown", markSeen);
+      refs.push({ __cleanup: () => document.removeEventListener("visibilitychange", onVis) });
 
       const typRef = ref(db, `typing/${conv}`);
       onValue(typRef, (s) => {
@@ -643,7 +714,9 @@ function renderMessage(key, m) {
   const who = mine ? state.me.screenName : (m.name || name(m.from));
   const time = m.ts ? new Date(m.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) : "";
   let content;
-  if (m.file) {
+  if (m.media?.mid) {
+    content = `<div class="im-media" data-media="${esc(JSON.stringify(m.media))}"></div>`;
+  } else if (m.file) {
     content = `<div class="panel" data-file="${esc(m.file.tid)}" data-name="${esc(m.file.name)}" data-size="${Number(m.file.size) || 0}"
       data-mime="${esc(m.file.mime || "")}" data-mine="${mine ? 1 : 0}" style="margin:3px 0"></div>`;
   } else if (Array.isArray(m.rich) && m.rich.length) {
@@ -651,8 +724,12 @@ function renderMessage(key, m) {
   } else {
     content = `<span style="${styleCSS(m.style)}">${formatText(m.text)}</span>`;
   }
-  return `<div class="msg"><span class="who ${mine ? "me" : "them"}">${m.auto ? "Auto response from " : ""}${esc(who)}</span>
-    <time>(${time})</time>: ${content}</div>`;
+  const counts = {};
+  Object.values(m.reactions || {}).forEach((e) => (counts[e] = (counts[e] || 0) + 1));
+  const myReact = m.reactions?.[state.uid];
+  const chips = Object.entries(counts).map(([e, n]) => `<button class="react-chip ${myReact === e ? "mine" : ""}" data-e="${esc(e)}">${esc(e)}${n > 1 ? " " + n : ""}</button>`).join("");
+  return `<div class="msg" data-k="${esc(key)}"><span class="who ${mine ? "me" : "them"}">${m.auto ? "Auto response from " : ""}${esc(who)}</span>
+    <time>(${time})</time>: ${content}${chips ? `<div class="reacts">${chips}</div>` : ""}</div>`;
 }
 
 function renderIMStatus(uid) {
@@ -678,12 +755,13 @@ function renderIMStatus(uid) {
   setTitle("im." + uid, `${name(uid)} — Instant Message`);
 }
 
-async function sendIM(uid, text, style, { auto = false, file = null } = {}) {
+async function sendIM(uid, text, style, { auto = false, file = null, media = null } = {}) {
   const conv = conversationID(state.uid, uid);
   const msg = { from: state.uid, name: state.me.screenName, text, ts: serverTimestamp(),
     style: { font: style.font, size: style.size, color: style.color, bold: !!style.bold, italic: !!style.italic, underline: !!style.underline } };
   if (auto) msg.auto = true;
   if (file) msg.file = file;
+  if (media) msg.media = media;
   await push(ref(db, `messages/${conv}`), msg);
   if (!auto) acceptFrom(uid);
   const preview = text.slice(0, 80);
@@ -783,6 +861,52 @@ async function acceptFile(el, conv, tid, meta) {
   remove(ref(db, `filechunks/${conv}/${tid}`));
   progress(1, "Done! Tap 💾 Save in the IM window to keep it.", true);
   sfx.imIn();
+}
+
+// ---------- Photos, videos & voice notes in IMs ----------
+async function sendMediaIM(uid, file, opts, tx) {
+  const conv = conversationID(state.uid, uid);
+  const label = opts.kind === "audio" || file.type?.startsWith("audio/") ? "🎙 Voice note" : file.type?.startsWith("video/") ? "🎬 Video" : "📷 Photo";
+  const note = document.createElement("div");
+  note.className = "small muted sending-note";
+  note.textContent = `Sending ${label.toLowerCase().slice(2)}… 0%`;
+  tx?.appendChild(note);
+  if (tx) tx.scrollTop = tx.scrollHeight;
+  try {
+    const media = await uploadMedia(conv, state.uid, file, { ...opts, name: file.name || "" }, (f) => (note.textContent = `Sending ${label.toLowerCase().slice(2)}… ${Math.round(f * 100)}%`));
+    await sendIM(uid, label, { font: "Verdana", size: 14, color: "#000000" }, { media });
+    sfx.imOut();
+  } catch (e) {
+    alert(e.message && !/permission/i.test(e.message) ? e.message : "Couldn't send that. They may have blocked you, or the connection dropped.");
+  } finally { note.remove(); }
+}
+
+// ---------- Reactions ----------
+function reactMenu(conv, key, x, y, el) {
+  document.querySelector(".react-bar")?.remove();
+  const bar = document.createElement("div");
+  bar.className = "react-bar glossy";
+  bar.innerHTML = QUICK_REACTIONS.map((e) => `<button data-e="${e}">${e}</button>`).join("") + `<button data-more title="More emojis">＋</button><button data-copy title="Copy text">📋</button>`;
+  document.body.appendChild(bar);
+  const w = bar.offsetWidth, h = bar.offsetHeight;
+  bar.style.left = Math.max(6, Math.min(x - w / 2, innerWidth - w - 6)) + "px";
+  bar.style.top = Math.max(6, y - h - 10) + "px";
+  const close = () => { bar.remove(); document.removeEventListener("pointerdown", away, true); };
+  const away = (ev) => { if (!bar.contains(ev.target)) close(); };
+  setTimeout(() => document.addEventListener("pointerdown", away, true), 0);
+  bar.onclick = (ev) => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    close();
+    if (b.dataset.e) toggleReaction(conv, key, b.dataset.e);
+    else if (b.hasAttribute("data-more")) pickEmoji(el, (e) => toggleReaction(conv, key, e), { keepOpen: false });
+    else navigator.clipboard?.writeText(el.innerText.replace(/^.*?\):\s*/, "")).catch(() => {});
+  };
+}
+async function toggleReaction(conv, key, emoji) {
+  const r = ref(db, `messages/${conv}/${key}/reactions/${state.uid}`);
+  const cur = (await get(r).catch(() => null))?.val();
+  if (cur === emoji) await remove(r).catch(() => {}); else await set(r, emoji).catch(() => alert("Couldn't react right now."));
 }
 
 // ---------- "Accept IMs from strangers?" ----------

@@ -204,6 +204,8 @@ export function openChannels() {
         ${tile("📅 Today", "History & photo of the day", "#21a0fd", "today")}
         ${tile("🎰 Lottery", "Powerball & Mega Millions", "#ffb300", "lottery")}
         ${tile("🔎 Locate", "Find a member online", "#00a68c", "locate")}
+        ${tile("🎙 Podcasts", "Top shows, new episodes", "#7b1fa2", "podcasts")}
+        ${tile("🤖 DialBot", "Always-online chat buddy", "#21a0fd", "dialbot")}
       </div>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = () => runKeyword(b.dataset.kw)));
     },
@@ -247,6 +249,9 @@ const keywords = {
   classifieds: openClassifieds, forsale: openClassifieds, ads: openClassifieds, buyandsell: openClassifieds,
   events: openEvents, live: openEvents, liveevents: openEvents, auditorium: openEvents,
   today: openToday, history: openToday, todayinhistory: openToday, potd: openToday,
+  podcasts: () => import("./podcasts.js").then((m) => m.openPodcasts()), podcast: () => import("./podcasts.js").then((m) => m.openPodcasts()),
+  bot: () => import("./bot.js").then((m) => m.openBot()), dialbot: () => import("./bot.js").then((m) => m.openBot()),
+  notifications: () => import("./notify.js").then((m) => m.enableNotifications()),
   lottery: openLottery, lotto: openLottery, powerball: openLottery, megamillions: openLottery,
   help: openHelp,
 };
@@ -258,7 +263,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.1241) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.1305) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });
@@ -424,7 +429,7 @@ function openSports() {
 }
 
 // ---------- Horoscopes (written fresh each day by a little randomizer) ----------
-const signs = [
+export const signs = [
   ["Aries", "♈", [3, 21]], ["Taurus", "♉", [4, 20]], ["Gemini", "♊", [5, 21]], ["Cancer", "♋", [6, 21]],
   ["Leo", "♌", [7, 23]], ["Virgo", "♍", [8, 23]], ["Libra", "♎", [9, 23]], ["Scorpio", "♏", [10, 23]],
   ["Sagittarius", "♐", [11, 22]], ["Capricorn", "♑", [12, 22]], ["Aquarius", "♒", [1, 20]], ["Pisces", "♓", [2, 19]],
@@ -442,7 +447,7 @@ const lucky = ["56", "7", "1999", "404", "23", "88", "3", "11"];
 
 function seeded(seed) { let s = seed; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }
 
-function horoscopeFor(signIndex, date = new Date()) {
+export function horoscopeFor(signIndex, date = new Date()) {
   const r = seeded(signIndex * 1000 + date.getFullYear() * 400 + date.getMonth() * 31 + date.getDate());
   const pick = (a) => a[Math.floor(r() * a.length)];
   return `${pick(openers)} ${pick(middles)}. ${pick(advice)} Lucky number: ${pick(lucky)}.`;

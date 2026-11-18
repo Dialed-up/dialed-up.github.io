@@ -115,6 +115,8 @@ $("start").onclick = () => {
     { label: "🔎 Locate a Member", action: () => import("./more.js").then((m) => m.openLocate()) },
     "-",
     { label: "🖼 Change Backdrop", action: changeBackdrop },
+    { label: "🔔 Turn On Notifications", action: () => import("./notify.js").then((m) => m.enableNotifications()) },
+    { label: "🎙 Podcasts", action: () => import("./podcasts.js").then((m) => m.openPodcasts()) },
     { label: sfx.isMuted() ? "🔈 Sounds On" : "🔇 Sounds Off", action: () => sfx.setMuted(!sfx.isMuted()) },
     "-",
     { label: "🌐 Switch to DialedUp", action: () => $("to-du").click() },
