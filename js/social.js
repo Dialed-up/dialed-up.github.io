@@ -215,9 +215,10 @@ export function mountFeed(body, { limit = 60, more = null } = {}) {
     paintFeedBadge(0);
   };
   let timer = null;
+  // Only people's own posts go in the feed; notes written on someone's Wall stay on their profile.
   people.forEach((u) => {
     const r = query(ref(db, `posts/${u}`), orderByKey(), limitToLast(15));
-    onValue(r, (s) => { const posts = []; s.forEach((c) => { posts.push([c.key, c.val()]); }); byUser[u] = posts; clearTimeout(timer); timer = setTimeout(paint, 250); }, () => {});
+    onValue(r, (s) => { const posts = []; s.forEach((c) => { if (c.val()?.by === u) posts.push([c.key, c.val()]); }); byUser[u] = posts; clearTimeout(timer); timer = setTimeout(paint, 250); }, () => {});
     refs.push(r);
   });
   return () => { refs.forEach((r) => off(r)); cards.forEach((fn) => fn()); };
@@ -239,7 +240,7 @@ export async function checkFeed({ popUp = false } = {}) {
   await Promise.all(feedPeople().filter((u) => u !== uid()).map(async (u) => {
     try {
       const s = await get(query(ref(db, `posts/${u}`), orderByKey(), limitToLast(10)));
-      s.forEach((c) => { const p = c.val(); if ((p.ts || 0) > since && p.by !== uid()) n++; });
+      s.forEach((c) => { const p = c.val(); if ((p.ts || 0) > since && p.by === u) n++; });
     } catch {}
   }));
   paintFeedBadge(n);
