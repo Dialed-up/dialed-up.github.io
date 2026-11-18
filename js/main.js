@@ -19,6 +19,7 @@ import { userName } from "./chat.js";
 import { addToHomeScreen, refreshButtons } from "./install.js";
 import { me } from "./chat.js";
 import { writeMail } from "./mail.js";
+import "./update.js";
 import { watchReminders, stopReminders, watchEvents, stopEvents } from "./more.js";
 
 const $ = (id) => document.getElementById(id);
