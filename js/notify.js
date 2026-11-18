@@ -69,3 +69,23 @@ export async function notify(title, body, { tag, force = false, url } = {}) {
   const opts = { body, tag, icon: "img/icon-192-d1794979108.png", data: { url: url || location.pathname.split("/").pop() || "./" } };
   try { r ? await r.showNotification(title, opts) : new Notification(title, opts); } catch {}
 }
+
+// ---------- Red number on the app icon ----------
+const parts = { im: 0, mail: 0 };
+let badgeTimer = null;
+/** Each part of the app reports its unread count; the icon shows the total. */
+export function setBadgePart(kind, n) {
+  if (parts[kind] === n) return;
+  parts[kind] = n;
+  clearTimeout(badgeTimer);
+  badgeTimer = setTimeout(async () => {
+    const total = parts.im + parts.mail;
+    try { total ? await navigator.setAppBadge?.(total) : await navigator.clearAppBadge?.(); } catch {}
+    try {
+      const r = await navigator.serviceWorker?.getRegistration();
+      r?.active?.postMessage({ type: "badge", count: total });
+      // Opening the app clears the alerts sitting on the lock screen
+      if (document.visibilityState === "visible") (await r?.getNotifications?.())?.forEach((n) => n.close());
+    } catch {}
+  }, 400);
+}

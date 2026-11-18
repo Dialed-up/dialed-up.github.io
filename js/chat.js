@@ -248,7 +248,13 @@ export function openBuddyList() {
   });
 }
 
+function unreadIMCount() {
+  return Object.entries(state.inbox || {}).filter(([conv, e]) => e.from && e.from !== state.uid && !state.blocked.has(e.from)
+    && (e.ts || 0) > Number(localStorage.getItem("du.read." + conv) || 0)).length;
+}
+
 function refreshBuddyList() {
+  if (state.uid) import("./notify.js").then((m) => m.setBadgePart("im", unreadIMCount()));
   const win = getWindow("buddies");
   if (!win) return;
   const body = win.body;

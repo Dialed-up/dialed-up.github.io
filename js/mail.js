@@ -44,6 +44,7 @@ export function stopMail() {
 }
 
 function paintBadge() {
+  import("./notify.js").then((m) => m.setBadgePart("mail", unreadCount()));
   const b = badge();
   if (!b) return;
   const n = unreadCount();
