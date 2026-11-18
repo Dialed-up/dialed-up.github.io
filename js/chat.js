@@ -503,7 +503,13 @@ async function removeBuddy(uid) {
 export function sendFileTo(uid) {
   const input = document.createElement("input");
   input.type = "file";
-  input.onchange = () => { const f = input.files[0]; if (f) { openIM(uid, { quiet: true }); sendFile(uid, f); } };
+  input.onchange = () => {
+    const f = input.files[0];
+    if (!f) return;
+    openIM(uid);
+    const tx = getWindow("im." + uid)?.body.querySelector(".transcript");
+    sendMediaIM(uid, f, isMedia(f) ? {} : { kind: "file" }, tx);
+  };
   input.click();
 }
 
@@ -693,7 +699,7 @@ export function openIM(uid, { quiet = false } = {}) {
           <input type="color" data-f="color" value="${myStyle.color}">
           <button data-f="smiley" title="Emojis">😀</button>
           <button data-f="mic" title="Record a voice note">🎙</button>
-          <label class="btn small-btn" style="margin:0;font-weight:normal" title="Send a photo, video or file">📎<input type="file" data-f="file" hidden></label>
+          <label class="btn small-btn" style="margin:0;font-weight:normal" title="Send a photo, video or file (up to 25 MB)">📎<input type="file" data-f="file" hidden></label>
         </div>
         <div class="compose"><textarea placeholder="Type a message…"></textarea><button class="btn primary">Send</button></div>
         <div class="recbar" hidden><span class="rec-dot"></span><b class="rec-time">0:00</b><span class="small muted">Recording voice note…</span>
@@ -721,7 +727,7 @@ export function openIM(uid, { quiet = false } = {}) {
       body.querySelector("[data-f=file]").onchange = (e) => {
         const f = e.target.files[0]; e.target.value = "";
         if (!f) return;
-        if (isMedia(f)) sendMediaIM(uid, f, {}, tx); else sendFile(uid, f, body);
+        sendMediaIM(uid, f, isMedia(f) ? {} : { kind: "file" }, tx);   // every file goes right into the chat (up to 25 MB)
       };
       // Voice notes
       const recbar = body.querySelector(".recbar"), compose = body.querySelector(".compose");
@@ -1021,10 +1027,10 @@ function imNotice(uid, what) {
 async function sendMediaIM(uid, file, opts, tx) {
   const conv = conversationID(state.uid, uid);
   const isVoice = opts.kind === "audio" && !file.name;
-  const label = isVoice ? "🎙 Voice note" : file.type?.startsWith("audio/") ? `🎵 ${file.name || "Audio"}` : file.type?.startsWith("video/") ? "🎬 Video" : "📷 Photo";
+  const label = isVoice ? "🎙 Voice note" : opts.kind === "file" ? `📄 ${file.name || "File"}` : file.type?.startsWith("audio/") ? `🎵 ${file.name || "Audio"}` : file.type?.startsWith("video/") ? "🎬 Video" : "📷 Photo";
   const note = document.createElement("div");
   note.className = "small muted sending-note";
-  const what = isVoice ? "voice note" : file.type?.startsWith("audio/") ? file.name || "audio" : file.type?.startsWith("video/") ? "video" : "photo";
+  const what = isVoice ? "voice note" : opts.kind === "file" ? file.name || "file" : file.type?.startsWith("audio/") ? file.name || "audio" : file.type?.startsWith("video/") ? "video" : "photo";
   note.textContent = `Sending ${what}… 0%`;
   tx?.appendChild(note);
   if (tx) tx.scrollTop = tx.scrollHeight;

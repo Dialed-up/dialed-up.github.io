@@ -1,14 +1,33 @@
 // Photos, videos and voice notes that show right inside an IM.
 // Stored in media/{conv}/{mid} (details) and mediachunks/{conv}/{mid}/{i} (the file, in pieces).
-import { db, ref, get, set, remove } from "./firebase.js";
+import { auth, db, ref, get, set, remove } from "./firebase.js";
 import { esc } from "./wm.js";
 
 const CHUNK = 192 * 1024;
-export const MAX_VIDEO = 8 * 1024 * 1024;
+const FILES = "https://dialedup-push.stickyarcadecloud.workers.dev";   // free Cloudflare file storage (files kept 30 days)
+export const MAX_FILE = 25 * 1024 * 1024;
+export const MAX_VIDEO = MAX_FILE;
 const cache = new Map();   // mid → object URL
 
 const sizeLabel = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
 export const isMedia = (file) => /^(image|video|audio)\//.test(file.type || "");
+
+/** Sends a file to the Cloudflare file storage, with progress. Returns its web address. */
+async function uploadToStorage(conv, blob, name, onProgress) {
+  const token = await auth.currentUser.getIdToken();
+  return new Promise((ok, bad) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", FILES + "/upload");
+    x.setRequestHeader("x-du-token", token);
+    x.setRequestHeader("x-du-conv", conv);
+    x.setRequestHeader("x-du-name", encodeURIComponent(name || "file"));
+    x.setRequestHeader("content-type", blob.type || "application/octet-stream");
+    x.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    x.onload = () => { try { const j = JSON.parse(x.responseText); j.ok ? ok(j.url) : bad(new Error(j.error === "too big" ? "That file is over 25 MB." : "Upload failed.")); } catch { bad(new Error("Upload failed.")); } };
+    x.onerror = () => bad(new Error("Upload failed. Check your connection."));
+    x.send(blob);
+  });
+}
 
 function toB64(bytes) {
   let bin = "";
@@ -33,11 +52,19 @@ async function shrinkImage(file) {
 
 /** Uploads a photo / video / voice note. Returns the details to put on the IM. onProgress(0..1). */
 export async function uploadMedia(conv, from, file, { kind, dur = 0, name = "" } = {}, onProgress = () => {}) {
-  kind = kind || (file.type.startsWith("image/") ? "photo" : file.type.startsWith("video/") ? "video" : "audio");
+  kind = kind || (file.type.startsWith("image/") ? "photo" : file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : "file");
   let blob = file, w = 0, h = 0;
   if (kind === "photo") ({ blob, w = 0, h = 0 } = await shrinkImage(file));
-  if (kind === "video" && blob.size > MAX_VIDEO) throw new Error(`Videos can be up to ${sizeLabel(MAX_VIDEO)}. That one is ${sizeLabel(blob.size)}.`);
-  if (blob.size > 10 * 1024 * 1024) throw new Error("That's over 10 MB.");
+  if (blob.size > MAX_FILE) throw new Error(`Files can be up to ${sizeLabel(MAX_FILE)}. That one is ${sizeLabel(blob.size)}.`);
+  // New way: Cloudflare file storage (bigger files, doesn't use up the database)
+  try {
+    const url = await uploadToStorage(conv, blob, name || (kind === "audio" ? "voice-note" : "file"), onProgress);
+    const mime = blob.type || file.type || "application/octet-stream";
+    return { mid: url.split("/").pop(), url, kind, mime, size: blob.size, ...(w ? { w, h } : {}), ...(dur ? { dur: Math.round(dur) } : {}), ...(name ? { name: name.slice(0, 80) } : {}) };
+  } catch (e) {
+    if (/25 MB/.test(e.message) || blob.size > 10 * 1024 * 1024 || kind === "file") throw e;
+  }
+  // Fallback for small photos / clips / voice notes: store in the database
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const n = Math.max(1, Math.ceil(bytes.length / CHUNK));
   const mid = "m" + crypto.randomUUID().replace(/-/g, "").slice(0, 16);
@@ -71,6 +98,7 @@ export async function paintMedia(el, conv) {
   if (el.dataset.painted) return;
   el.dataset.painted = "1";
   const info = JSON.parse(el.dataset.media);
+  if (info.url && /^https:\/\/[^/]+\/f\/[a-f0-9]{32}$/.test(info.url)) { paintStored(el, info); return; }
   const show = async () => {
     el.innerHTML = `<span class="small muted">${info.kind === "photo" ? "📷 Loading photo…" : info.kind === "video" ? "🎬 Loading video…" : info.name ? `🎵 Loading ${esc(info.name)}…` : "🎙 Loading voice note…"}</span>`;
     try {
@@ -136,4 +164,29 @@ export async function startRecording(onTick = () => {}) {
     cancel() { rec.onstop = null; try { rec.stop(); } catch {} end(); },
   };
   return result;
+}
+
+/** Files kept in Cloudflare storage: shown straight from their web address. */
+function paintStored(el, info) {
+  const url = info.url;
+  const nameLine = info.name ? `<div class="media-name small">${{ video: "🎬", audio: "🎵", file: "📄", photo: "📷" }[info.kind] || "📄"} <b>${esc(info.name)}</b> <span class="muted">${sizeLabel(info.size)}</span></div>` : "";
+  const gone = () => (el.innerHTML = `<span class="small muted">This ${info.kind === "audio" ? (info.name ? "audio file" : "voice note") : info.kind} has expired (files are kept 30 days).</span>`);
+  if (info.kind === "photo") {
+    el.innerHTML = `<img src="${esc(url)}" alt="Photo" class="im-photo" ${info.w ? `width="${info.w}" height="${info.h}"` : ""}>`;
+    const img = el.querySelector("img");
+    img.onerror = gone;
+    img.onclick = () => openViewer(url);
+  } else if (info.kind === "video") {
+    el.innerHTML = `${nameLine}<video src="${esc(url)}" controls playsinline preload="metadata" class="im-video"></video>`;
+    el.querySelector("video").onerror = gone;
+  } else if (info.kind === "audio") {
+    el.innerHTML = (info.name ? nameLine : `<div class="media-name small">🎙 <b>Voice note</b>${info.dur ? ` <span class="muted">${fmtDur(info.dur)}</span>` : ""}</div>`)
+      + `<div class="voice-note"><audio src="${esc(url)}" controls preload="metadata"></audio></div>`;
+    el.querySelector("audio").onerror = gone;
+  } else {
+    el.innerHTML = `<div class="file-card">📄 <b>${esc(info.name || "File")}</b> <span class="small muted">${sizeLabel(info.size)}</span>
+      <a class="btn small-btn" href="${esc(url)}" target="_blank" rel="noopener">⬇ Open / Save</a></div>`;
+    return;
+  }
+  el.insertAdjacentHTML("beforeend", `<a class="small media-save" href="${esc(url)}" target="_blank" rel="noopener">💾 Save</a>`);
 }

@@ -12,7 +12,8 @@ const cors = (req) => {
   return {
     "access-control-allow-origin": ORIGINS.includes(o) || o.endsWith(".dialed-up.github.io") ? o : ORIGINS[0],
     "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "content-type, x-du-token, x-du-name, x-du-conv, range",
+    "access-control-expose-headers": "content-length, content-range, accept-ranges",
     "access-control-max-age": "86400",
   };
 };
@@ -69,6 +70,43 @@ export default {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors(req) });
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/") return json(req, { ok: true, service: "DialedUp push" });
+
+    // ----- Files people send in IMs (up to 25 MB, kept 30 days) -----
+    if (req.method === "GET" && url.pathname.startsWith("/f/")) {
+      const id = url.pathname.slice(3);
+      if (!/^[a-f0-9]{32}$/.test(id)) return new Response("not found", { status: 404, headers: cors(req) });
+      const { value, metadata } = await env.SUBS.getWithMetadata(`file:${id}`, "arrayBuffer");
+      if (!value) return new Response("This file has expired.", { status: 404, headers: cors(req) });
+      const type = metadata?.type || "application/octet-stream";
+      const base = { ...cors(req), "content-type": type, "accept-ranges": "bytes", "cache-control": "private, max-age=86400",
+        "content-disposition": `inline; filename*=UTF-8''${encodeURIComponent(metadata?.name || "file")}` };
+      const range = req.headers.get("range")?.match(/bytes=(\d*)-(\d*)/);
+      if (range) {   // videos on iPhone need this
+        const size = value.byteLength;
+        const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+        const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+        if (start >= size || start > end) return new Response(null, { status: 416, headers: { ...base, "content-range": `bytes */${size}` } });
+        return new Response(value.slice(start, end + 1), { status: 206, headers: { ...base, "content-range": `bytes ${start}-${end}/${size}`, "content-length": String(end - start + 1) } });
+      }
+      return new Response(value, { headers: { ...base, "content-length": String(value.byteLength) } });
+    }
+    if (req.method === "POST" && url.pathname === "/upload") {
+      const token = req.headers.get("x-du-token") || "";
+      const me = uidOf(token);
+      const conv = req.headers.get("x-du-conv") || "";
+      if (!me || !/^[A-Za-z0-9]{10,40}_[A-Za-z0-9]{10,40}$/.test(conv) || !conv.split("_").includes(me)) return json(req, { error: "not allowed" }, 403);
+      const len = Number(req.headers.get("content-length") || 0);
+      if (len > 25 * 1024 * 1024) return json(req, { error: "too big" }, 413);
+      const check = await dbGet(`users/${me}/screenName`, token);
+      if (!check.ok) return json(req, { error: "not signed in" }, 401);
+      const buf = await req.arrayBuffer();
+      if (buf.byteLength > 25 * 1024 * 1024) return json(req, { error: "too big" }, 413);
+      const id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      const name = decodeURIComponent(req.headers.get("x-du-name") || "file").slice(0, 100);
+      await env.SUBS.put(`file:${id}`, buf, { expirationTtl: 60 * 60 * 24 * 30,
+        metadata: { type: (req.headers.get("content-type") || "application/octet-stream").slice(0, 100), name, from: me, conv, size: buf.byteLength } });
+      return json(req, { ok: true, url: `${url.origin}/f/${id}`, size: buf.byteLength });
+    }
     if (req.method !== "POST") return json(req, { error: "not found" }, 404);
     let body;
     try { body = await req.json(); } catch { return json(req, { error: "bad request" }, 400); }
