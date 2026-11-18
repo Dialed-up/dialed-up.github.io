@@ -8,12 +8,12 @@
 <meta name="theme-color" content="#5b2a86">
 <link rel="icon" href="img/logo.png" type="image/png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon-d1794979108.png">
-<link rel="manifest" href="manifest.webmanifest?v=1795036063">
+<link rel="manifest" href="manifest.webmanifest?v=1795037293">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="DialedUp">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/style.css?v=1795036063">
+<link rel="stylesheet" href="css/style.css?v=1795037293">
 </head>
 <body>
   <!-- Sign-on screen -->
@@ -36,9 +36,10 @@
       <form id="signup-form" hidden>
         <p class="small">Pick a screen name.</p>
         <label>Screen Name <input id="su-sn" autocomplete="username" required></label>
+        <label>Email <input id="su-em" type="email" autocomplete="email" inputmode="email" maxlength="100" required placeholder="you@example.com"></label>
         <label>Password <input id="su-pw" type="password" autocomplete="new-password" required></label>
         <label>Confirm Password <input id="su-pw2" type="password" autocomplete="new-password" required></label>
-        <p class="small muted">Write your password down. There's no email, so it can't be reset.</p>
+        <p class="small muted">Your email stays private: it's never shown to other members. We'll only use it for important DialedUp news. Write your password down too.</p>
         <p id="signup-error" class="error" role="alert"></p>
         <div class="row">
           <button type="button" id="back-signon" class="btn">Back</button>
@@ -48,7 +49,7 @@
       <button type="button" class="btn small-btn install-btn" style="margin-top:10px">📲 Turn DialedUp into an App</button>
       <label class="check mute-toggle"><input id="mute" type="checkbox"> Mute sounds</label>
       <p class="small muted disclaimer">DialedUp is an independent, fan-made throwback. Not affiliated with, endorsed by, or connected to AOL, AIM, Yahoo or Bending Spoons. All trademarks belong to their owners.</p>
-      <p class="small muted" style="margin:6px 0 0">build 1118.2107</p>
+      <p class="small muted" style="margin:6px 0 0">build 1118.2128</p>
     </div>
   </main>
 
@@ -123,6 +124,6 @@
     </footer>
   </div>
 
-  <script type="module" src="js/main.js?v=1795036063"></script>
+  <script type="module" src="js/main.js?v=1795037293"></script>
 </body>
 </html>

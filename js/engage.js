@@ -88,6 +88,11 @@ export async function onSignOn() {
   if (Number(localStorage.getItem("du.trivia.best") || 0) >= 8) award("trivia");
   try { if (Object.keys((await get(ref(db, `invited/${uid()}`))).val() || {}).length) award("recruiter"); } catch {}
   setTimeout(birthdays, 6000);
+  // Members who joined before emails were required: ask once a day until they add one
+  if (localStorage.getItem("du.emailAsk") !== dayKey() && !sessionStorage.getItem("du.justSignedUp")) {
+    localStorage.setItem("du.emailAsk", dayKey());
+    setTimeout(() => openMyEmail({ nag: true }), 4000);
+  }
   // Friday = Trivia Night
   if (new Date().getDay() === 5 && localStorage.getItem("du.tn") !== dayKey()) {
     localStorage.setItem("du.tn", dayKey());
@@ -361,6 +366,30 @@ export async function openGroup(gid) {
         closeWindow("group." + gid);
       });
       body.querySelector("[data-rep]")?.addEventListener("click", () => import("./social.js").then((m) => m.report("group", `groups/${gid}`, g.owner, g.name + " — " + (g.desc || ""))));
+    },
+  });
+}
+
+// =================== Your email (private; for important DialedUp news) ===================
+export async function openMyEmail({ nag = false } = {}) {
+  const { getMyEmail, saveEmail, validEmail } = await import("./firebase.js");
+  const current = await getMyEmail();
+  if (nag && (current || current === undefined)) return;   // already have it (or couldn't check)
+  openWindow("myemail", {
+    title: current ? "My Email" : "Add Your Email", icon: "📧", width: 320, height: 290, keyword: "myemail",
+    render(body) {
+      body.innerHTML = `<form id="em-f">${current ? "" : `<p style="margin-top:0"><b>DialedUp now asks every member for an email.</b> It stays private and is never shown to other members. We'll only use it for important news about your account.</p>`}
+        <label>Email <input id="em-i" type="email" autocomplete="email" inputmode="email" maxlength="100" required value="${esc(current || "")}" placeholder="you@example.com" data-no-altcaps></label>
+        <p class="error" id="em-e"></p>
+        <div class="row">${nag ? `<button type="button" class="btn" id="em-later">Later</button>` : "<span></span>"}<button class="btn primary">💾 Save</button></div></form>`;
+      body.querySelector("#em-later")?.addEventListener("click", () => closeWindow("myemail"));
+      body.querySelector("#em-f").onsubmit = async (e) => {
+        e.preventDefault();
+        const v = body.querySelector("#em-i").value.trim();
+        if (!validEmail(v)) { body.querySelector("#em-e").textContent = "Please enter a real email address."; return; }
+        try { await saveEmail(v); closeWindow("myemail"); toast("📧 Email saved. Thanks!"); }
+        catch { body.querySelector("#em-e").textContent = "Couldn't save it right now. Try again in a minute."; }
+      };
     },
   });
 }

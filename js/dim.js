@@ -127,6 +127,7 @@ $("start").onclick = () => {
     { label: "📬 Mail", action: openMail },
     { label: "📝 Away Message", action: openAway },
     { label: "🪪 My Profile & Homie Icon", action: openProfile },
+    { label: "📧 My Email", action: () => import("./engage.js").then((m) => m.openMyEmail()) },
     { label: "📇 Member Directory", action: openDirectory },
     { label: "🔎 Get Member Info", action: () => import("./chat.js").then((m) => m.openGetInfo()) },
     { label: "🔎 Locate a Member", action: () => import("./more.js").then((m) => m.openLocate()) },

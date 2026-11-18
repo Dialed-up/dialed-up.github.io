@@ -1,4 +1,4 @@
-import { auth, onAuthStateChanged, signOn, signUp, signOff } from "./firebase.js";
+import { auth, onAuthStateChanged, signOn, signUp, signOff, saveEmail, validEmail } from "./firebase.js";
 import * as sfx from "./sounds.js";
 import { closeAll } from "./wm.js";
 import { openWelcome, openChannels, runKeyword } from "./portal.js";
@@ -115,9 +115,12 @@ $("signup-form").onsubmit = async (e) => {
   e.preventDefault();
   $("signup-error").textContent = "";
   if ($("su-pw").value !== $("su-pw2").value) { $("signup-error").textContent = "The passwords don't match."; return; }
+  const email = $("su-em").value.trim();
+  if (!validEmail(email)) { $("signup-error").textContent = "Please enter a real email address."; return; }
   try {
     await dialUpWhile(() => signUp($("su-sn").value, $("su-pw").value));
     sessionStorage.setItem("du.justSignedUp", "1");
+    saveEmail(email).catch(() => {});
     enterDesktop("signup");
   } catch (err) {
     $("signup-form").hidden = false;

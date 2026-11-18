@@ -85,6 +85,18 @@ export async function signUp(screenName, password) {
   return user;
 }
 
+/** Emails are private: only you and the site owner can read them (see database rules). */
+export const validEmail = (e) => /^[^\s@]{1,64}@[^\s@]+\.[a-z]{2,}$/i.test(String(e || "").trim()) && String(e).length <= 100;
+export async function saveEmail(email) {
+  const u = auth.currentUser;
+  if (!u || !validEmail(email)) throw new Error("Please enter a real email address.");
+  const n = (await get(ref(db, `users/${u.uid}/screenName`)).catch(() => null))?.val() || "";
+  await set(ref(db, `emails/${u.uid}`), { email: email.trim().toLowerCase(), n, ts: serverTimestamp() });
+}
+export async function getMyEmail() {
+  try { return (await get(ref(db, `emails/${auth.currentUser.uid}/email`))).val(); } catch { return undefined; }
+}
+
 export async function signOff() {
   window.__duSigningOff = true;
   setTimeout(() => (window.__duSigningOff = false), 10000);

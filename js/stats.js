@@ -7,7 +7,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const fmt = (n) => (n || 0).toLocaleString();
 
-let days = {}, online = {}, totalMembers = null;
+let days = {}, online = {}, totalMembers = null, emails = null;
 
 $("gf").onsubmit = async (e) => {
   e.preventDefault();
@@ -27,6 +27,7 @@ onAuthStateChanged(auth, (user) => {
   onValue(query(ref(db, "stats/days"), orderByKey(), limitToLast(31)), (s) => { days = s.val() || {}; paint(); },
     () => ($("dash").innerHTML = `<div class="card"><h2>Almost there</h2><p class="muted">Publish the latest database rules in Firebase to turn on stats.</p></div>`));
   onValue(ref(db, "online"), (s) => { online = s.val() || {}; paint(); }, () => {});
+  get(ref(db, "emails")).then((s) => { emails = s.val() || {}; paint(); }).catch(() => {});
   get(ref(db, "screennames")).then((s) => { totalMembers = new Set(Object.values(s.val() || {})).size; paint(); }).catch(() => {});
   setInterval(paint, 30000);   // keeps "online now" fresh
 });
@@ -84,5 +85,19 @@ function paint() {
       <table><tr><th>Day</th><th>Members</th><th>Sign-ons</th><th>IMs</th><th>Mail</th><th>New</th></tr>
       ${[...week].reverse().map((x) => `<tr><td>${x.d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</td><td>${uniq(x.v)}</td><td>${fmt(x.v.visits)}</td><td>${fmt(x.v.ims)}</td><td>${fmt(x.v.mail)}</td><td>${fmt(x.v.signups)}</td></tr>`).join("")}
       </table></div>
+    ${emailCard()}
     <p class="muted" style="text-align:center">Updates live. Counting started ${Object.keys(days)[0] ? new Date(Object.keys(days)[0] + "T12:00").toLocaleDateString([], { month: "long", day: "numeric" }) : "today"}.</p>`;
+}
+
+function emailCard() {
+  if (!emails) return "";
+  const rows = Object.values(emails).filter((e) => e?.email).sort((a, b) => String(a.n).localeCompare(String(b.n)));
+  setTimeout(() => {
+    const b = document.getElementById("copy-emails");
+    if (b) b.onclick = () => navigator.clipboard.writeText(rows.map((r) => r.email).join(", ")).then(() => (b.textContent = "✅ Copied!"));
+  });
+  return `<div class="card"><h2>📧 Member emails (${rows.length}${totalMembers ? ` of ${totalMembers} members` : ""})</h2>
+    <p class="muted">Private — only you can see this. Use it for important announcements.</p>
+    ${rows.length ? `<button class="btn" id="copy-emails">📋 Copy all emails</button>
+    <table><tr><th>Screen name</th><th>Email</th></tr>${rows.map((r) => `<tr><td>${esc(r.n)}</td><td>${esc(r.email)}</td></tr>`).join("")}</table>` : `<p class="muted">No emails yet.</p>`}</div>`;
 }
