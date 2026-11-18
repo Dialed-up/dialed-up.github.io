@@ -1,0 +1,34 @@
+name: Update news headlines
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/fetch_news.py", ".github/workflows/news.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: news
+  cancel-in-progress: true
+
+jobs:
+  news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch headlines
+        run: python3 scripts/fetch_news.py /tmp/news.json
+      - name: Publish to the news-data branch
+        run: |
+          mkdir -p /tmp/out && cd /tmp/out
+          cp /tmp/news.json news.json
+          git init -q -b news-data
+          git config user.name "DialedUp News Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add news.json
+          git commit -qm "Headlines $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" news-data
