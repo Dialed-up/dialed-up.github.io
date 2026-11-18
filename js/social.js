@@ -20,12 +20,22 @@ const ago = (ts) => {
 const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`).replace(/\n/g, "<br>");
 
 async function shrink(file, max = 960, q = 0.72) {
-  const img = await createImageBitmap(file);
-  const sc = Math.min(1, max / Math.max(img.width, img.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
-  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-  return c.toDataURL("image/jpeg", q).split(",")[1];
+  let img;
+  try { img = await createImageBitmap(file); }
+  catch {   // some phones' photo formats: fall back to an <img>
+    img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("That photo type can't be opened. Try a JPG or PNG.")); i.src = URL.createObjectURL(file); });
+  }
+  const w = img.width || img.naturalWidth, h = img.height || img.naturalHeight;
+  // Keep shrinking until it fits the database's size limit for one photo
+  for (const [m, qq] of [[max, q], [800, 0.65], [640, 0.6], [480, 0.55]]) {
+    const sc = Math.min(1, m / Math.max(w, h));
+    const c = document.createElement("canvas");
+    c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const b64 = c.toDataURL("image/jpeg", qq).split(",")[1];
+    if (b64.length <= 250000) return b64;
+  }
+  throw new Error("That photo is too big. Try a smaller one.");
 }
 
 // =================== Posts ===================
@@ -142,7 +152,12 @@ function composer(owner, onDone, label = null) {
     const btn = box.querySelector(".btn.primary");
     btn.disabled = true; btn.textContent = "Posting…";
     try { await createPost(owner, ta.value.trim(), file); ta.value = ""; file = null; box.querySelector(".pf-name").textContent = ""; onDone?.(); }
-    catch { alert(self || label ? "Couldn't post right now." : `Couldn't post on ${userName(owner)}'s Wall. Only people they've added as a buddy can write there.`); }
+    catch (err) {
+      const denied = /permission/i.test(String(err?.code || err?.message));
+      alert(denied && !self && !label ? `Couldn't post on ${userName(owner)}'s Wall. Only people they've added as a buddy can write there.`
+        : denied ? "Couldn't post: the database said no (PERMISSION DENIED). The newest database rules probably aren't published yet."
+        : "Couldn't post: " + (err?.message || err));
+    }
     btn.disabled = false; btn.textContent = "Post";
   };
   return box;
