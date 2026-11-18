@@ -86,6 +86,7 @@ async function enter(fresh) {
   watchWarnings();
   watchCalls(userName);
   watchMail();
+  import("./notify.js").then((m) => m.subscribePush());
   openBuddyList();
   if (fresh) sfx.welcome();
 }

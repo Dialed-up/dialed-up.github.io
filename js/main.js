@@ -155,6 +155,7 @@ async function enterDesktop(fresh) {
   watchGameInvites();
   watchCalls(userName);
   watchReminders();
+  import("./notify.js").then((m) => m.subscribePush());
   watchEvents();
   mountMiniPlayer();
   openWelcome();

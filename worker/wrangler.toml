@@ -1,0 +1,11 @@
+name = "dialedup-push"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[vars]
+VAPID_PUBLIC = "BFk3S49eezM1VA09c-2mfLO8Im1Qvew7PH1CdLkWNhlCbsQOrtd8O2VG0leGU9Kys6UF_tpHu_uke8nxsYlKfPw"
+
+[[kv_namespaces]]
+binding = "SUBS"
+id = "64722de6f0554ef3b965bdd146948015"

@@ -846,8 +846,9 @@ async function sendIM(uid, text, style, { auto = false, file = null, media = nul
   await push(ref(db, `messages/${conv}`), msg);
   if (!auto) acceptFrom(uid);
   const preview = text.slice(0, 80);
-  await set(ref(db, `inbox/${uid}/${conv}`), { with: state.uid, from: state.uid, ts: serverTimestamp(), preview }).catch(() => {});
+  const delivered = await set(ref(db, `inbox/${uid}/${conv}`), { with: state.uid, from: state.uid, ts: serverTimestamp(), preview }).then(() => true, () => false);
   await set(ref(db, `inbox/${state.uid}/${conv}`), { with: uid, from: state.uid, ts: serverTimestamp(), preview }).catch(() => {});
+  if (delivered && !auto && uid !== "__bot") import("./notify.js").then((m) => m.pushTo(uid, "im"));
   remove(ref(db, `typing/${conv}/${state.uid}`)).catch(() => {});
 }
 

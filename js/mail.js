@@ -329,6 +329,7 @@ export function writeMail(to = "", subject = "", text = "") {
             const item = { from: uid(), fromName: me().screenName, subject: subj, body: text_, ts: serverTimestamp(), read: false, sentId: sentItem.key };
             if (attached.length) item.files = attached;
             const mailItem = await push(ref(db, `mail/${target}`), item);
+            import("./notify.js").then((m) => m.pushTo(target, "mail", { sentId: sentItem.key }));
             await update(ref(db, `mailsent/${uid()}/${sentItem.key}`), { mailId: mailItem.key, ...(attached.length ? { files: attached } : {}) });
             okCount++;
           } catch { missing.push(toName + " (blocked?)"); }
