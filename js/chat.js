@@ -91,6 +91,7 @@ export async function startChat() {
   state.uid = uid;
   const meRef = ref(db, `users/${uid}`);
   state.me = (await get(meRef)).val() || { screenName: "Me" };
+  state.prevSeen = state.me.lastSeen || 0;   // when you were last on, so we can show what you missed
   state.away = state.me.away || "";
   try {
     const raw = (await get(ref(db, `buddylists/${uid}`))).val();
@@ -233,8 +234,13 @@ function onInbox(v) {
       autoReply(e.from, conv);
     }
   }
+  if (!state.loadedInbox) {
+    const missed = unreadIMs(state.prevSeen);
+    if (missed.length) setTimeout(() => { sfx.imIn(); openUnreadIMs(missed, true); }, 1800);
+  }
   state.loadedInbox = true;
   refreshBuddyList();
+  paintIMBadge();
 }
 
 async function saveGroups() {
@@ -276,6 +282,7 @@ function unreadIMCount() {
 }
 
 function refreshBuddyList() {
+  paintIMBadge();
   if (state.uid) import("./notify.js").then((m) => m.setBadgePart("im", unreadIMCount()));
   const win = getWindow("buddies");
   if (!win) return;
@@ -1038,6 +1045,56 @@ async function acceptFile(el, conv, tid, meta) {
   remove(ref(db, `filechunks/${conv}/${tid}`));
   progress(1, "Done! Tap 💾 Save in the IM window to keep it.", true);
   sfx.imIn();
+}
+
+// ---------- IMs that came in while you were away ----------
+/** Conversations where the last message is from them and you haven't read it (optionally: only since a time). */
+function unreadIMs(since = 0) {
+  const twoWeeks = Date.now() - 14 * 86400000;
+  return Object.entries(state.inbox || {})
+    .filter(([conv, e]) => e.from && e.from !== state.uid && e.with && !state.blocked.has(e.with)
+      && (e.ts || 0) > Math.max(since, twoWeeks) && (e.ts || 0) > Number(localStorage.getItem("du.read." + conv) || 0))
+    .map(([conv, e]) => ({ conv, ...e }))
+    .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+
+/** The "While You Were Away" / "Unread IMs" window. */
+export function openUnreadIMs(list = null, away = false) {
+  const items = list || unreadIMs();
+  openWindow("unreadims", {
+    title: away ? "While You Were Away" : "Unread IMs", icon: "📨", width: 330, height: 380, keyword: "unread",
+    render(body) {
+      const paint = (rows) => {
+        body.innerHTML = rows.length ? `<p class="small" style="margin-top:0">${away ? `You got ${rows.length === 1 ? "an IM" : rows.length + " IMs"} while you were signed off:` : "Conversations with new messages:"}</p>
+          <ul class="list unread-list">${rows.map((r, i) => `<li data-i="${i}"><span class="ur-who">${iconHTML(r.with, 26)}<span><b>${esc(name(r.with))}</b>
+            <span class="small muted">${r.ts ? timeLabel(r.ts) : ""}</span><br><span class="small">${esc((r.preview || "").slice(0, 70))}</span></span></span></li>`).join("")}</ul>
+          <div class="row" style="margin-top:8px"><button class="btn small-btn" data-x="clear">Mark All Read</button><button class="btn primary small-btn" data-x="all">Open All</button></div>`
+          : `<p class="muted">No unread IMs. You're all caught up! 🎉</p>`;
+        body.querySelectorAll("[data-i]").forEach((li) => (li.onclick = () => { openIM(rows[li.dataset.i].with); paint(unreadIMs()); }));
+        body.querySelector("[data-x=all]")?.addEventListener("click", () => { rows.forEach((r) => openIM(r.with, { quiet: true })); closeWindow("unreadims"); });
+        body.querySelector("[data-x=clear]")?.addEventListener("click", () => {
+          rows.forEach((r) => localStorage.setItem("du.read." + r.conv, String(r.ts || Date.now())));
+          refreshBuddyList(); paint([]);
+        });
+      };
+      paint(items);
+    },
+  });
+}
+const timeLabel = (ts) => {
+  const d = new Date(ts), today = new Date().toDateString() === d.toDateString();
+  return today ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + " " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+};
+
+/** Red number on the toolbar's IMs button. */
+function paintIMBadge() {
+  const btn = document.querySelector('#toolbar [data-open="buddies"]');
+  if (!btn) return;
+  let b = btn.querySelector(".badge");
+  if (!b) { btn.classList.add("has-badge"); btn.insertAdjacentHTML("beforeend", `<b class="badge" hidden></b>`); b = btn.querySelector(".badge"); }
+  const n = unreadIMs().length;
+  b.textContent = n > 99 ? "99+" : n || "";
+  b.hidden = !n;
 }
 
 // ---------- "Jerry has signed off" lines inside open IM windows ----------

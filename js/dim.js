@@ -113,6 +113,7 @@ $("start").onclick = () => {
   const r = $("start").getBoundingClientRect();
   contextMenu(r.left, r.top - 4, [
     { label: "👥 Buddy List", action: openBuddyList },
+    { label: "📨 Unread IMs", action: () => import("./chat.js").then((m) => m.openUnreadIMs()) },
     { label: "➕ Add a Buddy", action: () => openAddBuddy() },
     { label: "🛠 Manage Buddy List", action: () => import("./chat.js").then((m) => m.openEditGroups()) },
     { label: "🗨️ Chat Rooms", action: () => openPeoplePlaza() },
