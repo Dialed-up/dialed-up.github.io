@@ -271,7 +271,7 @@ function refreshBuddyList() {
         <option value="online" ${show === "online" ? "selected" : ""}>Online Only</option>
         <option value="available" ${show === "available" ? "selected" : ""}>Hide Away & Idle</option>
       </select></div>
-    <div class="bl-me">${state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="${document.body.classList.contains("dim") ? "img/dim-logo.png" : "img/logo.png"}" width="40" height="28" alt="" style="object-fit:contain">`}
+    <div class="bl-me" data-me title="Tap to edit your profile">${state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="${document.body.classList.contains("dim") ? "img/dim-logo.png" : "img/logo.png"}" width="40" height="28" alt="" style="object-fit:contain">`}
       <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
     <div class="group"><button>▾ Bots (1/1)</button>
       <div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div></div>
@@ -283,11 +283,13 @@ function refreshBuddyList() {
       <button class="bl-icon${state.away ? " on" : ""}" data-act="awaymenu" title="Away Message"><span>🌙<i class="bl-caret">▾</i></span>Away Message</button>
       <button class="bl-icon" data-act="add"><span>➕</span>Add Buddy</button>
       <button class="bl-icon" data-act="rooms"><span>🗨️</span>Chat Rooms</button>
+      <button class="bl-icon" data-act="profile"><span>🪪</span>My Profile</button>
     </div>
     <div class="bl-bottom2">
       <button class="btn small-btn" data-act="setup">Setup</button>
     </div>`;
   body.scrollTop = scroll;
+  body.querySelector("[data-me]").onclick = () => openProfile();
   body.querySelector("[data-bot]").onclick = () => import("./bot.js").then((m) => m.openBot());
   body.querySelectorAll("[data-buddy]").forEach((el) => {
     el.onclick = () => openIM(el.dataset.buddy);
@@ -309,6 +311,7 @@ function refreshBuddyList() {
   const acts = {
     add: () => openAddBuddy(),
     rooms: () => openPeoplePlaza(),
+    profile: () => openProfile(),
     im: () => pickBuddy("Send an Instant Message", openIM),
     info: () => pickBuddy("Get Buddy Info", openInfo),
     chat: () => {
@@ -330,7 +333,6 @@ function refreshBuddyList() {
       { label: "➕ Add a Buddy", action: () => openAddBuddy() },
       { label: "📁 Add a Group", action: newGroup },
       { label: "🛠 Manage Buddy List…", action: openEditGroups },
-      { label: "🪪 Edit My Profile", action: openProfile },
       { label: "🔎 Member Directory", action: openDirectory },
     ]),
   };
