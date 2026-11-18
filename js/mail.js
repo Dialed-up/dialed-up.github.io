@@ -331,6 +331,7 @@ export function writeMail(to = "", subject = "", text = "") {
             if (attached.length) item.files = attached;
             const mailItem = await push(ref(db, `mail/${target}`), item);
             import("./notify.js").then((m) => m.pushTo(target, "mail", { sentId: sentItem.key }));
+            import("./stats-track.js").then((m) => m.trackMail());
             await update(ref(db, `mailsent/${uid()}/${sentItem.key}`), { mailId: mailItem.key, ...(attached.length ? { files: attached } : {}) });
             okCount++;
           } catch { missing.push(toName + " (blocked?)"); }

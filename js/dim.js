@@ -86,6 +86,7 @@ async function enter(fresh) {
   await startChat();
   if (await startSync(auth.currentUser.uid)) applyBackdrop();
   document.title = `DIM — ${me().screenName}`;
+  import("./stats-track.js").then((m) => m.trackVisit(auth.currentUser.uid, me().screenName, "dim"));
   watchInvites();
   watchWarnings();
   watchCalls(userName);

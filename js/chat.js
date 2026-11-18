@@ -947,6 +947,7 @@ async function sendIM(uid, text, style, { auto = false, file = null, media = nul
   const delivered = await set(ref(db, `inbox/${uid}/${conv}`), { with: state.uid, from: state.uid, ts: serverTimestamp(), preview }).then(() => true, () => false);
   await set(ref(db, `inbox/${state.uid}/${conv}`), { with: uid, from: state.uid, ts: serverTimestamp(), preview }).catch(() => {});
   if (delivered && !auto && uid !== "__bot") import("./notify.js").then((m) => m.pushTo(uid, "im"));
+  if (!auto) import("./stats-track.js").then((m) => m.trackIM());
   remove(ref(db, `typing/${conv}/${state.uid}`)).catch(() => {});
 }
 

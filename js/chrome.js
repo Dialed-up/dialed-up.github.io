@@ -3,6 +3,7 @@ import { contextMenu, listWindows, restore, cascade, tile, closeAll, closeWindow
 import { favorites, addFavorite, openFavorites, onlineFor, openClock } from "./extras.js";
 import { openBrowser } from "./browser.js";
 import { enableNotifications, sendTestAlert } from "./notify.js";
+import { auth } from "./firebase.js";
 
 const looksLikeURL = (v) => /^(https?:\/\/|www\.)\S+\.\S+/i.test(v) || /^[\w-]+(\.[\w-]+)*\.(com|net|org|io|co|edu|gov|tv|me|us|uk|fm|app)(\/\S*)?$/i.test(v);
 
@@ -55,7 +56,7 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
     Window: null,   // built when opened
     Keyword: [["Go to Keyword…", () => $("keyword").focus()], ["Keyword List", () => go("help")]],
     "Sign Off": [["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
-    Help: [["Preferences (Themes)", () => go("preferences")], ["🔊 Sounds", () => go("sounds")], ["Kid-Safe Mode", () => go("kids")], ["Keyword Help", () => go("help")], ["Online Clock", openClock], ["About DialedUp", () => go("about")]],
+    Help: [...(auth.currentUser?.uid === "Dh35JEPVTiWIB96X03RGeiVmQN03" ? [["📊 Site Stats (owner)", () => window.open("stats.html", "_blank")]] : []), ["Preferences (Themes)", () => go("preferences")], ["🔊 Sounds", () => go("sounds")], ["Kid-Safe Mode", () => go("kids")], ["Keyword Help", () => go("help")], ["Online Clock", openClock], ["About DialedUp", () => go("about")]],
   };
   const holder = $("menus");
   holder.innerHTML = Object.keys(menus).map((m) => `<button class="menu-item" data-menu="${m}">${m}</button>`).join("");

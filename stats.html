@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DialedUp Stats</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#5b2a86">
+<link rel="icon" href="img/logo.png" type="image/png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon-d1794979108.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DU Stats">
+<style>
+  :root { --ink: #1d1033; --muted: #6b6280; --line: #e4dcf5; --card: #ffffff; --bg: #f5f1fc; --grape: #5b2a86; --grape2: #8a4dff; --pink: #ff5ec4; --green: #22a35a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.4 -apple-system, "Segoe UI", Verdana, sans-serif; color: var(--ink); background: var(--bg); }
+  header { background: linear-gradient(90deg, var(--grape), var(--grape2) 60%, var(--pink)); color: #fff; padding: 14px 16px; padding-top: max(14px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 10px; }
+  header img { width: 34px; height: 34px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header .live { margin-left: auto; font-size: 12px; background: rgba(255,255,255,.2); border-radius: 12px; padding: 3px 10px; }
+  header .live b { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #5cff9d; margin-right: 5px; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  main { max-width: 1000px; margin: 0 auto; padding: 14px 16px 40px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .tile .n { font-size: 30px; font-weight: 800; color: var(--grape); line-height: 1.1; }
+  .tile .l { font-size: 12px; color: var(--muted); }
+  .tile.hot .n { color: var(--green); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 10px; }
+  .card h2 { margin: 0 0 8px; font-size: 15px; color: var(--grape); }
+  .online li { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 150px; padding-top: 6px; }
+  .bars div { flex: 1; background: linear-gradient(var(--grape2), var(--grape)); border-radius: 4px 4px 0 0; min-height: 2px; position: relative; }
+  .bars div.today { background: linear-gradient(var(--pink), var(--grape2)); }
+  .bars div span { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--muted); }
+  .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .split { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--line); margin: 6px 0; }
+  .split i { display: block; height: 100%; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; margin-right: 12px; font-size: 13px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 5px 4px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  #gate { max-width: 340px; margin: 40px auto; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  #gate input { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 10px; margin: 4px 0 10px; font-size: 16px; }
+  #gate button { width: 100%; padding: 10px; border: 0; border-radius: 10px; background: var(--grape2); color: #fff; font-weight: bold; font-size: 16px; }
+  .err { color: #c2185b; font-size: 13px; min-height: 1em; }
+</style>
+</head>
+<body>
+  <header><img src="img/logo.png" alt=""><h1>DialedUp Stats</h1><span class="live"><b></b>Live</span></header>
+  <div id="gate" hidden>
+    <h2 style="margin-top:0">Owner sign on</h2>
+    <form id="gf"><label>Screen Name<input id="gn" autocomplete="username" autocapitalize="off" required></label>
+      <label>Password<input id="gp" type="password" autocomplete="current-password" required></label>
+      <p class="err" id="ge"></p><button>Sign On</button></form>
+  </div>
+  <main id="dash" hidden></main>
+  <script type="module" src="js/stats.js?v=1795029262"></script>
+</body>
+</html>

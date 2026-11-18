@@ -114,7 +114,7 @@ $("signup-form").onsubmit = async (e) => {
   if ($("su-pw").value !== $("su-pw2").value) { $("signup-error").textContent = "The passwords don't match."; return; }
   try {
     await dialUpWhile(() => signUp($("su-sn").value, $("su-pw").value));
-    enterDesktop(true);
+    enterDesktop("signup");
   } catch (err) {
     $("signup-form").hidden = false;
     $("signon-form").hidden = true;
@@ -145,6 +145,8 @@ async function enterDesktop(fresh) {
   await startChat();
   if (await startSync(auth.currentUser.uid)) { applyPrefs(); applyKidMode(); }   // settings saved to the account come back here
   rememberName(me().screenName);
+  import("./stats-track.js").then((m) => m.trackVisit(auth.currentUser.uid, me().screenName, "dialedup"));
+  if (fresh === "signup") import("./stats-track.js").then((m) => m.trackSignup());
   startClock();
   setupChrome({
     runKeyword, screenName: me().screenName, signOff: () => document.getElementById("signoff").click(), switchScreenName,
