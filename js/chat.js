@@ -191,7 +191,7 @@ function refreshBuddyList() {
         <option value="online" ${show === "online" ? "selected" : ""}>Online Only</option>
         <option value="available" ${show === "available" ? "selected" : ""}>Hide Away & Idle</option>
       </select></div>
-    <div class="bl-me">${state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="img/logo.svg" width="40" height="28" alt="" style="object-fit:contain">`}
+    <div class="bl-me">${state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="img/logo.png" width="40" height="28" alt="" style="object-fit:contain">`}
       <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
     ${groupsHTML}
     ${strangers.length ? `<div class="group"><button>▾ Recent IMs (${strangers.length})</button>${[...new Set(strangers)].map(row).join("")}</div>` : ""}

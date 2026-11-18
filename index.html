@@ -6,20 +6,20 @@
 <title>DialedUp</title>
 <meta name="description" content="DialedUp — the online service that never logged off. Chat, IMs, channels and home pages, 1999 style, in 2026.">
 <meta name="theme-color" content="#5b2a86">
-<link rel="icon" href="img/logo.svg" type="image/svg+xml">
+<link rel="icon" href="img/logo.png" type="image/png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="DialedUp">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="css/style.css?v=1794978836">
+<link rel="stylesheet" href="css/style.css?v=1794978932">
 </head>
 <body>
   <!-- Sign-on screen -->
   <main id="signon" class="screen">
     <div class="signon-box glossy">
-      <img src="img/wordmark.svg" alt="DialedUp" class="signon-wordmark">
+      <img src="img/wordmark.png" alt="DialedUp" class="signon-wordmark">
       <p class="tagline">Still connecting since '96.</p>
 
       <form id="signon-form" autocomplete="on">
@@ -52,7 +52,7 @@
   <!-- Connecting animation -->
   <main id="connecting" class="screen" hidden>
     <div class="connect-box glossy">
-      <img src="img/logo.svg" alt="" class="connect-logo">
+      <img src="img/logo.png" alt="" class="connect-logo">
       <ol class="steps">
         <li data-step="0">Dialing…</li>
         <li data-step="1">Waiting for answer…</li>
@@ -67,7 +67,7 @@
 
   <!-- The signed-on desktop -->
   <div id="app" class="screen" hidden>
-    <div id="titlestrip"><img src="img/logo.svg" alt=""><span id="status-text">DialedUp — Connected</span><span id="online-for"></span></div>
+    <div id="titlestrip"><img src="img/logo.png" alt=""><span id="status-text">DialedUp — Connected</span><span id="online-for"></span></div>
 
     <nav id="menubar" aria-label="Menu">
       <button id="menu-toggle" class="menu-toggle" aria-label="Menu">☰ Menu</button>
@@ -109,13 +109,13 @@
     </nav>
     <div id="desk"></div>
     <footer id="taskbar" class="glossy">
-      <button id="start" class="start"><img src="img/logo.svg" alt="">DialedUp</button>
+      <button id="start" class="start"><img src="img/logo.png" alt="">DialedUp</button>
       <div id="taskbar-windows"></div>
       <button id="signoff" class="btn small-btn" title="Sign Off">🔌 Sign Off</button>
       <span id="clock"></span>
     </footer>
   </div>
 
-  <script type="module" src="js/main.js?v=1794978836"></script>
+  <script type="module" src="js/main.js?v=1794978932"></script>
 </body>
 </html>

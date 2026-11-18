@@ -37,7 +37,7 @@ export function openWelcome() {
       const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
       body.innerHTML = `
         <div class="welcome-head">
-          <img src="img/logo.svg" alt="">
+          <img src="img/logo.png" alt="">
           <div><h2>${hello}, ${esc(me().screenName)}!</h2>
           <div class="small muted">${new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · online ${onlineFor()}</div></div>
         </div>
@@ -221,7 +221,7 @@ function openAbout() {
   openWindow("about", {
     title: "About DialedUp", icon: "💿", width: 320, height: 330,
     render(body) {
-      body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.svg" width="170" alt="DialedUp">
+      body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
         <p class="small">Version 26.0 · Still connecting since '96.<br>Works with the BuddyChat iPhone app.</p>

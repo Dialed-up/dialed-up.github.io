@@ -480,3 +480,5 @@ body.kid-mode #titlestrip::after { content: "🧒 Kid-Safe"; margin-left: 8px; b
 .start img { width: 30px; height: 21px; }
 .welcome-head img { width: 64px; height: 45px; }
 .signon-logo { width: 130px; height: 91px; }
+.signon-wordmark { width: min(280px, 78%); filter: none; }
+#titlestrip img, .start img, .welcome-head img, .connect-logo, .signon-logo { object-fit: contain; }
