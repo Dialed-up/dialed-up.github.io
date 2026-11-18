@@ -1,131 +1,271 @@
-// DialedUp Mail: send mail to any screen name. Inbox, Old Mail and Sent.
+// DialedUp Mail: a classic mailbox with folders, tabs, a mail list, Quick Find and read receipts.
 import { auth, db, ref, get, set, push, remove, update, onValue, off, serverTimestamp, normalize } from "./firebase.js";
 import { openWindow, closeWindow, getWindow, esc } from "./wm.js";
 import * as sfx from "./sounds.js";
 import { me, userName } from "./chat.js";
 
-let mailRef = null;
-let mail = {};
+let mailRef = null, sentRef = null;
+let mail = {}, sent = {};
 let loaded = false;
+let folder = "new";          // new | old | saved | deleted | sent | search
+let selected = null;
+let sortBy = { key: "ts", dir: -1 };
+let findText = "";
+
+const uid = () => auth.currentUser.uid;
 const badge = () => document.querySelector('#toolbar [data-open="mail"] .badge');
+const isNew = (m) => !m.read && !m.deleted;
+const unreadCount = () => Object.values(mail).filter(isNew).length;
 
 export function watchMail() {
-  const uid = auth.currentUser.uid;
-  mailRef = ref(db, `mail/${uid}`);
+  mailRef = ref(db, `mail/${uid()}`);
   onValue(mailRef, (s) => {
     const next = s.val() || {};
-    const newOnes = Object.keys(next).filter((k) => !mail[k] && !next[k].read);
-    if (loaded && newOnes.length) mailsHere();
+    const fresh = Object.keys(next).filter((k) => !mail[k] && isNew(next[k]));
+    if (loaded && fresh.length) mailsHere();
     mail = next;
-    if (!loaded && unreadCount()) setTimeout(mailsHere, 2500);   // after the welcome chime
+    if (!loaded && unreadCount()) setTimeout(mailsHere, 2500);
     loaded = true;
     paintBadge();
-    if (getWindow("mail")) renderMailbox(getWindow("mail").body);
+    refresh();
   });
+  sentRef = ref(db, `mailsent/${uid()}`);
+  onValue(sentRef, (s) => { sent = s.val() || {}; refresh(); });
 }
 
-export function stopMail() { if (mailRef) off(mailRef); mailRef = null; mail = {}; loaded = false; }
-
-const unreadCount = () => Object.values(mail).filter((m) => !m.read).length;
+export function stopMail() {
+  if (mailRef) off(mailRef);
+  if (sentRef) off(sentRef);
+  mailRef = sentRef = null; mail = {}; sent = {}; loaded = false;
+}
 
 function paintBadge() {
   const b = badge();
   if (!b) return;
   const n = unreadCount();
-  b.textContent = n || "";
+  b.textContent = n > 99 ? "99+" : n || "";
   b.hidden = !n;
 }
 
 function mailsHere() {
   sfx.alertBlip();
+  if (localStorage.getItem("du.muted") === "1") return;
   try {
-    if (!localStorage.getItem("du.muted") || localStorage.getItem("du.muted") === "0") {
-      const u = new SpeechSynthesisUtterance("Mail's here!");
-      u.rate = 1.05; u.pitch = 1.2;
-      speechSynthesis.speak(u);
-    }
+    const u = new SpeechSynthesisUtterance("Mail's here!");
+    u.rate = 1.05; u.pitch = 1.2;
+    speechSynthesis.speak(u);
   } catch {}
 }
 
-let tab = "new";
+const refresh = () => { const w = getWindow("mail"); if (w) renderMailbox(w.body); };
+
+// ---------- The mailbox window ----------
 export function openMail() {
-  openWindow("mail", { title: "DialedUp Mail", icon: "📬", width: 420, height: 480, render: (body) => renderMailbox(body) });
+  openWindow("mail", {
+    title: `${me().screenName}'s Mailbox`, icon: "📬", width: 640, height: 470, keyword: "mail",
+    render: (body) => renderMailbox(body),
+  });
+}
+
+function rowsFor(f) {
+  if (f === "sent") {
+    return Object.entries(sent).map(([id, m]) => ({ id, sent: true, who: m.toName, subject: m.subject, ts: m.ts, read: !!m.readAt, readAt: m.readAt }));
+  }
+  const all = Object.entries(mail).map(([id, m]) => ({ id, who: m.fromName, subject: m.subject, ts: m.ts, read: m.read, saved: m.saved, deleted: m.deleted, body: m.body }));
+  const pick = {
+    new: (m) => !m.read && !m.deleted,
+    old: (m) => m.read && !m.deleted && !m.saved,
+    saved: (m) => m.saved && !m.deleted,
+    deleted: (m) => m.deleted,
+    search: (m) => !m.deleted,
+  }[f];
+  return all.filter(pick);
 }
 
 function renderMailbox(body) {
-  const all = Object.entries(mail).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
-  const list = tab === "new" ? all.filter(([, m]) => !m.read) : tab === "old" ? all.filter(([, m]) => m.read) : null;
-  body.innerHTML = `<div class="row" style="justify-content:flex-start;margin-bottom:8px">
-      <button class="btn small-btn ${tab === "new" ? "primary" : ""}" data-t="new">New Mail (${unreadCount()})</button>
-      <button class="btn small-btn ${tab === "old" ? "primary" : ""}" data-t="old">Old Mail</button>
-      <button class="btn small-btn ${tab === "sent" ? "primary" : ""}" data-t="sent">Sent</button>
-      <button class="btn small-btn" data-t="write">✏️ Write</button></div>
-    <div id="mlist"></div>`;
-  body.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => {
-    if (b.dataset.t === "write") return writeMail();
-    tab = b.dataset.t; renderMailbox(body);
+  const counts = {
+    new: rowsFor("new").length, old: rowsFor("old").length, saved: rowsFor("saved").length,
+    deleted: rowsFor("deleted").length, sent: Object.keys(sent).length,
+  };
+  let rows = rowsFor(folder);
+  const q = findText.toLowerCase();
+  if (q) rows = rows.filter((r) => [r.who, r.subject, folder === "search" ? r.body : ""].some((x) => (x || "").toLowerCase().includes(q)));
+  rows.sort((a, b) => {
+    const A = a[sortBy.key] ?? "", B = b[sortBy.key] ?? "";
+    return (typeof A === "number" ? A - B : String(A).localeCompare(String(B))) * sortBy.dir;
+  });
+  if (selected && !rows.some((r) => r.id === selected)) selected = null;
+
+  const tab = (f, label) => `<button class="mtab ${folder === f ? "on" : ""}" data-f="${f}">${label}</button>`;
+  const tree = (f, icon, label, n) =>
+    `<li class="${folder === f ? "on" : ""}" data-f="${f}">${icon} ${label}${n ? ` <b>(${n})</b>` : ""}</li>`;
+  const arrow = (k) => (sortBy.key === k ? (sortBy.dir > 0 ? " ▲" : " ▼") : "");
+  const sentView = folder === "sent";
+
+  body.innerHTML = `<div class="mailbox">
+    <div class="mb-head">
+      <span class="mb-icon">📬</span>
+      <span class="small"><b>${esc(me().screenName)}</b>'s Mailbox · ${counts.new} new</span>
+      <button class="btn primary small-btn" data-x="write">✏️ Write</button>
+    </div>
+    <div class="mb-tabs">
+      ${tab("new", `New${counts.new ? ` <span class="pill">${counts.new}</span>` : ""}`)}${tab("old", "Old")}${tab("sent", "Sent")}
+      ${tab("saved", "Mail Folders")}${tab("search", "Search Mail")}
+    </div>
+    <div class="mb-filter">
+      <span class="small">${folder === "search" ? "Search every message:" : "Showing:"} <b>${
+        { new: "New Mail", old: "Old Mail", sent: "Sent Mail", saved: "Saved", deleted: "Recently Deleted", search: "All Mail" }[folder]}</b></span>
+      <label class="quickfind">${folder === "search" ? "Search" : "Quick Find"}: <input id="qf" value="${esc(findText)}"></label>
+    </div>
+    <div class="mb-main">
+      <ul class="mb-tree">
+        <li class="tree-head">My Mail Folders</li>
+        ${tree("new", "📥", "Inbox", counts.new)}
+        ${tree("old", "📂", "Old Mail", 0)}
+        ${tree("sent", "📤", "Sent", 0)}
+        ${tree("saved", "💾", "Saved", counts.saved)}
+        ${tree("deleted", "🗑", "Recently Deleted", counts.deleted)}
+      </ul>
+      <div class="mb-list">
+        <table>
+          <thead><tr>
+            <th data-sort="read">Type${arrow("read")}</th><th data-sort="ts">Date${arrow("ts")}</th>
+            <th data-sort="who">${sentView ? "To" : "From"}${arrow("who")}</th><th data-sort="subject">Subject${arrow("subject")}</th>
+          </tr></thead>
+          <tbody>${rows.map((r) => `<tr data-id="${r.id}" class="${r.id === selected ? "sel" : ""} ${!r.read && !sentView ? "unread" : ""}">
+            <td>${sentView ? (r.read ? "📖" : "📤") : r.read ? "✉️" : "📩"}</td>
+            <td>${r.ts ? new Date(r.ts).toLocaleDateString([], { month: "numeric", day: "numeric", year: "2-digit" }) : ""}</td>
+            <td>${esc(r.who || "")}</td><td>${esc(r.subject || "(no subject)")}</td></tr>`).join("")}</tbody>
+        </table>
+        ${rows.length ? "" : `<p class="muted small" style="padding:10px">${
+          { new: "No new mail. You're all caught up!", old: "No old mail.", sent: "You haven't sent anything yet.",
+            saved: "Nothing saved. Select a message and tap Save.", deleted: "Nothing in Recently Deleted.", search: "Type above to search." }[folder]}</p>`}
+      </div>
+    </div>
+    <div class="mb-actions">
+      <button class="btn small-btn ${sentView ? "" : "primary"}" data-x="read" ${selected ? "" : "disabled"}>Read</button>
+      ${sentView ? "" : `<button class="btn small-btn" data-x="save" ${selected ? "" : "disabled"}>Save</button>
+      <button class="btn small-btn" data-x="keepnew" ${selected ? "" : "disabled"}>Keep As New</button>`}
+      <button class="btn small-btn" data-x="status" ${selected ? "" : "disabled"}>Status</button>
+      <span style="flex:1"></span>
+      ${sentView ? "" : `<button class="btn danger small-btn" data-x="delete" ${selected ? "" : "disabled"}>${folder === "deleted" ? "Delete Forever" : "Delete"}</button>`}
+      ${folder === "deleted" && selected ? `<button class="btn small-btn" data-x="undelete">Restore</button>` : ""}
+    </div>
+  </div>`;
+
+  body.querySelectorAll("[data-f]").forEach((el) => (el.onclick = () => { folder = el.dataset.f === "saved" && el.classList.contains("mtab") ? "saved" : el.dataset.f; selected = null; renderMailbox(body); }));
+  body.querySelectorAll("th[data-sort]").forEach((th) => (th.onclick = () => {
+    const k = th.dataset.sort;
+    sortBy = sortBy.key === k ? { key: k, dir: -sortBy.dir } : { key: k, dir: k === "ts" ? -1 : 1 };
+    renderMailbox(body);
   }));
-  const out = body.querySelector("#mlist");
-  if (tab === "sent") {
-    get(ref(db, `mailsent/${auth.currentUser.uid}`)).then((s) => {
-      const sent = Object.entries(s.val() || {}).sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
-      out.innerHTML = sent.length ? `<ul class="list">${sent.map(([, m]) =>
-        `<li><b>To ${esc(m.toName)}</b> — ${esc(m.subject || "(no subject)")}<div class="small muted">${new Date(m.ts).toLocaleString()}</div></li>`).join("")}</ul>`
-        : `<p class="muted">Nothing sent yet.</p>`;
-    });
-    return;
-  }
-  out.innerHTML = list.length ? `<ul class="list">${list.map(([id, m]) =>
-    `<li><a href="#" data-m="${id}"><b>${esc(m.fromName)}</b> — ${esc(m.subject || "(no subject)")}</a>
-     <div class="small muted">${m.ts ? new Date(m.ts).toLocaleString() : ""}</div></li>`).join("")}</ul>`
-    : `<p class="muted">${tab === "new" ? "No new mail. Your mailbox is all caught up!" : "No old mail."}</p>`;
-  out.querySelectorAll("[data-m]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); readMail(a.dataset.m); }));
+  body.querySelectorAll("tbody tr").forEach((tr) => {
+    tr.onclick = () => { selected = tr.dataset.id; body.querySelectorAll("tbody tr").forEach((x) => x.classList.toggle("sel", x === tr)); enableActions(body); };
+    tr.ondblclick = () => open(tr.dataset.id);
+  });
+  const qf = body.querySelector("#qf");
+  qf.oninput = () => { findText = qf.value; const pos = qf.selectionStart; renderMailbox(body); const n = body.querySelector("#qf"); n.focus(); n.setSelectionRange(pos, pos); };
+
+  const act = {
+    write: () => writeMail(),
+    read: () => open(selected),
+    save: () => update(ref(db, `mail/${uid()}/${selected}`), { saved: true, read: true }),
+    keepnew: () => update(ref(db, `mail/${uid()}/${selected}`), { read: false }),
+    status: () => showStatus(selected),
+    delete: async () => {
+      if (folder === "deleted") { if (confirm("Delete this message forever?")) await remove(ref(db, `mail/${uid()}/${selected}`)); }
+      else await update(ref(db, `mail/${uid()}/${selected}`), { deleted: true });
+      selected = null;
+    },
+    undelete: () => update(ref(db, `mail/${uid()}/${selected}`), { deleted: false }),
+  };
+  body.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => act[b.dataset.x]?.()));
+}
+
+function enableActions(body) {
+  body.querySelectorAll(".mb-actions [data-x]").forEach((b) => (b.disabled = false));
+}
+
+function open(id) {
+  if (!id) return;
+  if (folder === "sent") return showStatus(id);
+  readMail(id);
+}
+
+function showStatus(id) {
+  const s = folder === "sent" ? sent[id] : null;
+  const m = folder === "sent" ? null : mail[id];
+  openWindow("mailstatus." + id, {
+    title: "Mail Status", icon: "📊", width: 300, height: 220,
+    render(body) {
+      body.innerHTML = s
+        ? `<p><b>To:</b> ${esc(s.toName)}<br><b>Subject:</b> ${esc(s.subject || "(no subject)")}<br><b>Sent:</b> ${s.ts ? new Date(s.ts).toLocaleString() : ""}</p>
+           <p>${s.readAt ? `📖 <b>Read</b> on ${new Date(s.readAt).toLocaleString()}` : "📤 <b>Not read yet</b>"}</p>`
+        : `<p><b>From:</b> ${esc(m?.fromName || "")}<br><b>Received:</b> ${m?.ts ? new Date(m.ts).toLocaleString() : ""}<br>
+           <b>Status:</b> ${m?.deleted ? "Deleted" : m?.saved ? "Saved" : m?.read ? "Read" : "New"}</p>`;
+    },
+  });
 }
 
 function readMail(id) {
   const m = mail[id];
   if (!m) return;
-  const uid = auth.currentUser.uid;
-  if (!m.read) update(ref(db, `mail/${uid}/${id}`), { read: true }).catch(() => {});
+  if (!m.read) {
+    update(ref(db, `mail/${uid()}/${id}`), { read: true }).catch(() => {});
+    if (m.from && m.sentId) set(ref(db, `mailsent/${m.from}/${m.sentId}/readAt`), serverTimestamp()).catch(() => {});
+  }
   openWindow("mail." + id, {
-    title: m.subject || "(no subject)", icon: "✉️", width: 380, height: 400,
+    title: m.subject || "(no subject)", icon: "✉️", width: 420, height: 420,
     render(body) {
-      body.innerHTML = `<div class="small"><b>From:</b> ${esc(m.fromName)}<br><b>Sent:</b> ${m.ts ? new Date(m.ts).toLocaleString() : ""}</div>
-        <div class="panel" style="margin-top:8px;white-space:pre-wrap">${esc(m.body)}</div>
-        <div class="row"><button class="btn danger small-btn" data-x="del">Delete</button>
-          <button class="btn primary small-btn" data-x="reply">Reply</button></div>`;
-      body.querySelector("[data-x=reply]").onclick = () => writeMail(m.fromName, "Re: " + (m.subject || "").replace(/^Re: /, ""),
-        "\n\n----- " + m.fromName + " wrote -----\n" + m.body);
-      body.querySelector("[data-x=del]").onclick = async () => { await remove(ref(db, `mail/${uid}/${id}`)); closeWindow("mail." + id); };
+      body.innerHTML = `<div class="mail-read-head small">
+          <div><b>From:</b> ${esc(m.fromName)}</div><div><b>To:</b> ${esc(me().screenName)}</div>
+          <div><b>Date:</b> ${m.ts ? new Date(m.ts).toLocaleString() : ""}</div><div><b>Subject:</b> ${esc(m.subject || "(no subject)")}</div>
+        </div>
+        <div class="panel" style="margin-top:8px;white-space:pre-wrap;min-height:120px">${esc(m.body)}</div>
+        <div class="row">
+          <span><button class="btn small-btn" data-x="save">💾 Save</button> <button class="btn danger small-btn" data-x="del">Delete</button></span>
+          <span><button class="btn small-btn" data-x="fwd">Forward</button> <button class="btn primary small-btn" data-x="reply">Reply</button></span>
+        </div>`;
+      const quoted = "\n\n----- " + m.fromName + " wrote -----\n" + m.body;
+      body.querySelector("[data-x=reply]").onclick = () => writeMail(m.fromName, "Re: " + (m.subject || "").replace(/^Re: /, ""), quoted);
+      body.querySelector("[data-x=fwd]").onclick = () => writeMail("", "Fwd: " + (m.subject || ""), quoted);
+      body.querySelector("[data-x=save]").onclick = () => update(ref(db, `mail/${uid()}/${id}`), { saved: true });
+      body.querySelector("[data-x=del]").onclick = async () => { await update(ref(db, `mail/${uid()}/${id}`), { deleted: true }); closeWindow("mail." + id); };
     },
   });
 }
 
 export function writeMail(to = "", subject = "", text = "") {
   openWindow("mail.write", {
-    title: "Write Mail", icon: "✏️", width: 380, height: 440,
+    title: "Write Mail", icon: "✏️", width: 420, height: 460, keyword: "write",
     render(body) {
       body.innerHTML = `<form id="wm">
-        <label>To (screen name) <input id="to" value="${esc(to)}" required></label>
+        <label>Send To (screen names, separated by commas) <input id="to" value="${esc(to)}" required></label>
         <label>Subject <input id="subj" value="${esc(subject)}"></label>
-        <label>Message <textarea id="mbody" rows="8">${esc(text)}</textarea></label>
+        <label>Message <textarea id="mbody" rows="9">${esc(text)}</textarea></label>
         <p class="error" id="werr"></p>
-        <div class="row"><span></span><button class="btn primary">Send Now</button></div></form>`;
+        <div class="row"><span class="small muted">Mail goes to their DialedUp mailbox.</span><button class="btn primary">Send Now</button></div></form>`;
       body.querySelector("#wm").onsubmit = async (e) => {
         e.preventDefault();
         const err = body.querySelector("#werr");
-        const toName = body.querySelector("#to").value.trim();
-        const target = (await get(ref(db, `screennames/${normalize(toName)}`))).val();
-        if (!target) { err.textContent = `No one has the screen name "${toName}".`; return; }
-        const uid = auth.currentUser.uid;
-        const msg = { from: uid, fromName: me().screenName, subject: body.querySelector("#subj").value.slice(0, 120),
-          body: body.querySelector("#mbody").value.slice(0, 5000), ts: serverTimestamp(), read: false };
-        try {
-          await push(ref(db, `mail/${target}`), msg);
-          await push(ref(db, `mailsent/${uid}`), { to: target, toName: userName(target) || toName, subject: msg.subject, ts: serverTimestamp() });
-          sfx.imOut();
-          closeWindow("mail.write");
-        } catch { err.textContent = "Couldn't send. They may have blocked you, or the site's rules need updating."; }
+        const names = body.querySelector("#to").value.split(",").map((x) => x.trim()).filter(Boolean);
+        const subj = body.querySelector("#subj").value.slice(0, 120);
+        const text_ = body.querySelector("#mbody").value.slice(0, 5000);
+        const missing = [];
+        let okCount = 0;
+        for (const toName of names) {
+          const target = (await get(ref(db, `screennames/${normalize(toName)}`))).val();
+          if (!target) { missing.push(toName); continue; }
+          try {
+            const sentItem = await push(ref(db, `mailsent/${uid()}`), { to: target, toName: userName(target) || toName, subject: subj, ts: serverTimestamp() });
+            await push(ref(db, `mail/${target}`), { from: uid(), fromName: me().screenName, subject: subj, body: text_,
+              ts: serverTimestamp(), read: false, sentId: sentItem.key });
+            okCount++;
+          } catch { missing.push(toName + " (blocked?)"); }
+        }
+        if (missing.length) { err.textContent = `Couldn't send to: ${missing.join(", ")}`; if (!okCount) return; }
+        sfx.imOut();
+        if (!missing.length) closeWindow("mail.write");
       };
     },
   });

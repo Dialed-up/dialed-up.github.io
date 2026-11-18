@@ -3,9 +3,9 @@ const desk = () => document.getElementById("desk");
 const bar = () => document.getElementById("taskbar-windows");
 const wins = new Map();
 let z = 10;
-let cascade = 0;
+let cascadeCount = 0;
 
-export function openWindow(id, { title, icon = "🗔", width = 360, height = 420, x, y, render, onClose, className = "" }) {
+export function openWindow(id, { title, icon = "🗔", width = 360, height = 420, x, y, render, onClose, className = "", keyword = null }) {
   if (wins.has(id)) { focus(id); const w = wins.get(id); w.el.classList.remove("minimized"); return w; }
   const el = document.createElement("section");
   el.className = "win " + className;
@@ -14,7 +14,7 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   const small = dw < 600;
   let w = Math.min(width, small ? Math.round(dw * 0.86) : dw - 12);
   let h = Math.min(height, small ? Math.round(dh * 0.7) : dh - 12);
-  const step = (cascade++ % 6) * (small ? 18 : 26);
+  const step = (cascadeCount++ % 6) * (small ? 18 : 26);
   let left = x ?? Math.min(8 + step, dw - w - 6);
   let top = y ?? Math.min(8 + step, dh - h - 6);
   const saved = savedGeometry(id);
@@ -33,6 +33,7 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
     <header class="win-title">
       <span class="win-icon">${icon}</span><span class="win-name"></span>
       <span class="win-buttons">
+        ${keyword ? `<button class="wb fav" title="Add to Favorite Places">❤️</button>` : ""}
         <button class="wb min" title="Minimize">_</button>
         <button class="wb max" title="Maximize">□</button>
         <button class="wb close" title="Close">✕</button>
@@ -56,6 +57,11 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   const entry = { id, el, tb, body: el.querySelector(".win-body"), onClose };
   wins.set(id, entry);
   el.addEventListener("pointerdown", () => focus(id));
+  el.querySelector(".fav")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.dispatchEvent(new CustomEvent("du:favorite", { detail: { keyword, label: title } }));
+    e.target.textContent = "💖";
+  });
   el.querySelector(".min").onclick = (e) => { e.stopPropagation(); el.classList.add("minimized"); el.classList.remove("front"); };
   el.querySelector(".max").onclick = () => el.classList.toggle("maximized");
   el.querySelector(".close").onclick = () => closeWindow(id);
@@ -148,7 +154,48 @@ export function onMenu(el, open) {
   el.addEventListener("click", (e) => { if (el.dataset.longpress) { e.stopImmediatePropagation(); e.preventDefault(); delete el.dataset.longpress; } }, true);
 }
 
-export function closeAll() { [...wins.keys()].forEach(closeWindow); cascade = 0; }
+/** Every open window, front-most first. */
+export function listWindows() {
+  return [...wins.values()].sort((a, b) => Number(b.el.style.zIndex) - Number(a.el.style.zIndex))
+    .map((w) => ({ id: w.id, title: w.el.querySelector(".win-name").textContent, minimized: w.el.classList.contains("minimized") }));
+}
+
+export function frontWindowId() {
+  const open = listWindows().filter((w) => !w.minimized);
+  return open[0]?.id ?? null;
+}
+
+export function restore(id) {
+  const w = wins.get(id);
+  if (!w) return;
+  w.el.classList.remove("minimized");
+  focus(id);
+}
+
+export function cascade() {
+  let i = 0;
+  [...wins.values()].filter((w) => w.id !== "buddies").forEach((w) => {
+    w.el.classList.remove("minimized", "maximized");
+    w.el.style.left = 10 + i * 24 + "px";
+    w.el.style.top = 10 + i * 24 + "px";
+    focus(w.id);
+    i++;
+  });
+}
+
+export function tile() {
+  const list = [...wins.values()].filter((w) => !w.el.classList.contains("minimized"));
+  if (!list.length) return;
+  const d = desk();
+  const cols = Math.ceil(Math.sqrt(list.length)), rows = Math.ceil(list.length / cols);
+  const w = Math.floor(d.clientWidth / cols), h = Math.floor(d.clientHeight / rows);
+  list.forEach((win, i) => {
+    win.el.classList.remove("maximized");
+    Object.assign(win.el.style, { left: (i % cols) * w + "px", top: Math.floor(i / cols) * h + "px", width: w - 4 + "px", height: h - 4 + "px" });
+  });
+}
+
+export function closeAll() { [...wins.keys()].forEach(closeWindow); cascadeCount = 0; }
 export const getWindow = (id) => wins.get(id);
 
 export function focus(id) {

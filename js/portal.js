@@ -89,8 +89,22 @@ const keywords = {
   plaza: openPeoplePlaza, peopleplaza: openPeoplePlaza, chatrooms: openPeoplePlaza,
   favorites: () => openFavorites(runKeyword), favs: () => openFavorites(runKeyword),
   clock: openClock, time: openClock,
+  about: openAbout,
   help: openHelp,
 };
+
+function openAbout() {
+  openWindow("about", {
+    title: "About DialedUp", icon: "💿", width: 320, height: 330,
+    render(body) {
+      body.innerHTML = `<div style="text-align:center"><img src="img/logo.svg" width="90" height="90" alt="">
+        <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
+        <p class="tagline">The online service that never logged off.</p>
+        <p class="small">Version 26.0 · Still connecting since '96.<br>Works with the BuddyChat iPhone app.</p>
+        <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
+    },
+  });
+}
 
 export function runKeyword(raw) {
   const k = String(raw || "").toLowerCase().replace(/[^a-z]/g, "");

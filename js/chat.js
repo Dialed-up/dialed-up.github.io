@@ -143,25 +143,39 @@ function refreshBuddyList() {
       ${p === "away" ? `<span class="small" title="${esc(u.away)}">📝</span>` : ""}
       ${unread ? `<span class="unread">✉️</span>` : ""}</div>`;
   };
+  const show = localStorage.getItem("du.show") || "everyone";
+  const visible = (m) => {
+    const p = presence(state.users[m]);
+    return p !== "offline" && !(show === "available" && (p === "away" || p === "idle"));
+  };
   const groupsHTML = state.groups.map((g) => {
-    const on = g.members.filter((m) => presence(state.users[m]) !== "offline");
+    const on = g.members.filter(visible);
     return `<div class="group"><button data-group="${g.id}">${g.collapsed ? "▸" : "▾"} ${esc(g.name)} (${on.length}/${g.members.length})</button>
       ${g.collapsed ? "" : on.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>`;
   }).join("");
   const off_ = [...buddyIDs()].filter((m) => presence(state.users[m]) === "offline");
   const strangers = Object.values(state.inbox).map((e) => e.with).filter((u) => u && !buddyIDs().has(u) && u !== state.uid);
   body.innerHTML = `
+    <div class="bl-top"><b class="bl-title">Buddy List</b>
+      <select id="bl-show" title="Who to show">
+        <option value="everyone" ${show === "everyone" ? "selected" : ""}>Show Everyone</option>
+        <option value="online" ${show === "online" ? "selected" : ""}>Online Only</option>
+        <option value="available" ${show === "available" ? "selected" : ""}>Hide Away & Idle</option>
+      </select></div>
     <div class="bl-me"><img src="img/logo.svg" width="34" height="34" alt="">
       <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
     ${groupsHTML}
     ${strangers.length ? `<div class="group"><button>▾ Recent IMs (${strangers.length})</button>${[...new Set(strangers)].map(row).join("")}</div>` : ""}
-    <div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>
-    <div class="bl-actions">
-      <button class="btn small-btn" data-act="add">➕ Add Buddy</button>
-      <button class="btn small-btn" data-act="group">📁 New Group</button>
-      <button class="btn small-btn" data-act="away">📝 Away</button>
-      <button class="btn small-btn" data-act="profile">🪪 Profile</button>
-      <button class="btn small-btn" data-act="people">🔎 People</button>
+    ${show === "everyone" ? `<div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
+    <div class="bl-bottom">
+      <button class="bl-icon" data-act="im"><span>💬</span>Send IM</button>
+      <button class="bl-icon" data-act="chat"><span>🗨️</span>Buddy Chat</button>
+      <button class="bl-icon" data-act="info"><span>🪪</span>Buddy Info</button>
+      <button class="bl-icon" data-act="add"><span>➕</span>Add Buddy</button>
+    </div>
+    <div class="bl-bottom2">
+      <button class="btn small-btn" data-act="awaymenu">Away Message ▾</button>
+      <button class="btn small-btn" data-act="setup">Setup</button>
     </div>`;
   body.scrollTop = scroll;
   body.querySelectorAll("[data-buddy]").forEach((el) => {
@@ -173,8 +187,40 @@ function refreshBuddyList() {
     g.collapsed = !g.collapsed;
     saveGroups();
   }));
-  const acts = { add: openAddBuddy, group: newGroup, away: openAway, profile: openProfile, people: openDirectory };
-  body.querySelectorAll("[data-act]").forEach((b) => (b.onclick = acts[b.dataset.act]));
+  body.querySelector("#bl-show").onchange = (e) => { localStorage.setItem("du.show", e.target.value); refreshBuddyList(); };
+  const pickBuddy = (verb, then) => {
+    const n = prompt(`${verb} — type a screen name:`);
+    if (!n) return;
+    get(ref(db, `screennames/${normalize(n)}`)).then((s) => (s.val() ? then(s.val()) : alert(`No one has the screen name "${n}".`)));
+  };
+  const at = (b) => { const r = b.getBoundingClientRect(); return [r.left, r.top - 4]; };
+  const acts = {
+    add: () => openAddBuddy(),
+    im: () => pickBuddy("Send an Instant Message", openIM),
+    info: () => pickBuddy("Get Buddy Info", openInfo),
+    chat: () => {
+      const room = prompt("Name a chat room to invite your online buddies to:", "Buddy Chat " + Math.floor(Math.random() * 900 + 100));
+      if (!room) return;
+      const online = [...buddyIDs()].filter((u) => presence(state.users[u]) !== "offline");
+      online.forEach((u) => push(ref(db, `invites/${u}`), { from: state.uid, room, message: "Join my Buddy Chat!", ts: serverTimestamp() }).catch(() => {}));
+      import("./people.js").then((m) => m.openRoom(room, "Member Rooms"));
+    },
+    awaymenu: (b) => {
+      const saved = JSON.parse(localStorage.getItem("du.awaySaved") || "null") || ["Away from my desk. Leave a message!", "brb", "Out living my best life. Back at %t."];
+      contextMenu(...at(b), [
+        ...(state.away ? [{ label: "✅ I'm Back", action: () => setAwayMsg("") }, "-"] : []),
+        ...saved.slice(0, 6).map((m) => ({ label: "📝 " + m.slice(0, 40), action: () => setAwayMsg(m) })),
+        "-", { label: "New / Edit Away Message…", action: openAway },
+      ]);
+    },
+    setup: (b) => contextMenu(...at(b), [
+      { label: "➕ Add a Buddy", action: () => openAddBuddy() },
+      { label: "📁 Add a Group", action: newGroup },
+      { label: "🪪 Edit My Profile", action: openProfile },
+      { label: "🔎 Member Directory", action: openDirectory },
+    ]),
+  };
+  body.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => acts[b.dataset.act](b)));
 }
 
 export function buddyMenu(uid, x, y) {
@@ -582,6 +628,12 @@ export function openInfo(uid) {
 }
 
 // ---------- Away & profile ----------
+async function setAwayMsg(msg) {
+  state.away = msg;
+  await update(ref(db, `users/${state.uid}`), { away: msg });
+  refreshBuddyList();
+}
+
 export function openAway() {
   openWindow("away", {
     title: "Away Message", icon: "📝", width: 340, height: 440,

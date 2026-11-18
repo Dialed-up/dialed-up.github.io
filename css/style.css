@@ -245,3 +245,84 @@ label.check input { width: auto; margin: 0; }
 /* File transfer window */
 .xfer-bar { height: 18px; border-radius: 9px; background: #fff; border: 1px solid var(--line); overflow: hidden; margin: 8px 0; }
 .xfer-bar > div { height: 100%; width: 0; background: repeating-linear-gradient(45deg, var(--aqua) 0 10px, var(--grape-2) 10px 20px); transition: width .25s; }
+
+/* ===== Classic desktop chrome (DialedUp's own colors) ===== */
+#titlestrip {
+  display: flex; align-items: center; gap: 6px; padding: 3px 8px; color: #fff; font-size: 12px; font-weight: bold;
+  background: linear-gradient(90deg, var(--grape), var(--grape-2) 60%, var(--pink));
+  padding-top: max(3px, env(safe-area-inset-top));
+}
+#titlestrip img { width: 18px; height: 18px; }
+#online-for { margin-left: auto; font-weight: normal; opacity: .9; }
+#menubar { display: flex; align-items: center; background: #f6f1ff; border-bottom: 1px solid var(--line); font-size: 12px; }
+#menus { display: flex; flex-wrap: nowrap; overflow-x: auto; }
+.menu-item { background: none; border: 0; padding: 4px 9px; cursor: pointer; white-space: nowrap; }
+.menu-item:hover { background: var(--grape-2); color: #fff; }
+.menu-toggle { display: none; background: none; border: 0; padding: 4px 9px; font-weight: bold; cursor: pointer; }
+#toolbar { gap: 0; padding: 3px 4px; border-radius: 0; padding-top: 3px; }
+#toolbar > button { min-width: 54px; font-size: 20px; }
+#toolbar > button span { font-size: 10.5px; font-weight: bold; color: var(--grape); }
+#navbar {
+  display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: linear-gradient(180deg, #efe6ff, #e2d4ff);
+  border-bottom: 1px solid var(--line); flex-wrap: nowrap; overflow-x: auto;
+}
+.nav-welcome { font-weight: bold; color: var(--grape); }
+.nav-buttons { display: flex; gap: 2px; }
+.nav-buttons button { width: 26px; height: 24px; border-radius: 6px; border: 1px solid var(--line); background: #fff; cursor: pointer; font-size: 11px; color: var(--grape); }
+#navbar .keyword { flex: 2; min-width: 170px; margin-left: 0; }
+#navbar .search { display: flex; gap: 4px; flex: 1; min-width: 150px; }
+#navbar input { padding: 4px 8px; border-radius: 6px; }
+.search-btn { background: linear-gradient(180deg, #ff8ad4, #ff3fb0); color: #fff; border-color: #e0359b; font-weight: bold; }
+#fav-menu { white-space: nowrap; }
+.wb.fav { background: rgba(255,255,255,.35); }
+#taskbar #signoff { white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .menu-toggle { display: block; }
+  #menus { display: none; }
+  #menubar.open #menus { display: flex; }
+  #titlestrip #online-for { display: none; }
+  #navbar .search, .nav-welcome { display: none; }
+  #toolbar > button { min-width: 46px; }
+}
+
+/* ===== Buddy List ===== */
+.bl-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.bl-title { font: italic 900 16px/1 "Trebuchet MS", Verdana, sans-serif; color: var(--grape); }
+#bl-show { width: auto; padding: 2px 4px; font-size: 11px; border-radius: 6px; }
+.bl-bottom { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px; }
+.bl-icon { background: none; border: 1px solid transparent; border-radius: 8px; font-size: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; color: var(--grape); padding: 3px 0; }
+.bl-icon span { font-size: 20px; }
+.bl-icon:hover { border-color: var(--line); background: #fff; }
+.bl-bottom2 { display: flex; justify-content: space-between; gap: 4px; margin-top: 6px; }
+
+/* ===== Mailbox ===== */
+.mailbox { display: flex; flex-direction: column; height: 100%; gap: 6px; }
+.mb-head { display: flex; align-items: center; gap: 8px; }
+.mb-head .mb-icon { font-size: 26px; }
+.mb-head .btn { margin-left: auto; }
+.mb-tabs { display: flex; gap: 3px; border-bottom: 2px solid var(--grape-2); overflow-x: auto; }
+.mtab { border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0; padding: 5px 12px; background: linear-gradient(180deg, #d9c8ff, #b79bff); color: #fff; font-weight: bold; cursor: pointer; white-space: nowrap; }
+.mtab.on { background: #fff; color: var(--grape); }
+.pill { background: #ff3b6b; color: #fff; border-radius: 9px; padding: 0 6px; font-size: 10px; }
+.mb-filter { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.quickfind { display: flex; align-items: center; gap: 4px; margin: 0; font-size: 11px; background: #eaffd0; border: 1px solid #b8e07a; border-radius: 8px; padding: 2px 6px; }
+.quickfind input { padding: 2px 6px; width: 120px; }
+.mb-main { flex: 1; display: flex; gap: 6px; min-height: 0; }
+.mb-tree { list-style: none; margin: 0; padding: 4px; width: 150px; flex-shrink: 0; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: auto; font-size: 12px; }
+.mb-tree li { padding: 4px 6px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+.mb-tree li.on { background: linear-gradient(90deg, #ffb35c, #ff8a3d); color: #fff; }
+.mb-tree .tree-head { font-weight: bold; color: var(--grape); cursor: default; border-bottom: 1px solid var(--line); border-radius: 0; margin-bottom: 3px; }
+.mb-list { flex: 1; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+.mb-list table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mb-list th { position: sticky; top: 0; background: #f1eaff; text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); cursor: pointer; white-space: nowrap; }
+.mb-list td { padding: 4px 6px; border-bottom: 1px solid #f0eaf9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; cursor: default; }
+.mb-list tr.unread td { font-weight: bold; }
+.mb-list tr.sel td { background: var(--grape-2); color: #fff; }
+.mb-actions { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.mb-actions .btn:disabled { opacity: .45; cursor: default; }
+.mail-read-head { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; display: grid; gap: 2px; }
+@media (max-width: 560px) {
+  .mb-tree { width: 104px; }
+  .mb-list td:nth-child(2), .mb-list th:nth-child(2) { display: none; }
+}

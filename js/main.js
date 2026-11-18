@@ -7,7 +7,10 @@ import { openMyPage } from "./homepage.js";
 import { openMail, watchMail, stopMail } from "./mail.js";
 import { openBoards } from "./boards.js";
 import { watchInvites, stopInvites } from "./people.js";
-import { openFavorites, startClock, openClock, watchWarnings, stopWarnings } from "./extras.js";
+import { startClock, openClock, watchWarnings, stopWarnings } from "./extras.js";
+import { setupChrome, go } from "./chrome.js";
+import { me } from "./chat.js";
+import { writeMail } from "./mail.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id) => ["signon", "connecting", "app"].forEach((s) => ($(s).hidden = s !== id));
@@ -78,6 +81,11 @@ async function enterDesktop(fresh) {
   show("app");
   await startChat();
   startClock();
+  setupChrome({
+    runKeyword, screenName: me().screenName, signOff: () => document.getElementById("signoff").click(),
+    actions: { mail: openMail, write: () => writeMail(), buddies: openBuddyList, chatrooms: openChatRooms, boards: openBoards,
+      channels: openChannels, mypage: openMyPage, away: openAway, welcome: openWelcome },
+  });
   watchMail();
   watchInvites();
   watchWarnings();
@@ -110,29 +118,6 @@ $("signoff").onclick = async () => {
   stopChat();
   await signOff();
   leaveDesktop();
-};
-
-const actions = {
-  welcome: openWelcome,
-  buddies: openBuddyList,
-  chatrooms: openChatRooms,
-  channels: openChannels,
-  mypage: openMyPage,
-  away: openAway,
-  mail: openMail,
-  boards: openBoards,
-  favorites: () => openFavorites(runKeyword),
-};
-document.querySelectorAll("#toolbar [data-open]").forEach((b) => (b.onclick = () => actions[b.dataset.open]()));
-$("start").onclick = openWelcome;
-$("clock").onclick = openClock;
-$("clock").style.cursor = "pointer";
-
-$("keyword-form").onsubmit = (e) => {
-  e.preventDefault();
-  runKeyword($("keyword").value);
-  $("keyword").value = "";
-  $("keyword").blur();
 };
 
 const tick = () => ($("clock").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
