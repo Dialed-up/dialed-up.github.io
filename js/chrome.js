@@ -50,7 +50,7 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
       ["Dictionary", () => go("dictionary")], ["Podcasts", () => go("podcasts")], ["Lottery", () => go("lottery")], ["Reminders", () => go("reminders")]],
     Games: [["Games Arcade", () => go("games")], ["Trivia Night", () => go("games")], ["Byte Snake", () => go("snake")]],
     Internet: [["DialedUp Browser", () => openBrowser()], ["CNN", () => go("cnn.com")], ["ESPN", () => go("espn.com")],
-      ["YouTube", () => go("youtube.com")], ["Wikipedia", () => go("en.wikipedia.org")]],
+      ["YouTube", () => go("youtube.com")], ["Wikipedia", () => go("https://en.wikipedia.org/wiki/AOL")]],
     Window: null,   // built when opened
     Keyword: [["Go to Keyword…", () => $("keyword").focus()], ["Keyword List", () => go("help")]],
     "Sign Off": [["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],

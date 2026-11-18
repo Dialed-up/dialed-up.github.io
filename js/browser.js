@@ -13,7 +13,7 @@ const frameFriendly = [
 const startLinks = [
   ["📰", "CNN", "https://www.cnn.com"], ["📰", "NBC News", "https://www.nbcnews.com"], ["📰", "New York Times", "https://www.nytimes.com"],
   ["📻", "NPR", "https://www.npr.org"], ["🌍", "BBC", "https://www.bbc.com/news"], ["🏀", "ESPN", "https://www.espn.com"],
-  ["▶️", "YouTube", "https://www.youtube.com"], ["📚", "Wikipedia", "https://en.wikipedia.org"], ["🗺", "Maps", "https://www.openstreetmap.org"],
+  ["▶️", "YouTube", "https://www.youtube.com"], ["📚", "Wikipedia", "https://en.wikipedia.org/wiki/AOL"], ["🗺", "Maps", "https://www.openstreetmap.org"],
   ["🎵", "SoundCloud", "https://soundcloud.com"], ["🛒", "Amazon", "https://www.amazon.com"], ["🌤", "Weather.gov", "https://www.weather.gov"],
 ];
 
@@ -102,6 +102,8 @@ export function openBrowser(url = "", meta = {}) {
       const navigate = (url, meta = {}) => {
         let u = (url || "").trim();
         if (u && !/^https?:\/\//i.test(u) && !u.startsWith("/") && !u.startsWith("home.html")) u = "https://" + u;
+        // Easter egg: Wikipedia's front page opens to the article about the online service that started it all
+        try { const w = new URL(u); if (/^(www\.|en\.)?(m\.)?wikipedia\.org$/i.test(w.hostname) && /^\/?(wiki\/Main_Page)?$/i.test(w.pathname)) u = "https://en.wikipedia.org/wiki/AOL"; } catch {}
         hist.splice(pos + 1);
         hist.push({ url: u, meta });
         pos = hist.length - 1;
