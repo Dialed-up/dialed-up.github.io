@@ -45,14 +45,14 @@ export async function addToHomeScreen() {
   // Signed on: open as a desktop window. On the sign-on screen: a pop-up box.
   if (!document.getElementById("app").hidden) {
     openWindow("install", {
-      title: "Add DialedUp to Your Home Screen", icon: "📲", width: 340, height: 380,
+      title: "Turn DialedUp into an App", icon: "📲", width: 340, height: 380,
       render(body) { body.innerHTML = html; body.querySelector("[data-x=ok]").onclick = () => closeWindow("install"); },
     });
     return;
   }
   const overlay = document.createElement("div");
   overlay.className = "install-overlay";
-  overlay.innerHTML = `<div class="install-box glossy"><h3>📲 Add DialedUp to Your Home Screen</h3>${html}</div>`;
+  overlay.innerHTML = `<div class="install-box glossy"><h3>📲 Turn DialedUp into an App</h3>${html}</div>`;
   document.body.appendChild(overlay);
   const close = () => overlay.remove();
   overlay.querySelector("[data-x=ok]").onclick = close;
