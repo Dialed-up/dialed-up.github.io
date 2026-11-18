@@ -21,7 +21,7 @@ export function trackVisit(uid, screenName, page) {
   onlineRef = ref(db, `online/${uid}`);
   const mark = () => set(onlineRef, { n: String(screenName || "").slice(0, 20), t: serverTimestamp(), d: device(), p: page }).catch(() => {});
   mark();
-  onDisconnect(onlineRef).remove();
+  try { onDisconnect(onlineRef).remove(); } catch {}
   setInterval(mark, 60000);
 }
 export const trackIM = () => bump(`stats/days/${day()}/ims`);
