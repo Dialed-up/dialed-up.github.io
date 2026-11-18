@@ -195,6 +195,7 @@ function onInbox(v) {
 }
 
 async function saveGroups() {
+  document.dispatchEvent(new CustomEvent("du:groups"));
   await set(ref(db, `buddylists/${state.uid}`), JSON.stringify(state.groups));
   syncBuddyOf();
   syncWatches();
@@ -282,6 +283,7 @@ function refreshBuddyList() {
     el.onclick = () => openIM(el.dataset.buddy);
     onMenu(el, (x, y) => buddyMenu(el.dataset.buddy, x, y));
   });
+  body.querySelectorAll("[data-group]").forEach((b) => onMenu(b, (x, y) => groupMenu(b.dataset.group, x, y)));
   body.querySelectorAll("[data-group]").forEach((b) => (b.onclick = () => {
     const g = state.groups.find((x) => x.id === b.dataset.group);
     g.collapsed = !g.collapsed;
@@ -317,6 +319,7 @@ function refreshBuddyList() {
     setup: (b) => contextMenu(...at(b), [
       { label: "➕ Add a Buddy", action: () => openAddBuddy() },
       { label: "📁 Add a Group", action: newGroup },
+      { label: "✏️ Edit Groups…", action: openEditGroups },
       { label: "🪪 Edit My Profile", action: openProfile },
       { label: "🔎 Member Directory", action: openDirectory },
     ]),
@@ -471,6 +474,69 @@ function transferWindow(tid, { fileName, size, direction, who }) {
       : `${sizeLabel(rate)}/sec · about ${Math.max(1, Math.round((size - size * fraction) / Math.max(rate, 1)))} sec left`;
     if (done) setTimeout(() => closeWindow(id), 4000);
   };
+}
+
+// ---------- Editing groups ----------
+function groupMenu(gid, x, y) {
+  const i = state.groups.findIndex((g) => g.id === gid);
+  if (i < 0) return;
+  contextMenu(x, y, [
+    { label: "✏️ Rename Group", action: () => renameGroup(gid) },
+    ...(i > 0 ? [{ label: "⬆️ Move Up", action: () => moveGroup(gid, -1) }] : []),
+    ...(i < state.groups.length - 1 ? [{ label: "⬇️ Move Down", action: () => moveGroup(gid, 1) }] : []),
+    { label: "📁 Add a Group", action: newGroup },
+    "-",
+    { label: "🗑 Delete Group", danger: true, action: () => deleteGroup(gid) },
+  ]);
+}
+function renameGroup(gid) {
+  const g = state.groups.find((x) => x.id === gid);
+  const n = prompt("New name for this group:", g?.name || "");
+  if (!g || !n || !n.trim()) return;
+  g.name = n.trim().slice(0, 30);
+  saveGroups();
+}
+function moveGroup(gid, dir) {
+  const i = state.groups.findIndex((g) => g.id === gid), j = i + dir;
+  if (i < 0 || j < 0 || j >= state.groups.length) return;
+  [state.groups[i], state.groups[j]] = [state.groups[j], state.groups[i]];
+  saveGroups();
+}
+function deleteGroup(gid) {
+  const g = state.groups.find((x) => x.id === gid);
+  if (!g) return;
+  if (state.groups.length === 1) { alert("You need at least one group. Rename this one instead."); return; }
+  const others = state.groups.filter((x) => x.id !== gid);
+  const dest = others[0];
+  if (g.members.length && !confirm(`Delete "${g.name}"? The ${g.members.length} buddy${g.members.length === 1 ? "" : "s"} in it will move to "${dest.name}".`)) return;
+  if (!g.members.length && !confirm(`Delete the "${g.name}" group?`)) return;
+  g.members.forEach((m) => { if (!dest.members.includes(m)) dest.members.push(m); });
+  state.groups = others;
+  saveGroups();
+}
+function openEditGroups() {
+  openWindow("editgroups", {
+    title: "Edit Groups", icon: "📁", width: 300, height: 360,
+    render(body) {
+      const paint = () => {
+        body.innerHTML = `<p class="small" style="margin-top:0">Rename, reorder or delete your Buddy List groups. Tip: press and hold a group name on the Buddy List for the same options.</p>
+          <ul class="list">${state.groups.map((g, i) => `<li class="row"><span>📁 <b>${esc(g.name)}</b> <span class="small muted">(${g.members.length})</span></span>
+            <span style="white-space:nowrap"><button class="btn small-btn" data-r="${g.id}" title="Rename">✏️</button>
+            <button class="btn small-btn" data-u="${g.id}" ${i ? "" : "disabled"} title="Move up">⬆️</button>
+            <button class="btn small-btn" data-d="${g.id}" ${i < state.groups.length - 1 ? "" : "disabled"} title="Move down">⬇️</button>
+            <button class="btn danger small-btn" data-x="${g.id}" title="Delete">🗑</button></span></li>`).join("")}</ul>
+          <button class="btn primary small-btn" data-new style="margin-top:8px">+ Add a Group</button>`;
+        body.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => renameGroup(b.dataset.r)));
+        body.querySelectorAll("[data-u]").forEach((b) => (b.onclick = () => moveGroup(b.dataset.u, -1)));
+        body.querySelectorAll("[data-d]").forEach((b) => (b.onclick = () => moveGroup(b.dataset.d, 1)));
+        body.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => deleteGroup(b.dataset.x)));
+        body.querySelector("[data-new]").onclick = newGroup;
+      };
+      paint();
+      const onGroups = () => (getWindow("editgroups") ? paint() : document.removeEventListener("du:groups", onGroups));
+      document.addEventListener("du:groups", onGroups);
+    },
+  });
 }
 
 function newGroup() {
