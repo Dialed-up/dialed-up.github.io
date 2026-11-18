@@ -819,3 +819,4 @@ ol.lb li.me { background: #fff6c8; font-weight: bold; }
 .altcaps { display: inline-flex !important; align-items: center; gap: 3px; font-size: 11px !important; font-weight: normal !important; margin: 2px 0 !important; color: inherit; opacity: .85; cursor: pointer; white-space: nowrap; width: auto !important; }
 .altcaps input { width: auto !important; margin: 0 !important; }
 .fmt .altcaps { margin-left: 4px !important; }
+.disclaimer { font-size: 10px !important; line-height: 1.3; margin: 8px 0 0; opacity: .75; }
