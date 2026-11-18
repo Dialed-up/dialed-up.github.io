@@ -537,3 +537,21 @@ html, body, #app, #desk, #signon, #connecting, .win, .win-body, .transcript, .mb
 .ball { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2px solid #5b2a86; margin: 0 1px; font-style: normal; font-size: 11px; font-weight: bold; }
 .ball.bonus { background: #e53935; border-color: #e53935; color: #fff; }
 .mail-files .row { margin-top: 4px; }
+
+/* ---------- DIM: DialedUp Instant Messenger ---------- */
+body.dim { background: #3d8fe6; }
+body.dim #app { position: fixed; inset: 0; display: flex !important; flex-direction: column; }
+body.dim #desk { flex: 1; grid-row: auto !important; }
+body.dim #taskbar { grid-row: auto !important; background: linear-gradient(180deg, #4f9df5, #1e5fc8); border-color: #164a9e; color: #fff; }
+body.dim .start { background: linear-gradient(180deg, #6fd06a, #2f9a2a); color: #fff; border-color: #237a20; text-shadow: 0 1px 0 rgba(0,0,0,.3); }
+body.dim .start img { background: #fff; border-radius: 50%; padding: 1px; }
+body.dim #clock { color: #fff; font-weight: bold; white-space: nowrap; }
+.switch-tab { white-space: nowrap; }
+body.dim #signon { background: center bottom / cover no-repeat url(../img/dim-backdrop.jpg), #3d8fe6; }
+.dim-logo { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.dim-logo img { width: 64px; }
+.dim-logo b { display: block; font: italic 900 38px/1 "Trebuchet MS", Verdana, sans-serif; color: #1e5fc8; letter-spacing: -1px; }
+.dim-logo small { color: #2f7d27; font-weight: bold; }
+.switch-tab .short { display: none; }
+@media (max-width: 700px) { .switch-tab .long { display: none; } .switch-tab .short { display: inline; } }
+body.dim #taskbar .switch-tab { color: #1e5fc8; font-weight: bold; }

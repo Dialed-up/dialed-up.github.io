@@ -1,0 +1,122 @@
+// DIM — DialedUp Instant Messenger: the Buddy List, IMs and chat rooms on their own desktop, in their own tab.
+import { auth, onAuthStateChanged, signOn, signOff } from "./firebase.js";
+import * as sfx from "./sounds.js";
+import { closeAll, contextMenu, openWindow, closeWindow } from "./wm.js";
+import { startChat, stopChat, openBuddyList, openChatRooms, openAway, openProfile, openDirectory, openAddBuddy, me } from "./chat.js";
+import { watchInvites, stopInvites, openPeoplePlaza } from "./people.js";
+import { watchWarnings, stopWarnings } from "./extras.js";
+import { watchCalls, stopCalls } from "./voice.js";
+import { userName } from "./chat.js";
+
+const $ = (id) => document.getElementById(id);
+let started = false;
+
+// ---------- No zooming (same as DialedUp) ----------
+["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false, capture: true }));
+["touchstart", "touchmove"].forEach((ev) => document.addEventListener(ev, (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false, capture: true }));
+let lastTouchEnd = 0;
+document.addEventListener("touchend", (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd < 300 && !e.target.closest("input, textarea, select")) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+
+// ---------- Backdrop ----------
+const BACKDROP = "img/dim-backdrop.jpg";
+function applyBackdrop() {
+  let mine = null;
+  try { mine = localStorage.getItem("dim.backdrop"); } catch {}
+  $("desk").style.background = `center bottom / cover no-repeat url(${mine || BACKDROP}), #3d8fe6`;
+}
+
+function changeBackdrop() {
+  openWindow("dim.backdrop", {
+    title: "Change Backdrop", icon: "🖼", width: 300, height: 220,
+    render(body) {
+      body.innerHTML = `<p class="small" style="margin-top:0">Pick a picture from your phone. It's only saved on this device.</p>
+        <div class="row" style="gap:6px;justify-content:flex-start">
+          <label class="btn primary small-btn" style="margin:0">📷 Choose Picture<input type="file" accept="image/*" hidden></label>
+          <button class="btn small-btn" data-x="reset">Use the Green Hill</button></div>`;
+      body.querySelector("input").onchange = (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+          const c = document.createElement("canvas");
+          c.width = img.width * scale; c.height = img.height * scale;
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          try { localStorage.setItem("dim.backdrop", c.toDataURL("image/jpeg", 0.8)); } catch { alert("That picture is too big. Try a smaller one."); return; }
+          applyBackdrop(); closeWindow("dim.backdrop");
+        };
+        img.src = URL.createObjectURL(f);
+      };
+      body.querySelector("[data-x=reset]").onclick = () => { try { localStorage.removeItem("dim.backdrop"); } catch {} applyBackdrop(); closeWindow("dim.backdrop"); };
+    },
+  });
+}
+
+// ---------- Sign on ----------
+$("signon-form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("signon-error").textContent = "";
+  try {
+    sfx.unlock();
+    await signOn($("sn").value, $("pw").value, $("remember").checked);
+    enter(true);
+  } catch (err) { $("signon-error").textContent = err.message; }
+};
+
+onAuthStateChanged(auth, (user) => {
+  if (user && !started) enter(false);
+  if (!user) { if (started) leave(); $("app").hidden = true; $("signon").hidden = false; }
+});
+
+async function enter(fresh) {
+  if (started) return;
+  started = true;
+  $("signon").hidden = true;
+  $("app").hidden = false;
+  applyBackdrop();
+  await startChat();
+  document.title = `DIM — ${me().screenName}`;
+  watchInvites();
+  watchWarnings();
+  watchCalls(userName);
+  openBuddyList();
+  if (fresh) sfx.buddyIn();
+}
+
+function leave() {
+  started = false;
+  stopChat(); stopInvites(); stopWarnings(); stopCalls();
+  closeAll();
+}
+
+// ---------- Taskbar ----------
+const tick = () => ($("clock").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
+tick(); setInterval(tick, 15000);
+
+$("to-du").onclick = () => {
+  const w = window.open("index.html", "dialedup");
+  if (!w) location.href = "index.html";
+};
+
+$("start").onclick = () => {
+  const r = $("start").getBoundingClientRect();
+  contextMenu(r.left, r.top - 4, [
+    { label: "👥 Buddy List", action: openBuddyList },
+    { label: "➕ Add a Buddy", action: () => openAddBuddy() },
+    { label: "🗨️ Chat Rooms", action: () => openPeoplePlaza() },
+    { label: "📝 Away Message", action: openAway },
+    { label: "🪪 My Profile & Buddy Icon", action: openProfile },
+    { label: "📇 Member Directory", action: openDirectory },
+    { label: "🔎 Locate a Member", action: () => import("./more.js").then((m) => m.openLocate()) },
+    "-",
+    { label: "🖼 Change Backdrop", action: changeBackdrop },
+    { label: sfx.isMuted() ? "🔈 Sounds On" : "🔇 Sounds Off", action: () => sfx.setMuted(!sfx.isMuted()) },
+    "-",
+    { label: "🌐 Switch to DialedUp", action: () => $("to-du").click() },
+    { label: "🔌 Sign Off", action: async () => { sfx.goodbye(); await signOff(); } },
+  ]);
+};

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>DIM — DialedUp Instant Messenger</title>
+<meta name="description" content="DIM: DialedUp Instant Messenger. Buddy List, IMs and chat rooms.">
+<meta name="theme-color" content="#1e6fe0">
+<link rel="icon" href="img/logo.png" type="image/png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon-d1794979108.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DIM">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/style.css?v=1795004582">
+</head>
+<body class="dim">
+  <!-- Sign-on -->
+  <main id="signon" class="screen" hidden>
+    <div class="signon-box glossy dim-signon">
+      <div class="dim-logo"><img src="img/logo.png" alt=""><div><b>DIM</b><small>DialedUp Instant Messenger</small></div></div>
+      <form id="signon-form" autocomplete="on">
+        <label>Screen Name <input id="sn" name="username" autocomplete="username" required></label>
+        <label>Password <input id="pw" name="password" type="password" autocomplete="current-password" required></label>
+        <label class="check"><input id="remember" type="checkbox" checked> Keep me signed on</label>
+        <p id="signon-error" class="error" role="alert"></p>
+        <div class="row"><a href="index.html" class="small">New? Get a screen name on DialedUp</a><button class="btn primary">Sign On</button></div>
+      </form>
+    </div>
+  </main>
+
+  <div id="app" hidden>
+    <div id="desk"></div>
+    <footer id="taskbar" class="glossy">
+      <button id="start" class="start"><img src="img/logo.png" alt="">DIM</button>
+      <div id="taskbar-windows"></div>
+      <button id="to-du" class="btn small-btn switch-tab" title="Switch to DialedUp">🌐 <span class="long">Switch to DialedUp</span><span class="short">DialedUp</span></button>
+      <span id="clock"></span>
+    </footer>
+  </div>
+
+  <script type="module" src="js/dim.js?v=1795004582"></script>
+</body>
+</html>
