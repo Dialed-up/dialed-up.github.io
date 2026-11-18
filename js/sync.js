@@ -6,7 +6,7 @@ import { db, ref, get, update } from "./firebase.js";
 const KEEP = ["du.wallpaper", "du.wallpaperImg", "du.theme", "du.imbg", "du.city", "du.mailBuddiesOnly", "du.snake.best", "du.scramble.best",
   "du.trivia.best", "du.names", "du.muted", "du.awaySaved", "du.watch", "du.style", "du.sign", "du.show", "du.menuOpen", "du.listed.",
   "du.knock", "du.ignored", "du.alerts", "dim.backdrop", "du.favorites", "du.sig.", "du.emojiRecent", "du.accepted.", "du.rsvp.", "du.bot.",
-  "du.win3.", "du.dimwin"];
+  "du.win3.", "du.dimwin", "du.alertsAskOff"];
 // Never synced: Kid-Safe PIN (stays on that one device), notification permission, read markers, caches.
 const SKIP = ["du.kidpin", "du.kidPrevMail", "du.notify", "du.read.", "du.buddyof.", "du.reminded.", "du.pv."];
 

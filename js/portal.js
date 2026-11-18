@@ -26,7 +26,7 @@ const city = () => JSON.parse(localStorage.getItem("du.city") || "null") || { na
 
 // ---------- Welcome window ----------
 /** Show the "Turn On Alerts" bar in the Home Screen app until alerts are on. */
-const alertsAsk = () => ("Notification" in window) && Notification.permission === "default"
+const alertsAsk = () => ("Notification" in window) && Notification.permission === "default" && localStorage.getItem("du.alertsAskOff") !== "1"
   && (window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true || !/iPhone|iPad/.test(navigator.userAgent));
 let qotdRef = null;
 export function openWelcome() {
@@ -51,7 +51,7 @@ export function openWelcome() {
           <div><h2>${hello}, ${esc(me().screenName)}!</h2>
           <div class="small muted">${new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · online ${onlineFor()}</div></div>
         </div>
-        ${alertsAsk() ? `<div class="alerts-ask"><span>🔔 <b>Get alerts</b> for new IMs and mail, even when DialedUp is closed.</span><button class="btn primary small-btn" id="w-alerts">Turn On Alerts</button></div>` : ""}
+        ${alertsAsk() ? `<div class="alerts-ask"><span>🔔 <b>Get alerts</b> for new IMs and mail, even when DialedUp is closed.</span><button class="btn primary small-btn" id="w-alerts">Turn On Alerts</button><button class="alerts-x" id="w-alerts-x" title="Don't show this again" aria-label="Close">✕</button></div>` : ""}
         <div id="w-top" class="top-story"><div class="muted small" style="padding:30px;text-align:center">📡 Getting today's top story…</div></div>
         <div class="grid2">
           <div class="panel" id="w-online"><h3>🟢 Buddies Online</h3><span class="muted small">Checking…</span></div>
@@ -79,6 +79,7 @@ export function openWelcome() {
         <p class="small muted">Tip: type a word in the <b>Keyword</b> box up top — try <i>weather</i>, <i>news</i>, <i>chat</i> or <i>help</i>.</p>`;
       body.querySelectorAll("[data-kw]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); runKeyword(b.dataset.kw); }));
       body.querySelector("#w-alerts")?.addEventListener("click", async () => { if (await enableNotifications()) body.querySelector(".alerts-ask")?.remove(); });
+      body.querySelector("#w-alerts-x")?.addEventListener("click", () => { try { localStorage.setItem("du.alertsAskOff", "1"); } catch {} body.querySelector(".alerts-ask")?.remove(); });
       loadWeather(body.querySelector("#w-weather"), true);
       renderHoroscope(body.querySelector("#w-horo"), true);
       if (qotdRef) off(qotdRef);
@@ -289,7 +290,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.1902) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.1910) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });
