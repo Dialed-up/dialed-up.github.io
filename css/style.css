@@ -691,3 +691,9 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 .bl-me[data-me]:hover { background: #f6f1ff; }
 .bl-bottom .bl-icon { font-size: 9.5px; line-height: 1.15; padding: 3px 1px; word-break: normal; }
 .bl-bottom .bl-icon span { font-size: 19px; }
+.info-stats { margin: 6px 0; color: #555; }
+.pp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pp-grid figure { margin: 0; position: relative; }
+.pp-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; display: block; }
+.pp-grid button { position: absolute; top: 3px; right: 3px; border: 0; border-radius: 50%; width: 22px; height: 22px; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; font-size: 12px; }
+.profile-body ul, .profile-body ol { margin: 4px 0; padding-left: 22px; }

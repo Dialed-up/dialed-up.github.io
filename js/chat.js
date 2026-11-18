@@ -36,7 +36,7 @@ export const userName = name;
 /** A buddy's icon as an <img>, or a colored letter if they haven't picked one. */
 export function iconHTML(uid, size = 22) {
   const b64 = state.icons[uid];
-  if (b64) return `<img class="bicon" src="data:image/jpeg;base64,${b64}" width="${size}" height="${size}" alt="">`;
+  if (b64) return `<img class="bicon" src="${String(b64).startsWith("data:image/") ? b64 : "data:image/jpeg;base64," + b64}" width="${size}" height="${size}" alt="">`;
   const n = name(uid);
   const hue = [...n].reduce((h, c) => h + c.charCodeAt(0), 0) % 360;
   return `<span class="bicon letter" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.55)}px;background:hsl(${hue} 65% 55%)">${esc((n[0] || "?").toUpperCase())}</span>`;
@@ -44,6 +44,14 @@ export function iconHTML(uid, size = 22) {
 
 /** Shrink a picture to a 96×96 square and save it as your Buddy Icon. */
 export async function setMyIcon(file) {
+  // Animated GIFs stay animated (as long as they're small enough)
+  if (file.type === "image/gif") {
+    if (file.size > 200 * 1024) throw new Error("That GIF is too big. Animated icons can be up to 200 KB.");
+    const dataUrl = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(file); });
+    await set(ref(db, `icons/${state.uid}`), dataUrl);
+    import("./profile.js").then((m) => m.refreshPublicIcon?.(state.uid, dataUrl));
+    return;
+  }
   const img = await createImageBitmap(file);
   const side = Math.min(img.width, img.height);
   const c = document.createElement("canvas");
@@ -51,6 +59,7 @@ export async function setMyIcon(file) {
   c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 96, 96);
   const b64 = c.toDataURL("image/jpeg", 0.75).split(",")[1];
   await set(ref(db, `icons/${state.uid}`), b64);
+  import("./profile.js").then((m) => m.refreshPublicIcon?.(state.uid, b64));
 }
 /** Everyone signed on right now (not just buddies), newest activity first. */
 /** Buddies who are signed on right now, most recently active first. */
@@ -88,7 +97,9 @@ export async function startChat() {
   } catch { state.groups = []; }
   if (!state.groups.length) state.groups = [{ id: crypto.randomUUID().toUpperCase(), name: "Buddies", members: [], collapsed: false }];
 
-  await update(meRef, { signedOn: true, lastSeen: serverTimestamp(), idleSince: null });
+  const created = Date.parse(auth.currentUser.metadata?.creationTime || "") || null;
+  await update(meRef, { signedOn: true, lastSeen: serverTimestamp(), idleSince: null, onlineSince: serverTimestamp(),
+    ...(created && state.me.since !== created ? { since: created } : {}) });
   onDisconnect(meRef).update({ signedOn: false, lastSeen: serverTimestamp() });
   state.timers.push(setInterval(() => update(meRef, { lastSeen: serverTimestamp(), signedOn: true }), 60000));
   set(ref(db, `names/${uid}`), state.me.screenName || "").catch(() => {});
@@ -332,6 +343,7 @@ function refreshBuddyList() {
     setup: (b) => contextMenu(...at(b), [
       { label: "➕ Add a Buddy", action: () => openAddBuddy() },
       { label: "📁 Add a Group", action: newGroup },
+      { label: "🔎 Get Member Info…", action: () => openGetInfo() },
       { label: "🛠 Manage Buddy List…", action: openEditGroups },
       { label: "🔎 Member Directory", action: openDirectory },
     ]),
@@ -601,7 +613,7 @@ export function openAddBuddy(prefill = "") {
 }
 
 // ---------- IM windows ----------
-const smileys = [[/:-?\)/g, "🙂"], [/;-?\)/g, "😉"], [/:-?\(/g, "🙁"], [/:-?D/g, "😀"], [/:-?P/gi, "😛"], [/:-?O/g, "😮"],
+export const smileys = [[/:-?\)/g, "🙂"], [/;-?\)/g, "😉"], [/:-?\(/g, "🙁"], [/:-?D/g, "😀"], [/:-?P/gi, "😛"], [/:-?O/g, "😮"],
   [/8-?\)/g, "😎"], [/:'\(/g, "😢"], [/>:-?\(/g, "😠"], [/:-?\//g, "😕"], [/<3/g, "❤️"]];
 
 function formatText(text) {
@@ -1049,34 +1061,68 @@ async function toggleBlock(uid) {
   renderIMStatus(uid);
 }
 
-export function openInfo(uid) {
+export async function openInfo(uid) {
+  let u = state.users[uid];
+  let isPublic = false;
+  if (!u) {
+    const pub = (await get(ref(db, `publicprofiles/${uid}`)).catch(() => null))?.val();
+    if (pub) { u = pub; isPublic = true; if (pub.icon && !state.icons[uid]) state.icons[uid] = pub.icon; }
+  }
+  u = u || {};
   openWindow("info." + uid, {
     title: `Info: ${name(uid)}`, icon: "🪪", width: 360, height: 520,
     render(body) {
-      const u = state.users[uid] || {};
-      const p = presence(u);
+      const p = isPublic ? "unknown" : presence(u);
       const isBuddy = buddyIDs().has(uid);
-      body.innerHTML = `<div style="display:flex;gap:10px;align-items:center">${iconHTML(uid, 56)}<h2 style="margin:0 0 4px;color:var(--grape)">${esc(u.screenName || "…")}</h2></div>
-        <p class="small">${{ online: "🟢 Online", away: "🟠 Away", idle: `⚪ Idle ${idleMin(u)} min`, offline: `⚫ Offline${u.lastSeen ? " · last seen " + new Date(u.lastSeen).toLocaleString() : ""}` }[p]}</p>
-        ${u.away ? `<div class="panel"><h3>Away Message</h3>${formatText(u.away)}</div>` : ""}
-        <div class="info-profile"></div>
-        <div class="row">
+      const ago = (ts) => { const m = Math.max(1, Math.round((Date.now() - ts) / 60000)); return m < 60 ? `${m} min` : m < 1440 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${Math.floor(m / 1440)} days`; };
+      const stats = [
+        u.since ? `📅 Member since ${new Date(u.since).toLocaleDateString([], { month: "long", year: "numeric" })}` : "",
+        !isPublic && p !== "offline" && u.onlineSince ? `⏱ Online ${ago(u.onlineSince)}` : "",
+        !isPublic && p === "idle" && u.idleSince ? `💤 Idle ${ago(u.idleSince)}` : "",
+        `⚠️ Warning level ${warningLevel(uid)}%`,
+      ].filter(Boolean);
+      body.innerHTML = `<div style="display:flex;gap:10px;align-items:center">${iconHTML(uid, 56)}<div><h2 style="margin:0 0 4px;color:var(--grape)">${esc(u.screenName || name(uid) || "…")}</h2>
+          <span class="small">${isPublic ? "🌍 Public profile" : { online: "🟢 Online", away: "🟠 Away", idle: "⚪ Idle", offline: `⚫ Offline${u.lastSeen ? " · last seen " + new Date(u.lastSeen).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}` }[p]}</span></div></div>
+        <p class="small info-stats">${stats.join(" · ")}</p>
+        ${!isPublic && u.away ? `<div class="panel"><h3>Away Message</h3>${formatText(u.away)}</div>` : ""}
+        ${!u.screenName ? `<div class="panel"><p style="margin:0">🔒 <b>This profile is private.</b> Only their buddies can see it. You can still send them an IM.</p></div>` : `<div class="info-profile"></div>`}
+        <div class="row" style="flex-wrap:wrap;gap:4px">
           <button class="btn primary small-btn" data-x="im">Send IM</button>
           <button class="btn small-btn" data-x="file">📎 Send File</button>
-          <a class="btn small-btn" href="home.html?u=${encodeURIComponent(normalize(u.screenName || ""))}" target="_blank">🌐 Home Page</a>
+          <a class="btn small-btn" href="home.html?u=${encodeURIComponent(normalize(u.screenName || name(uid) || ""))}" target="_blank">🌐 Home Page</a>
           ${isBuddy ? `<button class="btn small-btn" data-x="remove">Remove Buddy</button>` : `<button class="btn small-btn" data-x="add">Add Buddy</button>`}
           <button class="btn danger small-btn" data-x="block">${state.blocked.has(uid) ? "Unblock" : "Block"}</button>
         </div>`;
-      import("./profile.js").then((m) => m.renderProfile(body.querySelector(".info-profile"), u, uid, { viewer: state.me.screenName, openDirectory }));
+      if (u.screenName) import("./profile.js").then((m) => m.renderProfile(body.querySelector(".info-profile"), u, uid, { viewer: state.me.screenName, openDirectory }));
       body.querySelector("[data-x=im]").onclick = () => openIM(uid);
       body.querySelector("[data-x=file]").onclick = () => sendFileTo(uid);
-      body.querySelector("[data-x=add]")?.addEventListener("click", () => openAddBuddy(u.screenName));
+      body.querySelector("[data-x=add]")?.addEventListener("click", () => openAddBuddy(u.screenName || name(uid)));
       body.querySelector("[data-x=remove]")?.addEventListener("click", async () => {
         state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
         await saveGroups();
         closeWindow("info." + uid);
       });
       body.querySelector("[data-x=block]").onclick = async () => { await toggleBlock(uid); closeWindow("info." + uid); };
+    },
+  });
+}
+
+/** Look up anyone's profile by screen name (shows it if they're your buddy or made it public). */
+export function openGetInfo(prefill = "") {
+  openWindow("getinfo", {
+    title: "Get Member Info", icon: "🔎", width: 300, height: 200, keyword: "getinfo",
+    render(body) {
+      body.innerHTML = `<form id="gi"><label>Screen name<input id="gi-n" value="${esc(prefill)}" autocapitalize="off" required></label>
+        <p class="error" id="gi-e"></p><div class="row"><span class="small muted">Public profiles and your buddies' profiles.</span><button class="btn primary">Get Info</button></div></form>`;
+      body.querySelector("#gi").onsubmit = async (e) => {
+        e.preventDefault();
+        const n = body.querySelector("#gi-n").value.trim();
+        const target = (await get(ref(db, `screennames/${normalize(n)}`)).catch(() => null))?.val();
+        if (!target) { body.querySelector("#gi-e").textContent = `No one has the screen name "${n}".`; return; }
+        if (!nameCache[target]) nameCache[target] = n;
+        closeWindow("getinfo");
+        openInfo(target);
+      };
     },
   });
 }

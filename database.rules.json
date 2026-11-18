@@ -170,7 +170,7 @@
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || root.child('inbox/' + auth.uid + '/' + $uid + '_' + auth.uid).exists() || root.child('inbox/' + auth.uid + '/' + auth.uid + '_' + $uid).exists())",
         ".write": "auth != null && auth.uid === $uid",
-        ".validate": "!newData.exists() || (newData.isString() && newData.val().length < 30000)"
+        ".validate": "!newData.exists() || (newData.isString() && newData.val().length < 290000)"
       }
     },
     "addressbook": {
@@ -334,6 +334,22 @@
       "$uid": {
         ".write": "auth != null && auth.uid !== $uid",
         ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1"
+      }
+    },
+    "publicprofiles": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.child('screenName').isString() && (!newData.child('profileHtml').exists() || newData.child('profileHtml').val().length <= 12000) && (!newData.child('icon').exists() || newData.child('icon').val().length < 290000))"
+      }
+    },
+    "profilepics": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || (root.child('publicprofiles/' + $uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))",
+        ".write": "auth != null && auth.uid === $uid",
+        "$pid": {
+          ".validate": "newData.isString() && newData.val().length <= 160000"
+        }
       }
     }
   }

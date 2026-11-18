@@ -228,6 +228,7 @@ const keywords = {
   nyc: openNYC, newyork: openNYC,
   chat: openChatRooms, rooms: openChatRooms, lobby: openChatRooms,
   managebuddies: () => import("./chat.js").then((m) => m.openEditGroups()), managebuddylist: () => import("./chat.js").then((m) => m.openEditGroups()), groups: () => import("./chat.js").then((m) => m.openEditGroups()),
+  getinfo: () => import("./chat.js").then((m) => m.openGetInfo()), memberinfo: () => import("./chat.js").then((m) => m.openGetInfo()), lookup: () => import("./chat.js").then((m) => m.openGetInfo()),
   buddy: openBuddyList, buddies: openBuddyList, im: openBuddyList, add: openAddBuddy,
   away: openAway, profile: openProfile, people: openDirectory, directory: openDirectory, members: openDirectory,
   homepage: openMyPage, mypage: openMyPage, page: openMyPage,
@@ -280,7 +281,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.1514) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.1524) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });

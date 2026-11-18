@@ -115,6 +115,7 @@ $("start").onclick = () => {
     { label: "📝 Away Message", action: openAway },
     { label: "🪪 My Profile & Buddy Icon", action: openProfile },
     { label: "📇 Member Directory", action: openDirectory },
+    { label: "🔎 Get Member Info", action: () => import("./chat.js").then((m) => m.openGetInfo()) },
     { label: "🔎 Locate a Member", action: () => import("./more.js").then((m) => m.openLocate()) },
     "-",
     { label: "🖼 Change Backdrop", action: changeBackdrop },

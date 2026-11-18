@@ -3,6 +3,7 @@
 import { db, ref, get, set, update, remove, runTransaction } from "./firebase.js";
 import { openWindow, closeWindow, esc } from "./wm.js";
 import { pickEmoji } from "./emoji.js";
+import { smileys } from "./chat.js";
 
 // ---------- Safe rich text ----------
 const TAGS = new Set(["B", "STRONG", "I", "EM", "U", "S", "STRIKE", "FONT", "SPAN", "A", "BR", "DIV", "P", "CENTER", "HR", "SMALL", "BIG", "SUB", "SUP", "UL", "OL", "LI"]);
@@ -103,7 +104,7 @@ export function renderProfile(el, u, uid, { viewer, openDirectory } = {}) {
   const interests = String(u.interests || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 15);
   const rows = FIELDS.filter(([k]) => k !== "quote" && (card[k] || (k === "location" && u.location)))
     .map(([k, label]) => `<tr><th>${label}</th><td>${esc(card[k] || u[k] || "")}</td></tr>`).join("");
-  const body = u.profileHtml ? magic(sanitize(u.profileHtml), viewer) : u.profile ? esc(u.profile).replace(/\n/g, "<br>") : "";
+  const body = withSmileys(u.profileHtml ? magic(sanitize(u.profileHtml), viewer) : u.profile ? esc(u.profile).replace(/\n/g, "<br>") : "");
   el.innerHTML = `<div class="profile-card" style="${lookCSS(u.look)}">
       ${body ? `<div class="profile-body">${body}</div>` : `<p class="small" style="opacity:.7">(${esc(u.screenName || "They")} hasn't written a profile yet)</p>`}
       ${card.quote ? `<p class="profile-quote">“${esc(card.quote)}”</p>` : ""}
@@ -112,7 +113,20 @@ export function renderProfile(el, u, uid, { viewer, openDirectory } = {}) {
     ${rows ? `<div class="panel"><h3>📋 Member Info</h3><table class="member-info">${rows}</table></div>` : ""}
     ${interests.length ? `<div class="panel"><h3>❤️ Interests</h3><div class="chips">${interests.map((i) => `<button class="chip" data-int="${esc(i)}">${esc(i)}</button>`).join("")}</div>
       <p class="small muted" style="margin:4px 0 0">Tap an interest to find other members who like it.</p></div>` : ""}
+    <div class="profile-pics"></div>
     <p class="small muted profile-views"></p>`;
+  {
+    const realUid = String(uid).replace(/__preview$/, "");
+    get(ref(db, `profilepics/${realUid}`)).then((sn) => {
+      const list = Object.values(sn.val() || {}).filter(Boolean).slice(0, 6);
+      const box = el.querySelector(".profile-pics");
+      if (!list.length || !box) return;
+      box.innerHTML = `<div class="panel"><h3>📷 Photos</h3><div class="pp-grid">${list.map((d) => `<figure><img src="data:image/jpeg;base64,${d}" alt=""></figure>`).join("")}</div></div>`;
+      box.querySelectorAll("img").forEach((im) => (im.onclick = () => {
+        const v = document.createElement("div"); v.className = "media-viewer"; v.innerHTML = `<img src="${im.src}" alt=""><button>✕</button>`; v.onclick = () => v.remove(); document.body.appendChild(v);
+      }));
+    }).catch(() => {});
+  }
   el.querySelectorAll("[data-int]").forEach((b) => (b.onclick = () => openDirectory?.(b.dataset.int)));
   const songBtn = el.querySelector("[data-song]");
   if (songBtn) {
@@ -126,7 +140,7 @@ export function renderProfile(el, u, uid, { viewer, openDirectory } = {}) {
       }
     };
   }
-  countView(uid, el.querySelector(".profile-views"), viewer === u.screenName);
+  if (!String(uid).endsWith("__preview")) countView(uid, el.querySelector(".profile-views"), viewer === u.screenName);
 }
 
 async function countView(uid, el, isMe) {
@@ -153,7 +167,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
     render(body) {
       body.innerHTML = `<div class="ptabs">
           <button data-t="write" class="on">✏️ Profile</button><button data-t="info">📋 Member Info</button>
-          <button data-t="look">🎨 Look</button><button data-t="song">🎵 Song</button><button data-t="icon">🖼 Icon</button><button data-t="preview">👀 Preview</button></div>
+          <button data-t="look">🎨 Look</button><button data-t="photos">📷 Photos</button><button data-t="song">🎵 Song</button><button data-t="icon">🖼 Icon</button><button data-t="preview">👀 Preview</button></div>
         <section data-p="write">
           <div class="rt-bar">
             <select data-c="fontName" title="Font">${FONTS.map((f) => `<option style="font-family:'${f}'">${f}</option>`).join("")}</select>
@@ -162,6 +176,8 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
             <button data-c="textcolor" title="Text color" class="rt-a">A<span class="rt-a-bar"></span></button>
             <button data-c="bucket" title="Background color">🪣</button>
             <button data-c="justifyLeft" title="Left">⬅</button><button data-c="justifyCenter" title="Center">↔</button><button data-c="justifyRight" title="Right">➡</button>
+            <button data-c="insertUnorderedList" title="Bullet list">•≡</button><button data-c="insertOrderedList" title="Numbered list">1≡</button>
+            <button data-c="superscript" title="Raised text">x²</button><button data-c="subscript" title="Lowered text">x₂</button>
             <button data-c="link" title="Add a link">🔗</button><button data-c="hr" title="Line">➖</button><button data-c="emoji" title="Emoji">😀</button>
             <select data-c="effect" title="Effects"><option value="">✨ Effects…</option><option value="du-glow">Glow</option><option value="du-rainbow">Rainbow</option><option value="du-sparkle">Sparkle</option><option value="du-blink">Blink</option><option value="du-scroll">Scrolling</option><option value="du-shadow">Shadow</option><option value="none">Remove effect</option></select>
           </div>
@@ -174,6 +190,9 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
             : `<label>${label}<input data-f="${k}" maxlength="${k === "quote" ? 140 : 60}" value="${esc(card[k] || (k === "location" ? u.location || "" : ""))}" placeholder="${esc(ph)}"></label>`).join("")}
           <label>Interests <span class="small muted">(separate with commas — people can tap these to find you)</span><input data-f="interests" maxlength="200" value="${esc(u.interests || "")}" placeholder="music, sneakers, basketball"></label>
           <label class="check"><input type="checkbox" id="pd" ${localStorage.getItem("du.listed." + uid) === "1" ? "checked" : ""}> List me in the Member Directory (screen name, interests and location only)</label>
+          <div class="panel" style="margin-top:8px"><b>Who can see my profile?</b>
+            <label class="check"><input type="radio" name="pv" value="buddies" ${u.publicProfile ? "" : "checked"}> 👥 Buddies only</label>
+            <label class="check"><input type="radio" name="pv" value="public" ${u.publicProfile ? "checked" : ""}> 🌍 Public — anyone can look me up with Get Member Info</label></div>
           <p class="small muted">Leave anything blank to keep it private.</p>
         </section>
         <section data-p="look" hidden>
@@ -186,6 +205,14 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
           <h4 style="margin:8px 0 4px">Or pick a style</h4><div class="look-grid">${Object.entries(LOOKS).map(([n, L]) => `<button data-look="${esc(n)}" style="background:${L.bg};color:${L.ink}" class="${look.theme === n ? "on" : ""}">${esc(n)}</button>`).join("")}</div>
           <h4 style="margin:10px 0 4px">Border</h4><div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap">${Object.keys(BORDERS).map((b) => `<button class="btn small-btn ${look.border === b ? "primary" : ""}" data-border="${b}">${b}</button>`).join("")}</div>
           <label style="margin-top:10px">Main font<select id="lf">${FONTS.map((f) => `<option ${look.font === f ? "selected" : ""} style="font-family:'${f}'">${f}</option>`).join("")}</select></label>
+        </section>
+        <section data-p="photos" hidden>
+          <p class="small" style="margin-top:0">Show up to 6 photos on your profile.</p>
+          <div class="pf-photos"></div>
+          <div class="row" style="justify-content:flex-start;gap:4px;margin-top:6px">
+            <label class="btn small-btn" style="margin:0;font-weight:normal">📱 Add from my phone<input type="file" accept="image/*" multiple id="pp-file" hidden></label>
+            <button class="btn small-btn" id="pp-albums">📸 Add from my Photo Albums</button></div>
+          <div id="pp-pick"></div>
         </section>
         <section data-p="song" hidden>
           <p class="small" style="margin-top:0">Pick a song people can play from your profile (it never plays by itself).</p>
@@ -290,6 +317,36 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         catch { body.querySelector("#pf-msg").textContent = "Couldn't use that picture."; }
       };
 
+      // ----- Profile photos -----
+      let pics = [];
+      const paintPics = () => {
+        const box = body.querySelector(".pf-photos");
+        box.innerHTML = pics.length ? `<div class="pp-grid">${pics.map((d, i) => `<figure><img src="data:image/jpeg;base64,${d}" alt=""><button data-rmp="${i}" title="Remove">✕</button></figure>`).join("")}</div>`
+          : `<p class="small muted">No profile photos yet.</p>`;
+        box.querySelectorAll("[data-rmp]").forEach((b) => (b.onclick = () => { pics.splice(Number(b.dataset.rmp), 1); paintPics(); }));
+      };
+      get(ref(db, `profilepics/${uid}`)).then((sn) => { pics = Object.values(sn.val() || {}).filter(Boolean).slice(0, 6); paintPics(); }).catch(paintPics);
+      const shrink = async (file) => {
+        const img = await createImageBitmap(file);
+        const sc = Math.min(1, 640 / Math.max(img.width, img.height));
+        const c = document.createElement("canvas"); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        return c.toDataURL("image/jpeg", 0.72).split(",")[1];
+      };
+      body.querySelector("#pp-file").onchange = async (e) => {
+        for (const f of [...e.target.files]) { if (pics.length >= 6) break; try { pics.push(await shrink(f)); } catch {} }
+        e.target.value = ""; paintPics();
+      };
+      body.querySelector("#pp-albums").onclick = async () => {
+        const pick = body.querySelector("#pp-pick");
+        pick.innerHTML = `<p class="small muted">Loading your albums…</p>`;
+        const all = (await get(ref(db, `photos/${uid}`)).catch(() => null))?.val() || {};
+        const list = Object.values(all).flatMap((album) => Object.values(album || {})).map((p) => p.data).filter(Boolean).slice(0, 60);
+        pick.innerHTML = list.length ? `<p class="small">Tap photos to add them:</p><div class="pp-grid">${list.map((d, i) => `<figure><img src="data:image/jpeg;base64,${d}" data-ai="${i}" alt=""></figure>`).join("")}</div>`
+          : `<p class="small muted">Your Photo Albums are empty.</p>`;
+        pick.querySelectorAll("[data-ai]").forEach((im) => (im.onclick = () => { if (pics.length < 6) { pics.push(list[im.dataset.ai]); paintPics(); im.style.opacity = ".35"; } }));
+      };
+
       const collect = () => {
         const c = {};
         body.querySelectorAll("[data-f]").forEach((el) => { if (el.dataset.f !== "interests" && el.value.trim()) c[el.dataset.f] = el.value.trim(); });
@@ -304,7 +361,14 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         const data = collect();
         if (data.profileHtml.length > 10000) { alert("Your profile is too long. Try trimming it a bit."); return; }
         try {
-          await update(ref(db, `users/${uid}`), { ...data, song: data.song || null });
+          const isPublic = body.querySelector("input[name=pv]:checked")?.value === "public";
+          await update(ref(db, `users/${uid}`), { ...data, song: data.song || null, publicProfile: isPublic });
+          await set(ref(db, `profilepics/${uid}`), pics.length ? Object.fromEntries(pics.map((d, i) => [`p${i}`, d])) : null).catch(() => {});
+          if (isPublic) {
+            const icon = (await get(ref(db, `icons/${uid}`)).catch(() => null))?.val() || null;
+            await set(ref(db, `publicprofiles/${uid}`), { screenName, profileHtml: data.profileHtml, card: data.card, look: data.look, song: data.song || null,
+              interests: data.interests, since: u.since || null, icon, ts: Date.now() });
+          } else await remove(ref(db, `publicprofiles/${uid}`)).catch(() => {});
           const listed = body.querySelector("#pd").checked;
           localStorage.setItem("du.listed." + uid, listed ? "1" : "0");
           if (listed) await set(ref(db, `directory/${uid}`), { screenName, interests: data.interests, location: data.location }).catch(() => {});
@@ -351,4 +415,29 @@ function pickBackground(anchor, title, onPick) {
     b.onclick = () => { onPick(b.dataset.col); close(); };
   });
   bucketPop.querySelector("input").oninput = (e) => onPick(e.target.value);
+}
+
+/** Turns :) <3 ;) etc. into smileys inside a profile, without touching links or tags. */
+function withSmileys(html) {
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  const walk = (n) => {
+    [...n.childNodes].forEach((c) => {
+      if (c.nodeType === 3) {
+        let t = c.textContent;
+        for (const [re, emo] of smileys) t = t.replace(re, emo);
+        if (t !== c.textContent) c.textContent = t;
+      } else if (c.nodeType === 1 && c.tagName !== "A") walk(c);
+    });
+  };
+  walk(tpl.content);
+  return tpl.innerHTML;
+}
+
+/** Keeps the public copy of your profile's icon up to date when you change your Buddy Icon. */
+export async function refreshPublicIcon(uid, icon) {
+  try {
+    const exists = (await get(ref(db, `publicprofiles/${uid}/screenName`))).val();
+    if (exists) await set(ref(db, `publicprofiles/${uid}/icon`), icon);
+  } catch {}
 }
