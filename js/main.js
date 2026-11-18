@@ -160,6 +160,7 @@ async function enterDesktop(fresh) {
   watchGameInvites();
   watchCalls(userName);
   watchReminders();
+  import("./social.js").then((m) => { m.checkFeed({ popUp: true }); setInterval(() => m.checkFeed(), 120000); });
   import("./notify.js").then((m) => m.subscribePush());
   watchEvents();
   mountMiniPlayer();

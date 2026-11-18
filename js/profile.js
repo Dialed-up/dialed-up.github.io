@@ -114,7 +114,13 @@ export function renderProfile(el, u, uid, { viewer, openDirectory } = {}) {
     ${interests.length ? `<div class="panel"><h3>❤️ Interests</h3><div class="chips">${interests.map((i) => `<button class="chip" data-int="${esc(i)}">${esc(i)}</button>`).join("")}</div>
       <p class="small muted" style="margin:4px 0 0">Tap an interest to find other members who like it.</p></div>` : ""}
     <div class="profile-pics"></div>
+    <div class="profile-top8"></div>
+    <div class="profile-wall"></div>
     <p class="small muted profile-views"></p>`;
+  if (!String(uid).endsWith("__preview")) import("./social.js").then((m) => {
+    m.renderTop8(el.querySelector(".profile-top8"), uid, u.top8);
+    m.renderWall(el.querySelector(".profile-wall"), uid);
+  });
   {
     const realUid = String(uid).replace(/__preview$/, "");
     get(ref(db, `profilepics/${realUid}`)).then((sn) => {
@@ -167,7 +173,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
     render(body) {
       body.innerHTML = `<div class="ptabs">
           <button data-t="write" class="on">✏️ Profile</button><button data-t="info">📋 Member Info</button>
-          <button data-t="look">🎨 Look</button><button data-t="photos">📷 Photos</button><button data-t="song">🎵 Song</button><button data-t="icon">🖼 Icon</button><button data-t="preview">👀 Preview</button></div>
+          <button data-t="look">🎨 Look</button><button data-t="top8">⭐ Top 8</button><button data-t="photos">📷 Photos</button><button data-t="song">🎵 Song</button><button data-t="icon">🖼 Icon</button><button data-t="preview">👀 Preview</button></div>
         <section data-p="write">
           <div class="rt-bar">
             <select data-c="fontName" title="Font">${FONTS.map((f) => `<option style="font-family:'${f}'">${f}</option>`).join("")}</select>
@@ -210,6 +216,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
           <h4 style="margin:10px 0 4px">Border</h4><div class="row" style="justify-content:flex-start;gap:4px;flex-wrap:wrap">${Object.keys(BORDERS).map((b) => `<button class="btn small-btn ${look.border === b ? "primary" : ""}" data-border="${b}">${b}</button>`).join("")}</div>
           <label style="margin-top:10px">Main font<select id="lf">${FONTS.map((f) => `<option ${look.font === f ? "selected" : ""} style="font-family:'${f}'">${f}</option>`).join("")}</select></label>
         </section>
+        <section data-p="top8" hidden><div id="t8"></div></section>
         <section data-p="photos" hidden>
           <p class="small" style="margin-top:0">Show up to 6 photos on your profile.</p>
           <div class="pf-photos"></div>
@@ -339,6 +346,10 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         catch { body.querySelector("#pf-msg").textContent = "Couldn't use that picture."; }
       };
 
+      // ----- Top 8 -----
+      let top8 = () => (Array.isArray(u.top8) ? u.top8 : []);
+      import("./social.js").then((m) => (top8 = m.top8Editor(body.querySelector("#t8"), u.top8)));
+
       // ----- Profile photos -----
       let pics = [];
       const paintPics = () => {
@@ -384,12 +395,12 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
         if (data.profileHtml.length > 10000) { alert("Your profile is too long. Try trimming it a bit."); return; }
         try {
           const isPublic = body.querySelector("input[name=pv]:checked")?.value === "public";
-          await update(ref(db, `users/${uid}`), { ...data, song: data.song || null, publicProfile: isPublic });
+          await update(ref(db, `users/${uid}`), { ...data, song: data.song || null, publicProfile: isPublic, top8: top8().length ? top8() : null });
           await set(ref(db, `profilepics/${uid}`), pics.length ? Object.fromEntries(pics.map((d, i) => [`p${i}`, d])) : null).catch(() => {});
           if (isPublic) {
             const icon = (await get(ref(db, `icons/${uid}`)).catch(() => null))?.val() || null;
             await set(ref(db, `publicprofiles/${uid}`), { screenName, profileHtml: data.profileHtml, card: data.card, look: data.look, song: data.song || null,
-              interests: data.interests, since: u.since || null, icon, ts: Date.now() });
+              interests: data.interests, since: u.since || null, icon, top8: top8().length ? top8() : null, ts: Date.now() });
           } else await remove(ref(db, `publicprofiles/${uid}`)).catch(() => {});
           const listed = body.querySelector("#pd").checked;
           localStorage.setItem("du.listed." + uid, listed ? "1" : "0");

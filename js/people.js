@@ -104,6 +104,11 @@ export async function openRoom(displayName, category = "") {
     alert(`"${displayName}" is full (${ROOM_LIMIT} people). Try another room or start your own.`);
     return;
   }
+  const kick = (await get(ref(db, `rooms/${key}/kicks/${uid}`)).catch(() => null))?.val();
+  if (kick && kick.until > Date.now()) {
+    alert(`You were kicked from "${displayName}" by ⚡${kick.byName || "the moderator"}. You can come back in ${Math.ceil((kick.until - Date.now()) / 60000)} min.`);
+    return;
+  }
   const info = (await get(ref(db, `rooms/${key}/info`))).val();
   if (!info) set(ref(db, `rooms/${key}/info`), { name: displayName, category, private: false }).catch(() => {});
   const isPrivate = !!info?.private;
@@ -135,8 +140,9 @@ export async function openRoom(displayName, category = "") {
       const tx = body.querySelector(".transcript");
       const ta = body.querySelector("textarea");
       const memRef = ref(db, `rooms/${key}/members/${uid}`);
+      const joinedAt = Date.now();
       const touch = () => {
-        set(memRef, { t: serverTimestamp(), n: me().screenName }).catch(() => {});
+        set(memRef, { t: serverTimestamp(), n: me().screenName, j: joinedAt }).catch(() => {});
         if (category === "Member Rooms" && !isPrivate) set(ref(db, `roomlist/${key}`), { name: displayName, private: false, active: serverTimestamp() }).catch(() => {});
       };
       touch();
@@ -170,20 +176,46 @@ export async function openRoom(displayName, category = "") {
       };
 
       const allRef = ref(db, `rooms/${key}/members`);
+      let mod = null, names = {};
       onValue(allRef, (s) => {
         const raw = s.val() || {};
         const people = Object.entries(raw).filter(([, v]) => Date.now() - (typeof v === "object" ? v.t : v) < 120000).map(([u]) => u);
         const roomName = (u) => (typeof raw[u] === "object" && raw[u].n) || userName(u);
+        // ⚡ Moderator = whoever has been in the room the longest
+        const joined = (u) => (typeof raw[u] === "object" && (raw[u].j || raw[u].t)) || Date.now();
+        const before = mod;
+        mod = [...people].sort((a, b) => joined(a) - joined(b))[0] || null;
+        if (mod === uid && before && before !== uid) body.querySelector(".transcript").insertAdjacentHTML("beforeend", `<div class="msg small muted"><i>⚡ You're now the moderator of this room.</i></div>`);
+        people.forEach((p) => (names[p] = roomName(p)));
         body.querySelector("#count").textContent = people.length;
-        body.querySelector("#people").innerHTML = people.map((p) =>
-          `<li><a href="#" data-p="${p}" class="${ignored.has(p) ? "muted" : ""}">${esc(roomName(p))}</a></li>`).join("");
+        body.querySelector("#people").innerHTML = people.sort((a, b) => joined(a) - joined(b)).map((p) =>
+          `<li><a href="#" data-p="${p}" class="${ignored.has(p) ? "muted" : ""}">${p === mod ? `<span class="mod-bolt" title="Room moderator">⚡</span>` : ""}${esc(roomName(p))}</a></li>`).join("");
         body.querySelectorAll("[data-p]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); personMenu(a.dataset.p, e.clientX, e.clientY); }));
       });
       refs.push(allRef);
 
+      // Kicked? Leave right away.
+      const myKick = ref(db, `rooms/${key}/kicks/${uid}`);
+      onValue(myKick, (s) => {
+        const k = s.val();
+        if (k && k.until > Date.now()) {
+          closeWindow(id);
+          alert(`⚡${k.byName || "The moderator"} kicked you from "${displayName}". You can come back in ${Math.ceil((k.until - Date.now()) / 60000)} min.`);
+        }
+      }, () => {});
+      refs.push(myKick);
+
       const personMenu = (p, x, y) => {
         if (p === uid) return openInfo(p);
         contextMenu(x, y, [
+          ...(mod === uid ? [{ label: "👢 Kick from room (10 min)", danger: true, action: async () => {
+            if (!confirm(`Kick ${names[p] || userName(p)} from the room for 10 minutes?`)) return;
+            try {
+              await set(ref(db, `rooms/${key}/kicks/${p}`), { until: Date.now() + 10 * 60000, by: uid, byName: me().screenName });
+              say(`${names[p] || userName(p)} was kicked from the room by ⚡${me().screenName}.`, "leave").catch(() => {});
+              remove(ref(db, `rooms/${key}/members/${p}`)).catch(() => {});
+            } catch { alert("Couldn't kick right now."); }
+          } }, "-"] : []),
           { label: "💬 Send Instant Message", action: () => openIM(p) },
           { label: "📎 Send File…", action: () => sendFileTo(p) },
           { label: "🪪 Get Info", action: () => openInfo(p) },

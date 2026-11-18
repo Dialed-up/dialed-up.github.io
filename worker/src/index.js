@@ -94,7 +94,8 @@ export default {
       const token = req.headers.get("x-du-token") || "";
       const me = uidOf(token);
       const conv = req.headers.get("x-du-conv") || "";
-      if (!me || !/^[A-Za-z0-9]{10,40}_[A-Za-z0-9]{10,40}$/.test(conv) || !conv.split("_").includes(me)) return json(req, { error: "not allowed" }, 403);
+      const okConv = conv === "story" || (/^[A-Za-z0-9]{10,40}_[A-Za-z0-9]{10,40}$/.test(conv) && conv.split("_").includes(me));
+      if (!me || !okConv) return json(req, { error: "not allowed" }, 403);
       const len = Number(req.headers.get("content-length") || 0);
       if (len > 25 * 1024 * 1024) return json(req, { error: "too big" }, 413);
       const check = await dbGet(`users/${me}/screenName`, token);

@@ -113,6 +113,11 @@ export async function startChat() {
 
   await syncBuddyOf();   // tell the database who my buddies are first, so their status is readable
   syncWatches();
+  import("./social.js").then((m) => {
+    social = m;
+    [...watches.keys()].forEach((u) => { if (!storyWatched.has(u)) { storyWatched.add(u); m.watchStories(u, refreshBuddyList); } });
+    document.addEventListener("du:stories", refreshBuddyList);
+  });
   setTimeout(() => { state.loadedUsers = true; }, 4000);
   listen(".info/connected", (v) => {
     const was = state.connected;
@@ -135,6 +140,8 @@ export async function startChat() {
 
 // ---------- Only load info for people you're connected to ----------
 const watches = new Map();
+let social = null;               // social.js (Buddy Updates rings), loaded after sign-on
+const storyWatched = new Set();
 const retries = new Map();   // uid → how many times we've retried reading their status   // uid → [userRef, iconRef]
 
 /** You, your buddies, and anyone you have an IM conversation with. */
@@ -177,6 +184,7 @@ function syncWatches() {
       document.dispatchEvent(new CustomEvent("du:icons"));
     }, () => {});
     watches.set(uid, [ur, ir]);
+    if (social && !storyWatched.has(uid)) { storyWatched.add(uid); social.watchStories(uid, refreshBuddyList); }
   }
 }
 
@@ -187,6 +195,7 @@ export function stopChat() {
   state.timers.forEach(clearInterval);
   document.removeEventListener("visibilitychange", onVisibility);
   Object.assign(state, { uid: null, listeners: [], timers: [], known: {}, loadedUsers: false, loadedInbox: false, users: {}, inbox: {}, notices: {} });
+  storyWatched.clear();
 }
 
 function onVisibility() {
@@ -295,7 +304,7 @@ function refreshBuddyList() {
     const conv = conversationID(state.uid, uid);
     const unread = state.inbox[conv] && state.inbox[conv].from !== state.uid && (state.inbox[conv].ts || 0) > Number(localStorage.getItem("du.read." + conv) || 0);
     return `<div class="buddy ${p}" data-buddy="${uid}" title="${p}">
-      <span class="dot"></span>${iconHTML(uid, 20)}<span>${esc(name(uid))}</span>
+      <span class="dot"></span>${social?.hasStory(uid) ? `<span class="ring ${social.hasNewStory(uid) ? "new" : ""}" data-story="${uid}" title="See ${esc(name(uid))}'s Buddy Update">${iconHTML(uid, 20)}</span>` : iconHTML(uid, 20)}<span>${esc(name(uid))}</span>
       ${p === "idle" ? `<span class="small">(idle ${idleMin(u)})</span>` : ""}
       ${p === "away" ? `<span class="small" title="${esc(u.away)}">📝</span>` : ""}
       ${unread ? `<span class="unread">✉️</span>` : ""}</div>`;
@@ -343,6 +352,7 @@ function refreshBuddyList() {
     </div>`;
   body.scrollTop = scroll;
   body.querySelector("[data-me]").onclick = () => openProfile();
+  body.querySelectorAll("[data-story]").forEach((r) => (r.onclick = (e) => { e.stopPropagation(); social?.viewStories(r.dataset.story, refreshBuddyList); }));
   body.querySelector("[data-bot]").onclick = () => import("./bot.js").then((m) => m.openBot());
   body.querySelectorAll("[data-buddy]").forEach((el) => {
     el.onclick = () => openIM(el.dataset.buddy);
