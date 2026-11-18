@@ -304,7 +304,10 @@ function refreshBuddyList() {
       ${g.collapsed ? "" : on.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>`;
   }).join("");
   const off_ = [...buddyIDs()].filter((m) => presence(state.users[m]) === "offline");
-  const strangers = Object.values(state.inbox).map((e) => e.with).filter((u) => u && !buddyIDs().has(u) && u !== state.uid);
+  // Recent IMs: people who aren't buddies that you've talked with in the last 7 days
+  const weekAgo = Date.now() - 7 * 86400000;
+  const strangers = [...new Set(Object.values(state.inbox).filter((e) => (e.ts || 0) > weekAgo).map((e) => e.with)
+    .filter((u) => u && !buddyIDs().has(u) && u !== state.uid))];
   body.innerHTML = `
     ${state.connected === false ? `<div class="bl-offline">📡 Reconnecting to DialedUp…</div>` : ""}
     <div class="bl-top"><b class="bl-title">Buddy List</b>
@@ -318,7 +321,8 @@ function refreshBuddyList() {
     <div class="group"><button>▾ Bots (1/1)</button>
       <div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div></div>
     ${groupsHTML}
-    ${strangers.length ? `<div class="group"><button>▾ Recent IMs (${strangers.length})</button>${[...new Set(strangers)].map(row).join("")}</div>` : ""}
+    ${strangers.length ? `<div class="group recent-ims"><div class="row" style="align-items:center"><button>▾ Recent IMs (${strangers.length})</button>
+      <a href="#" class="small" data-clear-recent title="Remove everyone from Recent IMs">Clear</a></div>${strangers.map((u) => row(u).replace('data-buddy=', 'data-recent="1" data-buddy=')).join("")}</div>` : ""}
     ${show === "everyone" ? `<div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
     <div class="bl-bottom">
       <button class="bl-icon" data-act="im"><span>💬</span>Send IM</button>
@@ -335,7 +339,17 @@ function refreshBuddyList() {
   body.querySelector("[data-bot]").onclick = () => import("./bot.js").then((m) => m.openBot());
   body.querySelectorAll("[data-buddy]").forEach((el) => {
     el.onclick = () => openIM(el.dataset.buddy);
-    onMenu(el, (x, y) => buddyMenu(el.dataset.buddy, x, y));
+    onMenu(el, (x, y) => el.dataset.recent ? contextMenu(x, y, [
+      { label: "💬 Send IM", action: () => openIM(el.dataset.buddy) },
+      { label: "➕ Add Buddy", action: () => openAddBuddy(name(el.dataset.buddy)) },
+      { label: "🪪 Buddy Info", action: () => openInfo(el.dataset.buddy) },
+      "-",
+      { label: "✖ Remove from Recent IMs", action: () => forgetRecent(el.dataset.buddy) },
+    ]) : buddyMenu(el.dataset.buddy, x, y));
+  });
+  body.querySelector("[data-clear-recent]")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (confirm("Clear everyone from Recent IMs? Your chat history stays in IM History.")) strangers.forEach((u) => forgetRecent(u));
   });
   body.querySelectorAll("[data-group]").forEach((b) => onMenu(b, (x, y) => groupMenu(b.dataset.group, x, y)));
   body.querySelectorAll("[data-group]").forEach((b) => (b.onclick = () => {
@@ -499,7 +513,13 @@ async function removeBuddy(uid, { ask = true } = {}) {
   if (ask && !confirm(`Remove ${name(uid)} from your Buddy List?`)) return false;
   state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
   await saveGroups();
+  forgetRecent(uid);
   return true;
+}
+
+/** Takes someone off Recent IMs (the conversation itself stays in IM History). */
+function forgetRecent(uid) {
+  remove(ref(db, `inbox/${state.uid}/${conversationID(state.uid, uid)}`)).catch(() => {});
 }
 
 /** Setup → Remove a Buddy: pick from your list. */
