@@ -1,5 +1,5 @@
 import "./guard.js";
-// Instant Messages (dim.html): Homies List, IMs and chat rooms on their own desktop, in their own tab.
+// Instantly (dim.html), the DialedUp instant messenger: Homies List, IMs and chat rooms on their own desktop, in their own tab.
 import "./update.js";
 import "./fullscreen.js";
 import "./altcaps.js";
@@ -85,7 +85,7 @@ async function enter(fresh) {
   applyBackdrop();
   await startChat();
   if (await startSync(auth.currentUser.uid)) applyBackdrop();
-  document.title = `Instant Messages — ${me().screenName}`;
+  document.title = `Instantly — ${me().screenName}`;
   import("./stats-track.js").then((m) => m.trackVisit(auth.currentUser.uid, me().screenName, "dim"));
   watchInvites();
   watchWarnings();

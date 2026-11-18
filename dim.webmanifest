@@ -1,6 +1,6 @@
 {
-  "name": "DialedUp Instant Messages",
-  "short_name": "DialedUp IM",
+  "name": "Instantly by DialedUp",
+  "short_name": "Instantly",
   "start_url": "dim.html",
   "scope": "./",
   "display": "standalone",

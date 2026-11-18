@@ -71,14 +71,14 @@ function paint() {
 
     <div class="grid2">
       <div class="card"><h2>🟢 Online now</h2>
-        ${on.length ? `<ul class="online">${on.map((o) => `<li><span>${esc(o.n)}</span><span class="muted">${{ app: "📱 App", phonebrowser: "📱 Browser", computer: "💻 Computer" }[o.d] || ""} · ${o.p === "dim" ? "Instant Messages" : "DialedUp"}</span></li>`).join("")}</ul>` : `<p class="muted">Nobody's on right now.</p>`}
+        ${on.length ? `<ul class="online">${on.map((o) => `<li><span>${esc(o.n)}</span><span class="muted">${{ app: "📱 App", phonebrowser: "📱 Browser", computer: "💻 Computer" }[o.d] || ""} · ${o.p === "dim" ? "Instantly" : "DialedUp"}</span></li>`).join("")}</ul>` : `<p class="muted">Nobody's on right now.</p>`}
       </div>
       <div class="card"><h2>📱 How people connect today</h2>
         <div class="split"><i style="width:${pct(dev.app, devTotal)}%;background:#8a4dff"></i><i style="width:${pct(dev.phonebrowser, devTotal)}%;background:#ff5ec4"></i><i style="width:${pct(dev.computer, devTotal)}%;background:#21a0fd"></i></div>
         <div class="legend"><span><i style="background:#8a4dff"></i>Home Screen app ${pct(dev.app, devTotal)}%</span><span><i style="background:#ff5ec4"></i>Phone browser ${pct(dev.phonebrowser, devTotal)}%</span><span><i style="background:#21a0fd"></i>Computer ${pct(dev.computer, devTotal)}%</span></div>
         <h2 style="margin-top:12px">🖥 Which layout</h2>
         <div class="split"><i style="width:${pct(pages.dialedup, pageTotal)}%;background:#5b2a86"></i><i style="width:${pct(pages.dim, pageTotal)}%;background:#22a35a"></i></div>
-        <div class="legend"><span><i style="background:#5b2a86"></i>DialedUp ${pct(pages.dialedup, pageTotal)}%</span><span><i style="background:#22a35a"></i>Instant Messages ${pct(pages.dim, pageTotal)}%</span></div>
+        <div class="legend"><span><i style="background:#5b2a86"></i>DialedUp ${pct(pages.dialedup, pageTotal)}%</span><span><i style="background:#22a35a"></i>Instantly ${pct(pages.dim, pageTotal)}%</span></div>
       </div>
     </div>
 

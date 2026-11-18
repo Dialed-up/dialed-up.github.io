@@ -49,6 +49,7 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
     <div class="win-resize" title="Resize"></div>`;
   el.querySelector(".win-name").textContent = title;
   desk().appendChild(el);
+  requestAnimationFrame(refit);   // make sure it fits inside the desktop right away
 
   const tb = document.createElement("button");
   tb.className = "task";
@@ -291,7 +292,9 @@ export function refit() {
     if (w.id === "buddies") {
       // the Homies window stays docked on the right, full height
       const bw = Math.min(Math.max(el.offsetWidth, 190), Math.round(dw * (dw > dh ? 0.32 : 0.5)), 260);
-      Object.assign(el.style, { width: bw + "px", height: dh - 12 + "px", left: dw - bw - 6 + "px", top: "6px" });
+      Object.assign(el.style, { width: bw + "px", height: dh - 12 + "px", top: "6px" });
+      // place it by its real width (a minimum width in the styles can make it wider than asked)
+      el.style.left = Math.max(0, dw - el.offsetWidth - 6) + "px";
       return;
     }
     const nw = Math.min(el.offsetWidth, dw - 8), nh = Math.min(el.offsetHeight, dh - 8);
