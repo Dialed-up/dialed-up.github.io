@@ -40,7 +40,7 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
       "-", ["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
     Edit: [["Copy", () => document.execCommand("copy")], ["Paste into Keyword", async () => { try { $("keyword").value = await navigator.clipboard.readText(); } catch {} }]],
     Mail: [["Read Mail", () => go("mail")], ["Write Mail", () => go("write")], ["Mail Signature…", () => import("./mail.js").then((m) => m.editSignature())], ["Send an E-Greeting", () => go("greetings")], ["Address Book", () => go("addressbook")]],
-    People: [["Buddy List", () => go("buddies")], ["People Plaza (Chat)", () => go("chat")], ["Member Directory", () => go("people")],
+    People: [["Buddy List", () => go("buddies")], ["🛠 Manage Buddy List", () => go("managebuddies")], ["People Plaza (Chat)", () => go("chat")], ["Member Directory", () => go("people")],
       ["My Profile & Buddy Icon", () => go("profile")], ["Away Message", () => go("away")], ["Photo Albums", () => go("albums")], ["Address Book", () => go("addressbook")], "-",
       ["Locate a Member Online", () => go("locate")], ["🤖 IM DialBot", () => go("dialbot")], ["Live Events", () => go("events")], ["Polls", () => go("polls")], ["Classifieds", () => go("classifieds")]],
     Channels: [["All Channels", () => go("channels")], ["News", () => go("news")], ["Weather", () => go("weather")], ["Sports", () => go("sports")],

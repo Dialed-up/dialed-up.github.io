@@ -319,7 +319,7 @@ function refreshBuddyList() {
     setup: (b) => contextMenu(...at(b), [
       { label: "➕ Add a Buddy", action: () => openAddBuddy() },
       { label: "📁 Add a Group", action: newGroup },
-      { label: "✏️ Edit Groups…", action: openEditGroups },
+      { label: "🛠 Manage Buddy List…", action: openEditGroups },
       { label: "🪪 Edit My Profile", action: openProfile },
       { label: "🔎 Member Directory", action: openDirectory },
     ]),
@@ -426,12 +426,16 @@ export function buddyMenu(uid, x, y) {
   ]);
 }
 
-function moveToGroup(uid) {
-  const names = state.groups.map((g, i) => `${i + 1}. ${g.name}`).join("\n");
-  const pick = Number(prompt(`Move ${name(uid)} to which group?\n${names}`)) - 1;
-  if (!state.groups[pick]) return;
+function moveToGroup(uid, x, y) {
+  const cur = state.groups.find((g) => g.members.includes(uid));
+  if (x === undefined) { const r = document.querySelector(`[data-buddy="${uid}"]`)?.getBoundingClientRect(); x = r ? r.left + 20 : innerWidth / 2 - 80; y = r ? r.bottom : innerHeight / 3; }
+  contextMenu(x, y, state.groups.map((g) => ({ label: `${g === cur ? "✅" : "📁"} ${g.name}`, action: () => putInGroup(uid, g.id) })));
+}
+function putInGroup(uid, gid) {
+  const dest = state.groups.find((g) => g.id === gid);
+  if (!dest) return;
   state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
-  state.groups[pick].members.push(uid);
+  dest.members.push(uid);
   saveGroups();
 }
 
@@ -485,6 +489,7 @@ function groupMenu(gid, x, y) {
     ...(i > 0 ? [{ label: "⬆️ Move Up", action: () => moveGroup(gid, -1) }] : []),
     ...(i < state.groups.length - 1 ? [{ label: "⬇️ Move Down", action: () => moveGroup(gid, 1) }] : []),
     { label: "📁 Add a Group", action: newGroup },
+    { label: "🛠 Manage Buddy List…", action: openEditGroups },
     "-",
     { label: "🗑 Delete Group", danger: true, action: () => deleteGroup(gid) },
   ]);
@@ -514,26 +519,36 @@ function deleteGroup(gid) {
   state.groups = others;
   saveGroups();
 }
-function openEditGroups() {
-  openWindow("editgroups", {
-    title: "Edit Groups", icon: "📁", width: 300, height: 360,
+export function openEditGroups() {
+  openWindow("managebuddies", {
+    title: "Manage Buddy List", icon: "🛠", width: 360, height: 500, keyword: "managebuddies",
     render(body) {
       const paint = () => {
-        body.innerHTML = `<p class="small" style="margin-top:0">Rename, reorder or delete your Buddy List groups. Tip: press and hold a group name on the Buddy List for the same options.</p>
-          <ul class="list">${state.groups.map((g, i) => `<li class="row"><span>📁 <b>${esc(g.name)}</b> <span class="small muted">(${g.members.length})</span></span>
-            <span style="white-space:nowrap"><button class="btn small-btn" data-r="${g.id}" title="Rename">✏️</button>
-            <button class="btn small-btn" data-u="${g.id}" ${i ? "" : "disabled"} title="Move up">⬆️</button>
-            <button class="btn small-btn" data-d="${g.id}" ${i < state.groups.length - 1 ? "" : "disabled"} title="Move down">⬇️</button>
-            <button class="btn danger small-btn" data-x="${g.id}" title="Delete">🗑</button></span></li>`).join("")}</ul>
-          <button class="btn primary small-btn" data-new style="margin-top:8px">+ Add a Group</button>`;
+        const opts = (sel) => state.groups.map((g) => `<option value="${g.id}" ${g.id === sel ? "selected" : ""}>${esc(g.name)}</option>`).join("");
+        body.innerHTML = `<div class="row" style="gap:4px;justify-content:flex-start;margin-bottom:8px">
+            <button class="btn primary small-btn" data-addb>➕ Add a Buddy</button><button class="btn small-btn" data-new>📁 Add a Group</button></div>
+          ${state.groups.map((g, i) => `<div class="panel mg-group">
+            <div class="row"><b>📁 ${esc(g.name)} <span class="small muted">(${g.members.length})</span></b>
+              <span style="white-space:nowrap"><button class="btn small-btn" data-r="${g.id}" title="Rename group">✏️</button><button class="btn small-btn" data-u="${g.id}" ${i ? "" : "disabled"} title="Move group up">⬆️</button><button class="btn small-btn" data-d="${g.id}" ${i < state.groups.length - 1 ? "" : "disabled"} title="Move group down">⬇️</button><button class="btn danger small-btn" data-x="${g.id}" title="Delete group">🗑</button></span></div>
+            ${g.members.length ? `<ul class="list mg-members">${[...g.members].sort((a, b) => name(a).localeCompare(name(b))).map((m) => `<li class="row">
+              <span class="mg-name">${iconHTML(m, 18)} ${esc(name(m))}</span>
+              <span style="white-space:nowrap"><select data-mv="${m}" title="Move to group">${opts(g.id)}</select>
+              <button class="btn small-btn" data-rm="${m}" title="Remove buddy">✖</button></span></li>`).join("")}</ul>`
+              : `<p class="small muted" style="margin:4px 0 0">No buddies in this group yet.</p>`}</div>`).join("")}
+          <p class="small muted">Tip: press and hold any buddy or group on the Buddy List for quick options.</p>`;
+        body.querySelector("[data-addb]").onclick = () => openAddBuddy();
+        body.querySelector("[data-new]").onclick = newGroup;
         body.querySelectorAll("[data-r]").forEach((b) => (b.onclick = () => renameGroup(b.dataset.r)));
         body.querySelectorAll("[data-u]").forEach((b) => (b.onclick = () => moveGroup(b.dataset.u, -1)));
         body.querySelectorAll("[data-d]").forEach((b) => (b.onclick = () => moveGroup(b.dataset.d, 1)));
         body.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => deleteGroup(b.dataset.x)));
-        body.querySelector("[data-new]").onclick = newGroup;
+        body.querySelectorAll("[data-mv]").forEach((sel) => (sel.onchange = () => putInGroup(sel.dataset.mv, sel.value)));
+        body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => {
+          if (confirm(`Remove ${name(b.dataset.rm)} from your Buddy List?`)) removeBuddy(b.dataset.rm);
+        }));
       };
       paint();
-      const onGroups = () => (getWindow("editgroups") ? paint() : document.removeEventListener("du:groups", onGroups));
+      const onGroups = () => (getWindow("managebuddies") ? paint() : document.removeEventListener("du:groups", onGroups));
       document.addEventListener("du:groups", onGroups);
     },
   });

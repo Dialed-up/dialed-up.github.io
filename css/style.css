@@ -627,3 +627,12 @@ body.dim .task { color: #17336b; } body.dim .task.active { color: #fff; backgrou
 .pod-show { margin-bottom: 8px; }
 .emoji-pop, .react-bar { background: #fff; border: 1px solid #c9b6f2; box-shadow: 0 8px 24px rgba(40,10,80,.28); }
 .fmt select { max-width: 80px; }
+.mg-group { margin-bottom: 8px; }
+.mg-members li { gap: 6px; }
+.mg-name { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-members select { max-width: 110px; padding: 2px 4px; font-size: 13px; }
+.mg-members li { display: flex; flex-wrap: nowrap; }
+.mg-members li > .mg-name { flex: 1 1 auto; }
+.mg-members li > span:last-child { flex-shrink: 0; display: inline-flex; gap: 3px; }
+.mg-group .row > span:last-child { display: inline-flex; gap: 2px; flex-shrink: 0; }
+@media (max-width: 600px) { .mg-members select { max-width: 86px; } .mg-group .btn.small-btn { padding: 2px 6px; } }
