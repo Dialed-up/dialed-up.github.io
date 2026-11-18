@@ -571,24 +571,3 @@ html:has(body.dim) { background: #1e5fc8; }
 .dim-mini { width: 18px; height: 18px; vertical-align: -4px; }
 .switch-tab { display: inline-flex; align-items: center; gap: 4px; }
 
-/* ---------- Big desktop screens: fill the browser like a real online service ---------- */
-@media (min-width: 1200px) and (min-height: 700px) {
-  body { font-size: 15px; }
-  #toolbar > button { font-size: 26px; min-width: 70px; padding: 4px 10px; }
-  #toolbar > button span { font-size: 12px; }
-  #titlestrip, .menu-item { font-size: 14px; }
-  #navbar input, #navbar .btn { font-size: 15px; }
-  .nav-buttons button { height: 34px; min-width: 52px; font-size: 15px; }
-  .win-title { font-size: 15px; padding-top: 6px; padding-bottom: 6px; }
-  .task { max-width: 220px; padding: 4px 12px; font-size: 14px; }
-  .start, #signoff, .switch-tab, #clock { font-size: 15px; }
-  .buddy { font-size: 15px; padding: 4px 4px 4px 18px; }
-  .bl-icon { font-size: 12px; } .bl-icon span { font-size: 26px; }
-  .transcript { font-size: 15px; }
-  .tile { font-size: 17px; }
-}
-@media (min-width: 1600px) and (min-height: 900px) {
-  body { font-size: 16px; }
-  #toolbar > button { font-size: 30px; min-width: 80px; }
-  #toolbar > button span { font-size: 13px; }
-}

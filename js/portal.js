@@ -34,8 +34,7 @@ export function openWelcome() {
       const d = document.getElementById("desk");
       const wide = d.clientWidth > d.clientHeight && d.clientHeight < 500;
       if (d.clientWidth >= 1000 && d.clientHeight >= 560) {
-        const bl = Math.round(Math.min(340, Math.max(260, d.clientWidth * 0.2)));
-        return { x: 8, y: 8, width: d.clientWidth - bl - 26, height: d.clientHeight - 16, scale: false };
+        return { x: 24, y: 16, width: 640, height: Math.min(560, d.clientHeight - 40) };
       }
       return wide ? { x: 6, y: 4, width: Math.round(d.clientWidth * 0.62), height: d.clientHeight - 10 } : { width: 460, height: 560 };
     })(),
@@ -259,7 +258,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1118.1232) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1118.1235) · Still connecting since '96.</p>
         <p class="small muted">A fan-made throwback. Not affiliated with any real online service.</p></div>`;
     },
   });

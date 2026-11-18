@@ -13,9 +13,6 @@ export function openWindow(id, { title, icon = "🗔", width = 360, height = 420
   const dw = desk().clientWidth, dh = desk().clientHeight;
   const small = dw < 600;
   const shortScreen = dh < 420;
-  // Big screens: everything opens bigger, like a real desktop online service.
-  const big = Math.min(1.6, Math.max(1, Math.min(dw / 1000, dh / 640)));
-  if (scale && big > 1.05) { width = Math.round(width * big); height = Math.round(height * big); }
   let w = Math.min(width, small ? Math.round(dw * 0.86) : dw - 12);
   let h = Math.min(height, small ? Math.round(dh * 0.7) : shortScreen ? dh - 10 : dh - 12);
   const step = (cascadeCount++ % 6) * (small ? 18 : 26);
@@ -95,7 +92,7 @@ export function closeWindow(id) {
 }
 
 // ---------- remembering where windows were ----------
-const geoKey = (id) => "du.win." + id.split(".")[0] + (id.startsWith("im.") || id === "buddies" ? "" : "." + id);
+const geoKey = (id) => "du.win2." + id.split(".")[0] + (id.startsWith("im.") || id === "buddies" ? "" : "." + id);
 function savedGeometry(id) {
   try { return JSON.parse(localStorage.getItem(geoKey(id)) || "null"); } catch { return null; }
 }
