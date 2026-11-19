@@ -12,7 +12,7 @@ export function altCaps(text) {
 // Which boxes get it: every multi-line box, plus one-line boxes where you write to people.
 const SKIP_TYPES = new Set(["password", "email", "url", "number", "search", "color", "file", "range", "checkbox", "radio", "date", "time", "datetime-local", "hidden"]);
 function wants(el) {
-  if (el.closest(".altcaps") || el.dataset.noAltcaps != null) return false;
+  if (el.dataset.noAltcaps != null) return false;
   if (el.tagName === "TEXTAREA") return !el.readOnly;
   if (el.tagName !== "INPUT" || el.readOnly || SKIP_TYPES.has(el.type)) return false;
   return !!el.closest(".cform, .compose, [data-altcaps]");   // comment boxes and chat boxes
@@ -27,27 +27,35 @@ function apply(el) {
   try { el.setSelectionRange(s, e); } catch {}
 }
 
-function paintAll() { document.querySelectorAll(".altcaps input").forEach((c) => (c.checked = isOn())); }
+const label = (on) => `${on ? "☑" : "☐"} aLt CaPs <b>${on ? "ON" : "OFF"}</b>`;
+function paintAll() {
+  document.querySelectorAll("button.altcaps").forEach((b) => { b.innerHTML = label(isOn()); b.setAttribute("aria-pressed", String(isOn())); b.classList.toggle("on", isOn()); });
+}
 
 function addBox(el) {
   if (el.dataset.altcapsDone) return;
   el.dataset.altcapsDone = "1";
-  const label = document.createElement("label");
-  label.className = "altcaps";
-  label.title = "Type lIkE tHiS — every other letter";
-  label.innerHTML = `<input type="checkbox" ${isOn() ? "checked" : ""}> aLt CaPs`;
-  label.querySelector("input").onchange = (ev) => {
-    try { localStorage.setItem(KEY, ev.target.checked ? "1" : "0"); } catch {}
+  // A plain button (not a tick box) so it toggles reliably on every phone
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "altcaps" + (isOn() ? " on" : "");
+  toggle.title = "Type lIkE tHiS — every other letter";
+  toggle.setAttribute("aria-pressed", String(isOn()));
+  toggle.innerHTML = label(isOn());
+  toggle.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    const on = !isOn();
+    try { localStorage.setItem(KEY, on ? "1" : "0"); } catch {}
     paintAll();
-    if (ev.target.checked) { apply(el); el.focus(); }
-  };
+    if (on) apply(el);
+  });
   // Put it where it fits: above a chat box, under a comment box, or right under the text box
   const compose = el.closest(".compose");
   const form = el.closest(".cform");
-  if (compose) compose.before(label);
-  else if (form) form.after(label);
-  else if (el.parentElement?.classList.contains("story-preview")) el.parentElement.after(label);
-  else el.after(label);
+  if (compose) compose.before(toggle);
+  else if (form) form.after(toggle);
+  else if (el.parentElement?.classList.contains("story-preview")) el.parentElement.after(toggle);
+  else el.after(toggle);
 }
 
 document.addEventListener("input", (e) => {

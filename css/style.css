@@ -881,3 +881,7 @@ img.gif { display: block; max-width: min(220px, 100%); height: auto; border-radi
 .bl-body .bl-title { font-size: 15px; white-space: nowrap; }
 .bl-body #bl-show { max-width: 112px; font-size: 12px; padding: 2px 4px; }
 .bl-me .my-story { margin: 3px; }
+/* aLt CaPs toggle button */
+button.altcaps { display: inline-flex !important; align-items: center; gap: 4px; margin: 3px 0 !important; padding: 4px 10px; min-height: 28px; border-radius: 14px;
+  border: 1px solid var(--line); background: #fff; color: #555; font-size: 12px !important; cursor: pointer; width: auto !important; touch-action: manipulation; }
+button.altcaps.on { background: linear-gradient(#ffe9fb, #f5d4ff); border-color: #c58cff; color: #6b2fd6; }
