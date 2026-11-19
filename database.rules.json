@@ -41,8 +41,8 @@
       "$conv": {
         ".read": "auth != null && ($conv.matches(/^[A-Za-z0-9]{10,40}_[A-Za-z0-9]{10,40}$/) && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid)))",
         "$msg": {
-          ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && ($conv.matches(/^[A-Za-z0-9]{10,40}_[A-Za-z0-9]{10,40}$/) && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid))) && !data.exists() && newData.child('from').val() === auth.uid && !root.child('blocks/' + $conv.replace(auth.uid, '').replace('_', '') + '/' + auth.uid).exists()",
-".validate": "data.exists() || !newData.child('text').exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000)",
+          ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && ($conv.matches(/^[A-Za-z0-9]{10,40}_[A-Za-z0-9]{10,40}$/) && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid))) && ((!data.exists() && newData.child('from').val() === auth.uid) || (data.exists() && data.child('from').val() === auth.uid && now - data.child('ts').val() < 330000 && newData.exists() && newData.child('from').val() === auth.uid && newData.child('ts').val() === data.child('ts').val())) && !root.child('blocks/' + $conv.replace(auth.uid, '').replace('_', '') + '/' + auth.uid).exists()",
+".validate": "!newData.child('text').exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000)",
           "reactions": {
             "$uid": {
               ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && auth.uid === $uid && ($conv.matches(/^[A-Za-z0-9]{10,40}_[A-Za-z0-9]{10,40}$/) && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid)))",

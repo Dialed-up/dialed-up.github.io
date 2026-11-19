@@ -13,8 +13,14 @@ audio.preload = "none";
 let nowPlaying = null;
 export const getNowPlaying = () => nowPlaying;
 
+let shared = null;   // the station last shared as your 🎵 Now Playing
 function setNowPlaying(st) {
   nowPlaying = st;
+  const playing = st && !audio.paused ? st.name : null;
+  if (playing !== shared && localStorage.getItem("du.npRadio") !== "0") {
+    shared = playing;
+    import("./chat.js").then((m) => m.setNowPlayingStatus(playing ? "📻 " + playing : "", "radio")).catch(() => {});
+  }
   document.querySelectorAll(".radio-now").forEach((el) => paintNow(el));
   const mini = document.getElementById("radio-mini");
   if (mini) {

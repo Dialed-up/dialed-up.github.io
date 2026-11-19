@@ -253,13 +253,16 @@ function roomParty(body, key, say, getMod) {
   const bar = body.querySelector(".party-bar");
   const pr = ref(db, `rooms/${key}/party`);
   let party = null, tunedIn = null;
+  const shareNP = (t) => { if (localStorage.getItem("du.npRadio") !== "0") import("./chat.js").then((m) => m.setNowPlayingStatus(t, "party")); };
   const tuneOut = () => {
+    if (tunedIn) shareNP("");
     if (tunedIn === "radio") import("./radio.js").then((r) => r.stop());
     bar.querySelector(".party-player")?.remove();
     tunedIn = null;
   };
   const tuneIn = async () => {
     if (!party) return;
+    shareNP("🎧 " + (party.title || "Listening Party"));
     if (party.station) { (await import("./radio.js")).play(party.station); tunedIn = "radio"; draw(); return; }
     const { embedFor } = await import("./browser.js");
     let src = embedFor(party.url);

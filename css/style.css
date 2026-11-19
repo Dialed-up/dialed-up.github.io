@@ -851,3 +851,7 @@ ol.lb li.me { background: #fff6c8; font-weight: bold; }
 .notif-txt { font-size: 13px; line-height: 1.35; }
 .dim-bell { position: relative; }
 .dim-bell .badge { position: absolute; top: -6px; right: -6px; }
+/* 🎵 Now Playing */
+.buddy .np { flex-basis: 100%; margin-left: 30px; font-size: 10px; color: #7a4fc4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-me { color: #7a4fc4; }
+.buddy:has(.np) { flex-wrap: wrap; row-gap: 0; }

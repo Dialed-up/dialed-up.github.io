@@ -330,7 +330,8 @@ function refreshBuddyList() {
       <span class="dot"></span>${social?.hasStory(uid) ? `<span class="ring ${social.hasNewStory(uid) ? "new" : ""}" data-story="${esc(uid)}" title="See ${esc(name(uid))}'s Homie Update">${iconHTML(uid, 20)}</span>` : iconHTML(uid, 20)}<span>${esc(name(uid))}</span>
       ${p === "idle" ? `<span class="small">(idle ${idleMin(u)})</span>` : ""}
       ${p === "away" ? `<span class="small" title="${esc(u.away)}">📝</span>` : ""}
-      ${unread ? `<span class="unread">✉️</span>` : ""}</div>`;
+      ${unread ? `<span class="unread">✉️</span>` : ""}
+      ${nowPlayingOf(uid) ? `<span class="np" title="Now playing: ${esc(nowPlayingOf(uid))}">🎵 ${esc(nowPlayingOf(uid))}</span>` : ""}</div>`;
   };
   const show = localStorage.getItem("du.show") || "everyone";
   const visible = (m) => {
@@ -356,7 +357,7 @@ function refreshBuddyList() {
         <option value="available" ${show === "available" ? "selected" : ""}>Hide Away & Idle</option>
       </select></div>
     <div class="bl-me" data-me title="Tap to edit your profile">${social?.hasStory(state.uid) ? `<span class="my-story ring" data-mystory title="See your Homie Update">${iconHTML(state.uid, 34)}</span>` : state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="${document.body.classList.contains("dim") ? "img/dim-logo.png" : "img/logo.png"}" width="40" height="28" alt="" style="object-fit:contain">`}
-      <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${social?.hasStory(state.uid) ? `<br><a href="#" class="small" data-mystory>✨ Your Homie Update is live</a>` : ""}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
+      <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${nowPlayingOf(state.uid) ? `<br><span class="np-me small">🎵 ${esc(nowPlayingOf(state.uid))}</span>` : ""}${social?.hasStory(state.uid) ? `<br><a href="#" class="small" data-mystory>✨ Your Homie Update is live</a>` : ""}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
     <div class="group"><button>▾ Bots (1/1)</button>
       <div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div></div>
     ${groupsHTML}
@@ -785,6 +786,7 @@ export function openIM(uid, { quiet = false } = {}) {
           <input type="color" data-f="color" value="${esc(myStyle.color)}">
           <button data-f="smiley" title="Emojis">😀</button>
           <button data-f="mic" title="Record a voice note">🎙</button>
+          <button data-f="search" title="Search this conversation">🔍</button>
           <label class="btn small-btn" style="margin:0;font-weight:normal" title="Send a photo, video or file (up to 25 MB)">📎<input type="file" data-f="file" hidden></label>
         </div>
         <div class="compose"><textarea placeholder="Type a message…"></textarea><button class="btn primary">Send</button></div>
@@ -819,6 +821,7 @@ export function openIM(uid, { quiet = false } = {}) {
       const recbar = body.querySelector(".recbar"), compose = body.querySelector(".compose");
       let rec = null;
       const endRec = () => { rec = null; recbar.hidden = true; compose.hidden = false; };
+      body.querySelector("[data-f=search]").onclick = () => searchConversation(conv, uid);
       body.querySelector("[data-f=mic]").onclick = async () => {
         if (rec) return;
         try {
@@ -944,7 +947,9 @@ function renderMessage(key, m) {
   const who = mine ? state.me.screenName : (m.name || name(m.from));
   const time = m.ts ? new Date(m.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) : "";
   let content;
-  if (m.media?.mid) {
+  if (m.unsent) {
+    content = `<i class="muted">↩️ Message unsent</i>`;
+  } else if (m.media?.mid) {
     content = `<div class="im-media" data-media="${esc(JSON.stringify(m.media))}"></div>`;
   } else if (m.file) {
     content = `<div class="panel" data-file="${esc(m.file.tid)}" data-name="${esc(m.file.name)}" data-size="${Number(m.file.size) || 0}"
@@ -958,8 +963,9 @@ function renderMessage(key, m) {
   Object.values(m.reactions || {}).forEach((e) => (counts[e] = (counts[e] || 0) + 1));
   const myReact = m.reactions?.[state.uid];
   const chips = Object.entries(counts).map(([e, n]) => `<button class="react-chip ${myReact === e ? "mine" : ""}" data-e="${esc(e)}">${esc(e)}${n > 1 ? " " + n : ""}</button>`).join("");
-  return `<div class="msg" data-k="${esc(key)}"><span class="who ${mine ? "me" : "them"}">${m.auto ? "Auto response from " : ""}${esc(who)}</span>
-    <time>(${time})</time>: ${content}${chips ? `<div class="reacts">${chips}</div>` : ""}</div>`;
+  const editable = mine && !m.unsent && !m.auto && m.ts && Date.now() - m.ts < EDIT_WINDOW;
+  return `<div class="msg" data-k="${esc(key)}"${editable ? ` data-edit="${Number(m.ts)}" data-text="${m.media || m.file ? "" : "1"}"` : ""}><span class="who ${mine ? "me" : "them"}">${m.auto ? "Auto response from " : ""}${esc(who)}</span>
+    <time>(${time})</time>: ${content}${m.edited && !m.unsent ? ` <span class="small muted">(edited)</span>` : ""}${chips ? `<div class="reacts">${chips}</div>` : ""}</div>`;
 }
 
 function renderIMStatus(uid) {
@@ -970,7 +976,8 @@ function renderIMStatus(uid) {
   const st = win.body.querySelector(".st");
   if (st) {
     st.innerHTML = { online: "🟢 Online", away: "🟠 Away", idle: `⚪ Idle ${idleMin(u)}m`, offline: "⚫ Offline" }[p]
-      + (state.blocked.has(uid) ? " · ⛔ Blocked" : "") + (warningLevel(uid) ? ` · ⚠️ ${warningLevel(uid)}%` : "");
+      + (state.blocked.has(uid) ? " · ⛔ Blocked" : "") + (warningLevel(uid) ? ` · ⚠️ ${warningLevel(uid)}%` : "")
+      + (nowPlayingOf(uid) ? ` · 🎵 ${esc(nowPlayingOf(uid))}` : "");
     st.title = p === "away" ? `Away: ${u?.away || ""}` : p === "offline" ? "Offline — they'll get it when they sign on" : "";
   }
   const ic = win.body.querySelector(".im-ic");
@@ -1182,11 +1189,58 @@ async function sendMediaIM(uid, file, opts, tx) {
 }
 
 // ---------- Reactions ----------
+/** Search your whole history with someone. */
+function searchConversation(conv, uid) {
+  let all = null;
+  openWindow("imsearch." + uid, {
+    title: `Search IMs with ${name(uid)}`, icon: "🔍", width: 340, height: 440,
+    render(body) {
+      body.innerHTML = `<input id="ims-q" placeholder="Search words…" style="width:100%" autocomplete="off" data-no-altcaps>
+        <p class="small muted" id="ims-n" style="margin:4px 0">Loading your history…</p><ul class="list ims-res"></ul>`;
+      const q = body.querySelector("#ims-q"), out = body.querySelector(".ims-res"), info = body.querySelector("#ims-n");
+      const run = () => {
+        if (!all) return;
+        const words = q.value.trim().toLowerCase();
+        if (words.length < 2) { out.innerHTML = ""; info.textContent = `${all.length.toLocaleString()} messages. Type at least 2 letters.`; return; }
+        const hits = all.filter((m) => String(m.text || "").toLowerCase().includes(words)).reverse().slice(0, 100);
+        info.textContent = hits.length ? `${hits.length}${hits.length === 100 ? "+" : ""} match${hits.length === 1 ? "" : "es"}` : "No matches.";
+        const mark = (t) => esc(t).replace(new RegExp(words.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (x) => `<mark>${x}</mark>`);
+        out.innerHTML = hits.map((m) => `<li><span class="small muted">${new Date(m.ts || 0).toLocaleString([], { month: "short", day: "numeric", year: "2-digit", hour: "numeric", minute: "2-digit" })}</span>
+          · <b>${esc(m.from === state.uid ? state.me.screenName : name(m.from))}</b>: ${mark(String(m.text).slice(0, 300))}</li>`).join("");
+      };
+      q.oninput = run;
+      get(ref(db, `messages/${conv}`)).then((s) => {
+        all = [];
+        s.forEach((c) => { const m = c.val(); if (m && !m.unsent && m.text) all.push(m); });
+        run(); q.focus();
+      }).catch(() => (info.textContent = "Couldn't load your history right now."));
+    },
+  });
+}
+
+// Your own IMs can be edited or unsent for 5 minutes after sending
+const EDIT_WINDOW = 5 * 60000;
+async function editMessage(conv, key) {
+  const r = ref(db, `messages/${conv}/${key}`);
+  const m = (await get(r).catch(() => null))?.val();
+  if (!m || m.from !== state.uid || Date.now() - (m.ts || 0) > EDIT_WINDOW) { alert("Messages can only be edited for 5 minutes after sending."); return; }
+  const t = prompt("Edit your message:", m.text || "");
+  if (t === null || !t.trim() || t === m.text) return;
+  update(r, { text: t.trim().slice(0, 4000), rich: null, edited: true }).catch(() => alert("Couldn't edit it. The 5 minutes may be up."));
+}
+async function unsendMessage(conv, key) {
+  if (!confirm("Unsend this message? It disappears for both of you.")) return;
+  update(ref(db, `messages/${conv}/${key}`), { text: "", rich: null, media: null, file: null, unsent: true })
+    .catch(() => alert("Couldn't unsend it. Messages can only be unsent for 5 minutes."));
+}
+
 function reactMenu(conv, key, x, y, el) {
   document.querySelector(".react-bar")?.remove();
   const bar = document.createElement("div");
   bar.className = "react-bar glossy";
-  bar.innerHTML = QUICK_REACTIONS.map((e) => `<button data-e="${esc(e)}">${e}</button>`).join("") + `<button data-more title="More emojis">＋</button><button data-copy title="Copy text">📋</button>`;
+  const canEdit = el.dataset.edit && Date.now() - Number(el.dataset.edit) < EDIT_WINDOW;
+  bar.innerHTML = QUICK_REACTIONS.map((e) => `<button data-e="${esc(e)}">${e}</button>`).join("") + `<button data-more title="More emojis">＋</button><button data-copy title="Copy text">📋</button>`
+    + (canEdit ? `${el.dataset.text ? `<button data-edit title="Edit (5 min)">✏️</button>` : ""}<button data-unsend title="Unsend (5 min)">↩️</button>` : "");
   document.body.appendChild(bar);
   const w = bar.offsetWidth, h = bar.offsetHeight;
   bar.style.left = Math.max(6, Math.min(x - w / 2, innerWidth - w - 6)) + "px";
@@ -1200,6 +1254,8 @@ function reactMenu(conv, key, x, y, el) {
     close();
     if (b.dataset.e) toggleReaction(conv, key, b.dataset.e);
     else if (b.hasAttribute("data-more")) pickEmoji(el, (e) => toggleReaction(conv, key, e), { keepOpen: false });
+    else if (b.hasAttribute("data-edit")) editMessage(conv, key);
+    else if (b.hasAttribute("data-unsend")) unsendMessage(conv, key);
     else navigator.clipboard?.writeText(el.innerText.replace(/^.*?\):\s*/, "")).catch(() => {});
   };
 }
@@ -1324,16 +1380,46 @@ async function setAwayMsg(msg) {
   refreshBuddyList();
 }
 
+// ---------- 🎵 Now Playing: what you're listening to, under your name ----------
+const NP_HOURS = 3;
+/** The song someone is playing right now (hidden when they're offline or it's more than 3 hours old). */
+export function nowPlayingOf(uid) {
+  const u = uid === state.uid ? (state.users[uid] || state.me) : state.users[uid];
+  const np = u?.np;
+  if (!np?.t || Date.now() - (np.ts || 0) > NP_HOURS * 3600000) return "";
+  if (uid !== state.uid && presence(u) === "offline") return "";
+  return String(np.t);
+}
+/** Set (or clear with "") your Now Playing. src: "manual", "radio" or "party". */
+export async function setNowPlayingStatus(text, src = "manual") {
+  if (!state.uid) return;
+  const cur = (state.users[state.uid] || state.me)?.np;
+  if (!text && src !== "manual" && cur && cur.src !== src) return;   // don't clear a song you typed in yourself
+  const np = text ? { t: String(text).replace(/\s+/g, " ").trim().slice(0, 80), src, ts: Date.now() } : null;
+  state.me.np = np;
+  if (state.users[state.uid]) state.users[state.uid].np = np;
+  await update(ref(db, `users/${state.uid}`), { np }).catch(() => {});
+  refreshBuddyList();
+}
+
 export function openAway() {
   openWindow("away", {
-    title: "Away Message", icon: "📝", width: 340, height: 440,
+    title: "Away Message & Now Playing", icon: "📝", width: 340, height: 540,
     render(body) {
       const saved = JSON.parse(localStorage.getItem("du.awaySaved") || "null") || ["Away from my desk. Leave a message!", "brb", "Out living my best life. Back at %t."];
       body.innerHTML = `<label>Your away message<textarea id="aw" rows="4">${esc(state.away)}</textarea></label>
         <p class="small muted">%n = their screen name · %t = time · %d = date</p>
         <div class="row"><button class="btn" id="back" ${state.away ? "" : "disabled"}>I'm Back</button>
           <button class="btn" id="save">Save</button><button class="btn primary" id="go">I'm Away</button></div>
+        <div class="panel" style="margin-top:10px"><h3>🎵 Now Playing</h3>
+          <p class="small muted" style="margin:0 0 4px">Shows under your name on your homies' lists for 3 hours.</p>
+          <div class="row" style="gap:4px"><input id="np-t" maxlength="80" placeholder="Song – Artist" value="${esc(nowPlayingOf(state.uid))}" style="flex:1">
+            <button class="btn small-btn" id="np-set">Set</button><button class="btn small-btn" id="np-clr">Clear</button></div>
+          <label class="check small" style="margin-top:4px"><input type="checkbox" id="np-radio" ${localStorage.getItem("du.npRadio") === "0" ? "" : "checked"}> Share what I play on DialedUp Radio</label></div>
         <div class="panel" style="margin-top:10px"><h3>Saved messages</h3><ul class="list" id="saved"></ul></div>`;
+      body.querySelector("#np-set").onclick = () => setNowPlayingStatus(body.querySelector("#np-t").value, "manual");
+      body.querySelector("#np-clr").onclick = () => { body.querySelector("#np-t").value = ""; setNowPlayingStatus("", "manual"); };
+      body.querySelector("#np-radio").onchange = (e) => localStorage.setItem("du.npRadio", e.target.checked ? "1" : "0");
       const ta = body.querySelector("#aw");
       const paint = () => {
         body.querySelector("#saved").innerHTML = saved.map((m, i) =>
