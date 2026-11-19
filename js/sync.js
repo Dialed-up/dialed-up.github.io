@@ -31,8 +31,36 @@ function flush() {
   update(ref(db, `settings/${uid}`), batch).catch(() => {});
 }
 
-Storage.prototype.setItem = function (k, v) { rawSet.call(this, k, v); if (this === window.localStorage) queue(k, v); };
-Storage.prototype.removeItem = function (k) { rawRemove.call(this, k); if (this === window.localStorage) queue(k, null); };
+// If this device's storage is full, saving a setting would fail and break things like sending an IM
+// or turning aLt CaPs off. So: clear out old leftovers and try again, and as a last resort keep the
+// value in memory for this visit instead of failing.
+const rawGet = Storage.prototype.getItem;
+const memory = new Map();
+const LEFTOVERS = ["du.read.", "du.bday.", "du.reminded.", "du.pv.", "du.win3.", "du.feedSeen.", "du.notifSeen.", "du.bot.", "du.emojiRecent", "du.buddyof."];
+function freeUpSpace(store, keep) {
+  const keys = [];
+  for (let i = 0; i < store.length; i++) keys.push(store.key(i));
+  // oldest "read" markers first, then other leftovers
+  const reads = keys.filter((k) => k.startsWith("du.read.") && k !== keep).sort((a, b) => Number(rawGet.call(store, a)) - Number(rawGet.call(store, b)));
+  reads.slice(0, Math.ceil(reads.length / 2)).forEach((k) => rawRemove.call(store, k));
+  keys.filter((k) => k !== keep && !k.startsWith("du.read.") && LEFTOVERS.some((p) => k.startsWith(p))).forEach((k) => rawRemove.call(store, k));
+}
+function safeSet(store, k, v) {
+  try { rawSet.call(store, k, v); memory.delete(k); return; } catch {}
+  try { freeUpSpace(store, k); rawSet.call(store, k, v); memory.delete(k); return; } catch {}
+  memory.set(k, String(v));   // still full: remember it for this visit
+}
+
+Storage.prototype.setItem = function (k, v) {
+  if (this !== window.localStorage) return rawSet.call(this, k, v);
+  safeSet(this, k, v);
+  queue(k, v);
+};
+Storage.prototype.getItem = function (k) {
+  if (this === window.localStorage && memory.has(k)) return memory.get(k);
+  return rawGet.call(this, k);
+};
+Storage.prototype.removeItem = function (k) { memory.delete(k); rawRemove.call(this, k); if (this === window.localStorage) queue(k, null); };
 
 /** Call after signing on. Brings saved settings onto this device, then keeps them in sync. Returns true if anything was restored. */
 export async function startSync(id) {
@@ -43,7 +71,7 @@ export async function startSync(id) {
     quiet = true;
     for (const [k, v] of Object.entries(remote)) {
       const key = dec(k);
-      if (wanted(key) && localStorage.getItem(key) === null && typeof v === "string") { localStorage.setItem(key, v); restored = true; }
+      if (wanted(key) && localStorage.getItem(key) === null && typeof v === "string") { safeSet(localStorage, key, v); restored = true; }
     }
     quiet = false;
     // Save anything this device has that the account doesn't yet.

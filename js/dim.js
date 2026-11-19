@@ -3,6 +3,7 @@ import "./guard.js";
 import "./update.js";
 import "./fullscreen.js";
 import "./altcaps.js";
+import "./diag.js";
 import { startSync, stopSync } from "./sync.js";
 import { auth, onAuthStateChanged, signOff } from "./firebase.js";
 import * as sfx from "./sounds.js";

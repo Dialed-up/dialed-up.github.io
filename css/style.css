@@ -885,3 +885,6 @@ img.gif { display: block; max-width: min(220px, 100%); height: auto; border-radi
 button.altcaps { display: inline-flex !important; align-items: center; gap: 4px; margin: 3px 0 !important; padding: 4px 10px; min-height: 28px; border-radius: 14px;
   border: 1px solid var(--line); background: #fff; color: #555; font-size: 12px !important; cursor: pointer; width: auto !important; touch-action: manipulation; }
 button.altcaps.on { background: linear-gradient(#ffe9fb, #f5d4ff); border-color: #c58cff; color: #6b2fd6; }
+.diag-bar { position: fixed; left: 8px; right: 8px; top: calc(env(safe-area-inset-top) + 8px); z-index: 200000; background: #b00020; color: #fff; border-radius: 10px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.4); max-height: 40vh; overflow: auto; }
+.diag-bar button { float: right; background: none; border: 0; color: #fff; font-size: 16px; cursor: pointer; }
+.diag-bar ol { margin: 4px 0 0; padding-left: 18px; }
