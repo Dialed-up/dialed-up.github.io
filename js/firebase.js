@@ -6,7 +6,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getDatabase, ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect,
-  query, orderByKey, limitToLast, runTransaction,
+  query, orderByKey, orderByChild, limitToLast, runTransaction,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
 const app = initializeApp({
@@ -35,7 +35,7 @@ export async function appCheckToken() {
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 export {
-  ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect, query, orderByKey, limitToLast,
+  ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect, query, orderByKey, orderByChild, limitToLast,
   runTransaction, onAuthStateChanged,
 };
 

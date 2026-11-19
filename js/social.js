@@ -1,6 +1,6 @@
 // DialedUp social: permanent Posts (photos + text) that live on your Wall, the Homie Feed, likes & comments,
 // Homie Updates (24-hour stories), Top 8, and Report buttons.
-import { auth, db, ref, get, set, push, remove, update, onValue, off, query, orderByKey, limitToLast, serverTimestamp } from "./firebase.js";
+import { auth, db, ref, get, set, push, remove, update, onValue, off, query, orderByKey, orderByChild, limitToLast, serverTimestamp } from "./firebase.js";
 import { openWindow, closeWindow, getWindow, esc, img64, contextMenu } from "./wm.js";
 import { me, userName, iconHTML, buddyList, openInfo, openIM } from "./chat.js";
 import { pickEmoji } from "./emoji.js";
@@ -43,19 +43,22 @@ async function shrink(file, max = 960, q = 0.72) {
 
 // =================== Posts ===================
 /** Write a post on someone's Wall (your own Wall = a normal post). */
-export async function createPost(owner, text, file) {
+export async function createPost(owner, text, file, { pub = false } = {}) {
   const notifyAfter = (pid) => import("./notifs.js").then((m) => {
     if (owner !== uid() && !owner.startsWith("g_")) m.notify(owner, "wall", { owner, pid, text });
     m.notifyMentions(text, { owner, pid });
   });
   const pid = push(ref(db, `posts/${owner}`)).key;
   if (file) await set(ref(db, `postimgs/${owner}/${pid}`), await shrink(file));
-  await set(ref(db, `posts/${owner}/${pid}`), { by: uid(), n: me().screenName, text: String(text || "").slice(0, 1000), img: !!file, ts: serverTimestamp() });
+  const isPublic = pub && owner === uid();   // only your own posts can be public
+  await set(ref(db, `posts/${owner}/${pid}`), { by: uid(), n: me().screenName, text: String(text || "").slice(0, 1000), img: !!file, ts: serverTimestamp(), ...(isPublic ? { pub: true } : {}) });
+  if (isPublic) await set(ref(db, `pubfeed/${owner}_${pid}`), { owner, pid, ts: serverTimestamp() }).catch(() => {});
   notifyAfter(pid);
   return pid;
 }
 
 async function deletePost(owner, pid) {
+  await remove(ref(db, `pubfeed/${owner}_${pid}`)).catch(() => {});
   await remove(ref(db, `postcomments/${owner}/${pid}`)).catch(() => {});
   await remove(ref(db, `postlikes/${owner}/${pid}`)).catch(() => {});
   await remove(ref(db, `postimgs/${owner}/${pid}`)).catch(() => {});
@@ -76,6 +79,7 @@ function postCard(el, owner, pid, p, label = null) {
   el.className = "post";
   el.innerHTML = `<div class="post-head">${iconHTML(p.by, 34)}<div><b class="post-who" data-u="${esc(p.by)}">${esc(p.n || userName(p.by))}</b>
       ${p.by === OWNER && owner === OWNER ? `<span class="owner-tag" title="From the creator of DialedUp">⭐ DialedUp</span>` : ""}
+      ${p.pub ? `<span class="aud-tag" title="Public: anyone on DialedUp can see this">🌍</span>` : p.by === owner && owner === uid() ? `<span class="aud-tag" title="Homies only">👥</span>` : ""}
       ${p.by !== owner && !label ? `<span class="small muted"> ▸ ${esc(userName(owner))}'s Wall</span>` : ""}<br><span class="small muted">${p.ts ? ago(p.ts) : ""}</span></div>
       <button class="post-more" title="More">⋯</button></div>
     ${p.text ? `<div class="post-text">${linkify(p.text)}</div>` : ""}
@@ -161,7 +165,11 @@ function composer(owner, onDone, label = null) {
   box.innerHTML = `<textarea placeholder="${self ? "What's on your mind?" : label ? `Post to ${esc(label)}…` : `Write something on ${esc(userName(owner))}'s Wall…`}" maxlength="1000" rows="2"></textarea>
     <div class="row"><span><label class="btn small-btn" style="margin:0;font-weight:normal">📷 Photo<input type="file" accept="image/*" hidden></label>
       <button type="button" class="btn small-btn" data-emo>😀</button> <span class="small muted pf-name"></span></span>
-      <button class="btn primary small-btn">Post</button></div>`;
+      <span class="post-go">${self ? `<select class="post-aud" title="Who can see this post">
+        <option value="homies" ${localStorage.getItem("du.postPub") === "1" ? "" : "selected"}>👥 Homies only</option>
+        <option value="public" ${localStorage.getItem("du.postPub") === "1" ? "selected" : ""}>🌍 Public</option></select>` : ""}
+      <button class="btn primary small-btn">Post</button></span></div>`;
+  box.querySelector(".post-aud")?.addEventListener("change", (e) => localStorage.setItem("du.postPub", e.target.value === "public" ? "1" : "0"));
   let file = null;
   const ta = box.querySelector("textarea");
   box.querySelector("input[type=file]").onchange = (e) => { file = e.target.files[0] || null; box.querySelector(".pf-name").textContent = file ? "📷 " + file.name.slice(0, 24) : ""; };
@@ -171,7 +179,7 @@ function composer(owner, onDone, label = null) {
     if (!ta.value.trim() && !file) return;
     const btn = box.querySelector(".btn.primary");
     btn.disabled = true; btn.textContent = "Posting…";
-    try { await createPost(owner, ta.value.trim(), file); ta.value = ""; file = null; box.querySelector(".pf-name").textContent = ""; onDone?.(); }
+    try { await createPost(owner, ta.value.trim(), file, { pub: box.querySelector(".post-aud")?.value === "public" }); ta.value = ""; file = null; box.querySelector(".pf-name").textContent = ""; onDone?.(); }
     catch (err) {
       const denied = /permission/i.test(String(err?.code || err?.message));
       alert(denied && !self && !label ? `Couldn't post on ${userName(owner)}'s Wall. Only people they've added as a homie can write there.`
@@ -212,32 +220,61 @@ const feedSeenKey = () => "du.feedSeen." + uid();
 /** The feed itself (stories bar, post box, posts). Used by the Feed window and the Welcome screen. Returns a cleanup function. */
 export function mountFeed(body, { limit = 60, more = null } = {}) {
   const refs = [], cards = [];
-  body.innerHTML = `<div class="stories-bar"></div><div class="feed-compose"></div><div class="feed-list"><p class="muted">Loading your homies' posts…</p></div>`;
+  let tab = localStorage.getItem("du.feedTab") === "public" ? "public" : "homies";
+  body.innerHTML = `<div class="stories-bar"></div><div class="feed-compose"></div>
+    <div class="feed-tabs" role="tablist"><button data-tab="homies">👥 Homies</button><button data-tab="public">🌍 Public</button></div>
+    <div class="feed-list"><p class="muted">Loading posts…</p></div>`;
   paintStoriesBar(body.querySelector(".stories-bar"));
   body.querySelector(".feed-compose").appendChild(composer(uid()));
-  const people = feedPeople();
-  const byUser = {};
+  const items = { homies: {}, public: [] };   // homies: posts by person · public: the newest public posts
   const paint = () => {
-    const sorted = Object.entries(byUser).flatMap(([owner, posts]) => posts.map(([pid, p]) => ({ owner, pid, p })))
-      .sort((a, b) => (b.p.ts || 0) - (a.p.ts || 0));
-    const all = sorted.slice(0, limit);
     const list = body.querySelector(".feed-list");
     if (!list) return;
+    body.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+    const sorted = (tab === "homies" ? Object.entries(items.homies).flatMap(([owner, posts]) => posts.map(([pid, p]) => ({ owner, pid, p }))) : items.public)
+      .sort((a, b) => (b.p.ts || 0) - (a.p.ts || 0));
+    const all = sorted.slice(0, limit);
     cards.forEach((fn) => fn()); cards.length = 0;
-    if (!all.length) { list.innerHTML = `<div class="panel small">No posts yet. Be the first! Share a photo or what you're up to above. 👆</div>`; return; }
+    if (!all.length) {
+      list.innerHTML = `<div class="panel small">${tab === "homies" ? "No posts from your homies yet. Be the first! Share a photo or what you're up to above. 👆"
+        : "No public posts yet. Pick 🌍 Public before you post to share with everyone on DialedUp."}</div>`;
+      return;
+    }
     list.innerHTML = "";
     all.forEach(({ owner, pid, p }) => { const d = document.createElement("div"); list.appendChild(d); cards.push(postCard(d, owner, pid, p)); });
     if (more && sorted.length > limit) { const a = document.createElement("button"); a.className = "btn small-btn feed-more"; a.textContent = "See more in the Homie Feed ›"; a.onclick = more; list.appendChild(a); }
-    try { localStorage.setItem(feedSeenKey(), String(Date.now())); } catch {}
-    paintFeedBadge(0);
+    if (tab === "homies") { try { localStorage.setItem(feedSeenKey(), String(Date.now())); } catch {} paintFeedBadge(0); }
   };
   let timer = null;
-  // Only people's own posts go in the feed; notes written on someone's Wall stay on their profile.
-  people.forEach((u) => {
+  const later = () => { clearTimeout(timer); timer = setTimeout(paint, 250); };
+  // 👥 Homies: you, your homies and the owner's posts (only people's own posts; Wall notes stay on profiles)
+  feedPeople().forEach((u) => {
     const r = query(ref(db, `posts/${u}`), orderByKey(), limitToLast(15));
-    onValue(r, (s) => { const posts = []; s.forEach((c) => { if (c.val()?.by === u) posts.push([c.key, c.val()]); }); byUser[u] = posts; clearTimeout(timer); timer = setTimeout(paint, 250); }, () => {});
+    onValue(r, (s) => { const posts = []; s.forEach((c) => { if (c.val()?.by === u) posts.push([c.key, c.val()]); }); items.homies[u] = posts; if (tab === "homies") later(); }, () => {});
     refs.push(r);
   });
+  // 🌍 Public: the newest public posts from everyone
+  const pr = query(ref(db, "pubfeed"), orderByChild("ts"), limitToLast(40));
+  const cache = {};
+  onValue(pr, async (s) => {
+    const rows = [];
+    s.forEach((c) => { const v = c.val(); if (v?.owner && v?.pid) rows.push(v); });
+    const blocked = new Set(JSON.parse(localStorage.getItem("du.ignored") || "[]"));
+    const got = await Promise.all(rows.filter((v) => !blocked.has(v.owner)).map(async (v) => {
+      const k = v.owner + "/" + v.pid;
+      if (!(k in cache)) cache[k] = (await get(ref(db, `posts/${k}`)).catch(() => null))?.val() || null;
+      return cache[k] ? { owner: v.owner, pid: v.pid, p: cache[k] } : null;
+    }));
+    items.public = got.filter(Boolean);
+    if (tab === "public") later();
+  }, () => { items.public = []; if (tab === "public") later(); });
+  refs.push(pr);
+  body.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => {
+    tab = b.dataset.tab;
+    try { localStorage.setItem("du.feedTab", tab); } catch {}
+    paint();
+  }));
+  paint();
   return () => { refs.forEach((r) => off(r)); cards.forEach((fn) => fn()); };
 }
 
