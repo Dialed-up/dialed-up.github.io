@@ -862,3 +862,12 @@ img.gif { display: block; max-width: min(220px, 100%); height: auto; border-radi
 .gif-grid button { border: 0; padding: 0; background: #eee; border-radius: 6px; cursor: pointer; overflow: hidden; }
 .gif-grid img { width: 100%; display: block; }
 .gif-by { text-align: right; font-size: 10px; }
+/* Homies List: top and bottom stay put, only the list in the middle scrolls */
+.win-body.bl-body { display: flex; flex-direction: column; overflow: hidden; }
+.bl-body > .bl-top, .bl-body > .bl-me, .bl-body > .bl-bottom, .bl-body > .bl-bottom2, .bl-body > .bl-offline { flex-shrink: 0; }
+.bl-body > .bl-scroll { flex: 1 1 auto; min-height: 60px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.bl-me .one-line { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+/* Away status pinned under the conversation */
+.im-away { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 2px; padding: 6px 10px; border-radius: 12px; background: linear-gradient(#fff8e6, #ffefc7); color: #6b4a00;
+  white-space: normal !important; overflow: visible !important; font-size: 12px; line-height: 1.35; border: 1px solid #f3d27a; max-height: 7.5em; overflow-y: auto !important; }
+.im-away-ic { font-size: 18px; line-height: 1; }

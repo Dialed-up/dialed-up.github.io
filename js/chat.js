@@ -14,7 +14,7 @@ import { gifHTML } from "./gif.js";
 
 const state = {
   uid: null, me: { screenName: "" }, users: {}, groups: [], inbox: {}, blocked: new Set(), notices: {},
-  away: "", listeners: [], timers: [], icons: {}, known: {}, loadedUsers: false, loadedInbox: false, lastAuto: {},
+  away: "", listeners: [], timers: [], icons: {}, known: {}, loadedUsers: false, loadedInbox: false,
 };
 
 export const me = () => state.me;
@@ -262,7 +262,6 @@ function onInbox(v) {
       if (!existed && needsKnock(e.from)) { openKnock(e.from, e.preview); continue; }
       openIM(e.from, { quiet: true });
       if (existed) flash("im." + e.from);
-      autoReply(e.from, conv);
     }
   }
   if (!state.loadedInbox) {
@@ -320,8 +319,10 @@ function refreshBuddyList() {
   const win = getWindow("buddies");
   if (!win) return;
   const body = win.body;
-  const scroll = body.scrollTop;
-  const myStatus = state.away ? `<span class="status away">Away: ${esc(state.away)}</span>` : `<span class="status">Available</span>`;
+  const scroll = body.querySelector(".bl-scroll")?.scrollTop || 0;
+  const fold = (k) => localStorage.getItem("du.fold." + k) === "1";   // Bots / IM Requests / Offline sections
+  const foldBtn = (k, label) => `<button data-fold="${k}">${fold(k) ? "▸" : "▾"} ${label}</button>`;
+  const myStatus = state.away ? `<span class="status away one-line" title="${esc(state.away)}">🌙 Away: ${esc(state.away)}</span>` : `<span class="status">Available</span>`;
   const row = (uid) => {
     const u = state.users[uid];
     const p = presence(u);
@@ -359,12 +360,14 @@ function refreshBuddyList() {
       </select></div>
     <div class="bl-me" data-me title="Tap to edit your profile">${social?.hasStory(state.uid) ? `<span class="my-story ring" data-mystory title="See your Homie Update">${iconHTML(state.uid, 34)}</span>` : state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="${document.body.classList.contains("dim") ? "img/dim-logo.png" : "img/logo.png"}" width="40" height="28" alt="" style="object-fit:contain">`}
       <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${nowPlayingOf(state.uid) ? `<br><span class="np-me small">🎵 ${esc(nowPlayingOf(state.uid))}</span>` : ""}${social?.hasStory(state.uid) ? `<br><a href="#" class="small" data-mystory>✨ Your Homie Update is live</a>` : ""}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
-    <div class="group"><button>▾ Bots (1/1)</button>
-      <div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div></div>
+    <div class="bl-scroll">
+    <div class="group">${foldBtn("bots", "Bots (1/1)")}
+      ${fold("bots") ? "" : `<div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div>`}</div>
     ${groupsHTML}
-    ${strangers.length ? `<div class="group im-requests"><div class="row" style="align-items:center"><button>▾ IM Requests (${strangers.length})</button>
-      <a href="#" class="small" data-clear-recent title="Clear all IM Requests">Clear</a></div>${strangers.map((u) => row(u).replace('data-buddy=', 'data-recent="1" data-buddy=')).join("")}</div>` : ""}
-    ${show === "everyone" ? `<div class="group"><button>▾ Offline (${off_.length})</button>${off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
+    ${strangers.length ? `<div class="group im-requests"><div class="row" style="align-items:center">${foldBtn("requests", `IM Requests (${strangers.length})`)}
+      <a href="#" class="small" data-clear-recent title="Clear all IM Requests">Clear</a></div>${fold("requests") ? "" : strangers.map((u) => row(u).replace('data-buddy=', 'data-recent="1" data-buddy=')).join("")}</div>` : ""}
+    ${show === "everyone" ? `<div class="group">${foldBtn("offline", `Offline (${off_.length})`)}${fold("offline") ? "" : off_.sort((a, b) => name(a).localeCompare(name(b))).map(row).join("")}</div>` : ""}
+    </div>
     <div class="bl-bottom">
       <button class="bl-icon" data-act="im"><span>💬</span>Send IM</button>
       <button class="bl-icon${state.away ? " on" : ""}" data-act="awaymenu" title="Away Message"><span>🌙<i class="bl-caret">▾</i></span>Away Message</button>
@@ -375,7 +378,12 @@ function refreshBuddyList() {
     <div class="bl-bottom2">
       <button class="btn small-btn" data-act="setup">Setup</button>
     </div>`;
-  body.scrollTop = scroll;
+  body.classList.add("bl-body");
+  body.querySelector(".bl-scroll").scrollTop = scroll;
+  body.querySelectorAll("[data-fold]").forEach((b) => (b.onclick = () => {
+    localStorage.setItem("du.fold." + b.dataset.fold, fold(b.dataset.fold) ? "0" : "1");
+    refreshBuddyList();
+  }));
   body.querySelector("[data-me]").onclick = (e) => {
     if (e.target.closest("[data-mystory]")) { e.preventDefault(); social?.viewStories(state.uid, refreshBuddyList); return; }
     openProfile();
@@ -401,6 +409,7 @@ function refreshBuddyList() {
   body.querySelectorAll("[data-group]").forEach((b) => (b.onclick = () => {
     const g = state.groups.find((x) => x.id === b.dataset.group);
     g.collapsed = !g.collapsed;
+    refreshBuddyList();
     saveGroups();
   }));
   body.querySelector("#bl-show").onchange = (e) => { localStorage.setItem("du.show", e.target.value); refreshBuddyList(); };
@@ -994,10 +1003,12 @@ function renderIMStatus(uid) {
   if (ic) ic.innerHTML = iconHTML(uid, 22);
   const nm = win.body.querySelector(".im-name");
   if (nm) nm.textContent = name(uid);
+  // Their away message stays pinned at the bottom of the conversation while it's on (like a Focus status)
   const aw = win.body.querySelector(".im-away");
   if (p === "away" && u?.away) {
-    if (!aw) win.body.querySelector(".im-head")?.insertAdjacentHTML("afterend", `<div class="im-away small"></div>`);
-    win.body.querySelector(".im-away").textContent = "📝 " + u.away;
+    if (!aw) win.body.querySelector(".transcript")?.insertAdjacentHTML("afterend", `<div class="im-away"><span class="im-away-ic">🌙</span><span class="im-away-t"></span></div>`);
+    const away = String(u.away).replaceAll("%n", state.me.screenName || "").replaceAll("%t", new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })).replaceAll("%d", new Date().toLocaleDateString());
+    win.body.querySelector(".im-away-t").innerHTML = `<b>${esc(name(uid))} is away</b><br>${esc(away)}<br><span class="small muted">They'll see your messages when they're back.</span>`;
   } else aw?.remove();
   setTitle("im." + uid, `${name(uid)} — Instant Message`);
 }
@@ -1021,14 +1032,6 @@ async function sendIM(uid, text, style, { auto = false, file = null, media = nul
   remove(ref(db, `typing/${conv}/${state.uid}`)).catch(() => {});
 }
 
-function autoReply(uid, conv) {
-  if (!state.away) return;
-  if (Date.now() - (state.lastAuto[conv] || 0) < 300000) return;
-  state.lastAuto[conv] = Date.now();
-  const text = state.away.replaceAll("%n", name(uid)).replaceAll("%t", new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }))
-    .replaceAll("%d", new Date().toLocaleDateString());
-  sendIM(uid, text, { font: "Verdana", size: 14, color: "#000000" }, { auto: true }).catch(() => {});
-}
 
 // ---------- File transfer (same format as the iPhone app) ----------
 const CHUNK = 192 * 1024;
