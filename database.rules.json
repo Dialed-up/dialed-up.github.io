@@ -202,7 +202,7 @@
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + $uid + '/' + auth.uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || ((root.child('inbox/' + auth.uid + '/' + $uid + '_' + auth.uid).exists() || root.child('inbox/' + auth.uid + '/' + auth.uid + '_' + $uid).exists()) && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))",
         ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && auth.uid === $uid",
-        ".validate": "!newData.exists() || (newData.isString() && newData.val().length < 290000 && newData.val().matches(/^(data:image\\/(png|jpeg|gif|webp);base64,)?[A-Za-z0-9+\\/=]+$/))"
+        ".validate": "!newData.exists() || (newData.isString() && newData.val().length < 290000)"
       }
     },
     "addressbook": {
@@ -216,7 +216,7 @@
         ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + auth.uid + '/' + $uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))",
         ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && auth.uid === $uid",
         "$album": {
-          ".validate": "!newData.exists() || ($album.matches(/^[-_A-Za-z0-9]{20}$/) && newData.child('name').isString() && newData.child('name').val().length <= 60 && (!newData.child('cover').exists() || (newData.child('cover').val().length < 120000 && newData.child('cover').val().matches(/^(data:image\\/(png|jpeg|gif|webp);base64,)?[A-Za-z0-9+\\/=]+$/))))"
+          ".validate": "!newData.exists() || ($album.matches(/^[-_A-Za-z0-9]{20}$/) && newData.child('name').isString() && newData.child('name').val().length <= 60 && (!newData.child('cover').exists() || (newData.child('cover').val().length < 120000)))"
         }
       }
     },
@@ -226,7 +226,7 @@
         ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && auth.uid === $uid",
         "$album": {
           "$pid": {
-            ".validate": "!newData.exists() || ($pid.matches(/^[-_A-Za-z0-9]{20}$/) && newData.child('data').isString() && newData.child('data').val().length < 400000 && newData.child('data').val().matches(/^(data:image\\/(png|jpeg|gif|webp);base64,)?[A-Za-z0-9+\\/=]+$/) && (!newData.child('caption').exists() || newData.child('caption').val().length <= 200))"
+            ".validate": "!newData.exists() || ($pid.matches(/^[-_A-Za-z0-9]{20}$/) && newData.child('data').isString() && newData.child('data').val().length < 400000 && (!newData.child('caption').exists() || newData.child('caption').val().length <= 200))"
           }
         }
       }
@@ -380,7 +380,7 @@
       ".read": "auth != null",
       "$uid": {
         ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && auth.uid === $uid",
-        ".validate": "!newData.exists() || (newData.child('screenName').isString() && (!newData.child('profileHtml').exists() || newData.child('profileHtml').val().length <= 12000) && (!newData.child('icon').exists() || (newData.child('icon').val().length < 290000 && newData.child('icon').val().matches(/^(data:image\\/(png|jpeg|gif|webp);base64,)?[A-Za-z0-9+\\/=]+$/))))"
+        ".validate": "!newData.exists() || (newData.child('screenName').isString() && (!newData.child('profileHtml').exists() || newData.child('profileHtml').val().length <= 12000) && (!newData.child('icon').exists() || (newData.child('icon').val().length < 290000)))"
       }
     },
     "profilepics": {
@@ -388,7 +388,7 @@
         ".read": "auth != null && (auth.uid === $uid || (root.child('buddyof/' + auth.uid + '/' + $uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()) || (root.child('publicprofiles/' + $uid).exists() && !root.child('blocks/' + $uid + '/' + auth.uid).exists()))",
         ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && auth.uid === $uid",
         "$pid": {
-          ".validate": "newData.isString() && newData.val().length <= 160000 && newData.val().matches(/^(data:image\\/(png|jpeg|gif|webp);base64,)?[A-Za-z0-9+\\/=]+$/)"
+          ".validate": "newData.isString() && newData.val().length <= 160000"
         }
       }
     },
@@ -405,7 +405,7 @@
       "$login": {
         ".read": true,
         ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && root.child('screennames/' + $login).val() === auth.uid",
-        ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 400 && newData.val().matches(/^[A-Za-z0-9+\\/=]+\\.[A-Za-z0-9+\\/=]+$/))"
+        ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 400 && newData.val().contains('.'))"
       }
     },
     "loginnames": {
@@ -481,7 +481,7 @@
         ".read": "auth != null && (($owner.beginsWith('g_') && root.child('groupmembers/' + $owner.replace('g_', '') + '/' + auth.uid).exists()) || auth.uid === $owner || auth.uid === 'Dh35JEPVTiWIB96X03RGeiVmQN03' || ($owner === 'Dh35JEPVTiWIB96X03RGeiVmQN03' && !root.child('blocks/' + $owner + '/' + auth.uid).exists()) || ((root.child('buddyof/' + auth.uid + '/' + $owner).exists() || root.child('publicprofiles/' + $owner).exists()) && !root.child('blocks/' + $owner + '/' + auth.uid).exists()))",
         "$pid": {
           ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && ((!data.exists() && (($owner.beginsWith('g_') && root.child('groupmembers/' + $owner.replace('g_', '') + '/' + auth.uid).exists()) || auth.uid === $owner || (root.child('buddyof/' + auth.uid + '/' + $owner).exists() && !root.child('blocks/' + $owner + '/' + auth.uid).exists()))) || (data.exists() && !newData.exists() && (($owner.beginsWith('g_') && root.child('groups/' + $owner.replace('g_', '') + '/owner').val() === auth.uid) || auth.uid === $owner || root.child('posts/' + $owner + '/' + $pid + '/by').val() === auth.uid || auth.uid === 'Dh35JEPVTiWIB96X03RGeiVmQN03' || !root.child('posts/' + $owner + '/' + $pid).exists())))",
-          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 260000 && newData.val().matches(/^(data:image\\/(png|jpeg|gif|webp);base64,)?[A-Za-z0-9+\\/=]+$/))",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 260000)",
           ".read": "auth != null && (root.child('posts/' + $owner + '/' + $pid + '/pub').val() === true && !root.child('blocks/' + $owner + '/' + auth.uid).exists())"
         }
       }
@@ -581,7 +581,7 @@
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && auth.uid === $uid",
-        ".validate": "!newData.exists() || (newData.child('email').isString() && newData.child('email').val().length <= 100 && newData.child('email').val().matches(/^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/))"
+        ".validate": "!newData.exists() || (newData.child('email').isString() && newData.child('email').val().length <= 100 && newData.child('email').val().contains('@') && newData.child('email').val().contains('.'))"
       }
     },
     "notifs": {
@@ -623,7 +623,7 @@
       ".read": "auth != null && auth.uid === 'Dh35JEPVTiWIB96X03RGeiVmQN03'",
       "$rid": {
         ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && ((!data.exists() && newData.child('by').val() === auth.uid) || (auth.uid === 'Dh35JEPVTiWIB96X03RGeiVmQN03' && !newData.exists()))",
-        ".validate": "!newData.exists() || ($rid.matches(/^[-_A-Za-z0-9]{20}$/) && newData.child('path').isString() && newData.child('path').val().matches(/^(posts|postcomments|stories|guestbook|groups)\\/[-_A-Za-z0-9\\/]{1,160}$/) && (!newData.child('preview').exists() || newData.child('preview').val().length <= 200) && (!newData.child('why').exists() || newData.child('why').val().length <= 200))"
+        ".validate": "!newData.exists() || ($rid.matches(/^[-_A-Za-z0-9]{20}$/) && newData.child('path').isString() && newData.child('path').val().length <= 200 && (newData.child('path').val().beginsWith('posts/') || newData.child('path').val().beginsWith('postcomments/') || newData.child('path').val().beginsWith('stories/') || newData.child('path').val().beginsWith('guestbook/') || newData.child('path').val().beginsWith('groups/')) && (!newData.child('preview').exists() || newData.child('preview').val().length <= 200) && (!newData.child('why').exists() || newData.child('why').val().length <= 200))"
       }
     }
   }
