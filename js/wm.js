@@ -292,16 +292,26 @@ export function refit() {
     if (w.id === "buddies") {
       // the Homies window stays docked on the right, full height
       const bw = Math.min(Math.max(el.offsetWidth, 190), Math.round(dw * (dw > dh ? 0.32 : 0.5)), 260);
-      Object.assign(el.style, { width: bw + "px", height: dh - 12 + "px", top: "6px" });
+      const top = Math.max(6, safeTop());   // stay below the phone's clock / notch
+      Object.assign(el.style, { width: bw + "px", height: dh - top - 6 + "px", top: top + "px" });
       // place it by its real width (a minimum width in the styles can make it wider than asked)
       el.style.left = Math.max(0, dw - el.offsetWidth - 6) + "px";
       return;
     }
     const nw = Math.min(el.offsetWidth, dw - 8), nh = Math.min(el.offsetHeight, dh - 8);
-    const nx = Math.min(Math.max(el.offsetLeft, 0), dw - nw - 4), ny = Math.min(Math.max(el.offsetTop, 0), dh - nh - 4);
+    const nx = Math.min(Math.max(el.offsetLeft, 0), dw - nw - 4), ny = Math.max(safeTop(), Math.min(Math.max(el.offsetTop, 0), dh - nh - 4));
     Object.assign(el.style, { width: nw + "px", height: nh + "px", left: Math.max(0, nx) + "px", top: Math.max(0, ny) + "px" });
   });
 }
+// iPhone: after the keyboard closes, the page can stay pushed up (blank space under the taskbar,
+// windows out of reach). Put it back whenever nothing is being typed into.
+const typing = () => /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable;
+const settle = () => { if (!typing() && (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop)) { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } };
+document.addEventListener("focusout", () => setTimeout(() => { settle(); refit(); }, 120));
+window.visualViewport?.addEventListener("resize", () => setTimeout(() => { settle(); refit(); }, 120));
+window.addEventListener("scroll", () => { if (!typing()) settle(); }, { passive: true });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(() => { settle(); refit(); }, 200); });
+
 let refitTimer = null;
 window.addEventListener("resize", () => { clearTimeout(refitTimer); refitTimer = setTimeout(refit, 120); });
 window.addEventListener("orientationchange", () => setTimeout(refit, 300));
