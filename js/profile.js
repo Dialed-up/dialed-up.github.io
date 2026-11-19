@@ -319,6 +319,7 @@ export function openProfileEditor({ uid, user, screenName, iconHTML, setMyIcon, 
             localStorage.setItem("du.names", JSON.stringify([done, ...names].slice(0, 7)));
           } catch {}
           alert(`You're now "${done}"! Sign on with this name next time (your password is the same).`);
+          import("./engage.js").then((m) => m.screenNameLetter(screenName, done));
           screenName = done;
           document.title = document.title.replace(/—.*$/, "— " + done);
         } catch (e) { err.textContent = e.message; }

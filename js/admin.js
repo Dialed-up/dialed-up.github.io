@@ -30,10 +30,12 @@ export function openAdmin() {
         <form class="row" id="ad-f" style="gap:4px"><input id="ad-q" placeholder="Screen name to look up" style="flex:1" autocapitalize="off" data-no-altcaps><button class="btn primary small-btn">🔎 Look Up</button></form>
         <div id="ad-member"></div>
         <div class="row" style="gap:4px;margin:8px 0;justify-content:flex-start;flex-wrap:wrap">
+          <button class="btn primary small-btn" data-go="announce">📣 Letter to Everyone</button>
           <button class="btn small-btn" data-go="reports">🛡 Reports</button>
           <button class="btn small-btn" data-go="stats">📊 Site Stats</button>
         </div>
         <div class="panel"><h3>⛔ Suspended & banned</h3><div id="ad-bans" class="small muted">Loading…</div></div>`;
+      body.querySelector("[data-go=announce]").onclick = openAnnounce;
       body.querySelector("[data-go=reports]").onclick = () => import("./social.js").then((m) => m.openReports());
       body.querySelector("[data-go=stats]").onclick = () => window.open("stats.html", "_blank");
       body.querySelector("#ad-f").onsubmit = async (e) => {
@@ -88,13 +90,27 @@ async function showMember(box, uid) {
     const reason = prompt(days ? `Suspend ${name} for ${days} day${days === 1 ? "" : "s"}. Reason (they'll see this):` : `Ban ${name}. Reason (they'll see this):`, "");
     if (reason === null) return;
     const until = days ? Date.now() + days * 86400000 : Date.now() + 100 * 365 * 86400000;
-    try { await set(ref(db, `bans/${uid}`), { until, reason: reason.slice(0, 200), by: auth.currentUser.uid, at: Date.now() }); showMember(box, uid); }
+    try {
+      await set(ref(db, `bans/${uid}`), { until, reason: reason.slice(0, 200), by: auth.currentUser.uid, at: Date.now() });
+      const { moderationLetter } = await import("./engage.js");
+      await moderationLetter(uid, days ? `⏸ Your account is suspended for ${days} day${days === 1 ? "" : "s"}` : "⛔ Your account has been banned",
+        `${days ? `Your DialedUp account is suspended until ${when(until)}. You can sign on again after that.` : "Your DialedUp account has been banned."}${reason ? `\n\nReason: ${reason}` : ""}
+
+Please keep DialedUp friendly: no harassment, spam or anything that makes it unsafe for others.
+— DialedUp`).catch(() => {});
+      showMember(box, uid);
+    }
     catch { alert("Couldn't save. Make sure the latest database rules are published."); }
   };
   const act = {
     info: () => openInfo(uid), im: () => openIM(uid),
     s1: () => suspend(1), s7: () => suspend(7), ban: () => suspend(0),
-    unban: async () => { await remove(ref(db, `bans/${uid}`)).catch(() => {}); showMember(box, uid); },
+    unban: async () => {
+      await remove(ref(db, `bans/${uid}`)).catch(() => {});
+      const { moderationLetter } = await import("./engage.js");
+      moderationLetter(uid, "✅ Your account is back in good standing", "Your suspension has been lifted, so you can use DialedUp again. Welcome back!\n— DialedUp").catch(() => {});
+      showMember(box, uid);
+    },
     wipe: async () => {
       if (!confirm(`Delete ALL of ${name}'s Wall posts, photos, likes/comments on them, and Homie Updates? This can't be undone.`)) return;
       for (const p of ["posts", "postimgs", "postlikes", "postcomments", "stories"]) await remove(ref(db, `${p}/${uid}`)).catch(() => {});
@@ -102,4 +118,23 @@ async function showMember(box, uid) {
     },
   };
   box.querySelectorAll("[data-a]").forEach((b) => (b.onclick = () => act[b.dataset.a]?.()));
+}
+
+function openAnnounce() {
+  openWindow("announce", {
+    title: "Letter to Everyone", icon: "📣", width: 380, height: 420,
+    render(body) {
+      body.innerHTML = `<p class="small muted" style="margin-top:0">Lands in every member's Mailbox as a letter from DialedUp, the next time they sign on.</p>
+        <form id="an-f"><label>Subject <input id="an-s" maxlength="120" required placeholder="New on DialedUp: Group IMs!"></label>
+        <label>Letter <textarea id="an-b" rows="9" maxlength="4000" required></textarea></label>
+        <div class="row"><span></span><button class="btn primary">📣 Send to Everyone</button></div></form>`;
+      body.querySelector("#an-f").onsubmit = async (e) => {
+        e.preventDefault();
+        const subj = body.querySelector("#an-s").value.trim(), text = body.querySelector("#an-b").value.trim();
+        if (!subj || !text || !confirm("Send this letter to every member?")) return;
+        try { const { sendAnnouncement } = await import("./engage.js"); await sendAnnouncement(subj, text); alert("📣 Sent! Members get it in their Mailbox when they sign on."); closeWindow("announce"); }
+        catch { alert("Couldn't send it. Make sure the latest database rules are published."); }
+      };
+    },
+  });
 }

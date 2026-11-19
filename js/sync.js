@@ -3,7 +3,7 @@
 // to a new phone, a new browser, or a new web address.
 import { db, ref, get, update } from "./firebase.js";
 
-const KEEP = ["du.altcaps", "du.npRadio", "du.wallpaper", "du.wallpaperImg", "du.theme", "du.imbg", "du.city", "du.mailBuddiesOnly", "du.snake.best", "du.scramble.best",
+const KEEP = ["du.altcaps", "du.evmail.", "du.npRadio", "du.wallpaper", "du.wallpaperImg", "du.theme", "du.imbg", "du.city", "du.mailBuddiesOnly", "du.snake.best", "du.scramble.best",
   "du.trivia.best", "du.names", "du.muted", "du.awaySaved", "du.watch", "du.style", "du.sign", "du.show", "du.menuOpen", "du.listed.",
   "du.knock", "du.ignored", "du.alerts", "dim.backdrop", "du.favorites", "du.sig.", "du.emojiRecent", "du.accepted.", "du.rsvp.", "du.bot.",
   "du.win3.", "du.dimwin", "du.alertsAskOff"];

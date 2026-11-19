@@ -519,8 +519,19 @@ export function watchEvents() {
   clearInterval(eventTimer);
   eventTimer = setInterval(() => {
     const told = JSON.parse(sessionStorage.getItem("du.evtold") || "[]");
+    // a letter in your Mailbox about an hour before each event you said "Remind Me" to
+    const lettered = new Set(JSON.parse(localStorage.getItem("du.evmail." + uid()) || "[]"));
     for (const id of myRsvps()) {
       const ev = events[id];
+      if (ev && !lettered.has(id) && ev.start > Date.now() && ev.start - Date.now() < 65 * 60000) {
+        lettered.add(id);
+        localStorage.setItem("du.evmail." + uid(), JSON.stringify([...lettered].slice(-50)));
+        const when = new Date(ev.start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        import("./notifs.js").then((m) => m.systemMail(`🎤 Starting soon: ${ev.title}`, `"${ev.title}", hosted by ${ev.hostName || "a member"}, starts at ${when}.${ev.desc ? `\n\n${ev.desc}` : ""}
+
+You'll get a pop-up when it goes live. Find it under Channels → Live Events.
+— DialedUp`, { about: ev.host }));
+      }
       if (!ev || told.includes(id) || Date.now() < ev.start - 5 * 60000 || Date.now() > ev.start + 3600000) continue;
       told.push(id);
       sessionStorage.setItem("du.evtold", JSON.stringify(told));

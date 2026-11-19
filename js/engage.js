@@ -412,3 +412,121 @@ export async function openMyEmail({ nag = false } = {}) {
     },
   });
 }
+
+// =================== Letters from DialedUp (in your Mailbox) ===================
+const OWNER_UID = "Dh35JEPVTiWIB96X03RGeiVmQN03";
+const letter = (subject, body, extra) => import("./notifs.js").then((m) => m.systemMail(subject, body, extra));
+
+/** First sign-on after creating an account. */
+export function welcomeLetter() {
+  const n = me()?.screenName || "there";
+  letter("👋 Welcome to DialedUp!", `Hi ${n}, welcome aboard!
+
+DialedUp is the online service that never logged off. Here's how to get going:
+
+1. ➕ Add your homies: tap "Add Homie" on your Homies List and type their screen name.
+2. 🌙 Set an away message: tap the moon on your Homies List when you step away.
+3. ✨ Post a Homie Update: it stays up for 24 hours. Find it in the Homie Feed.
+4. 💬 Hop into a chat room: tap "Chat Rooms" and say hi in the Lobby.
+5. 🎟 Invite friends: People menu → Invite Friends. You'll both be homies automatically.
+
+Tip: type a word in the Keyword box at the top (like "weather", "trivia" or "radio") to jump anywhere.
+
+Have fun, and welcome home.
+— DialedUp`, { about: OWNER_UID });
+}
+
+/** On each sign-on: "While you were away", security notices and announcements. */
+export async function signOnLetters(prevSeen) {
+  setTimeout(() => awayLetter(prevSeen).catch(() => {}), 8000);
+  setTimeout(() => securityLetters().catch(() => {}), 5000);
+  setTimeout(() => announcementLetters().catch(() => {}), 3000);
+}
+
+async function awayLetter(prevSeen) {
+  if (!prevSeen || Date.now() - prevSeen < 20 * 3600000) return;   // only after being gone about a day
+  const mark = ref(db, `users/${uid()}/awayLetterFor`);
+  if ((await get(mark).catch(() => null))?.val() === prevSeen) return;   // already sent for this absence
+  await set(mark, prevSeen).catch(() => {});
+  const { unreadIMsSince } = await import("./chat.js");
+  const ims = unreadIMsSince(prevSeen);
+  const notifs = Object.values((await get(ref(db, `notifs/${uid()}`)).catch(() => null))?.val() || {}).filter((x) => (x.ts || 0) > prevSeen);
+  const mail = Object.values((await get(ref(db, `mail/${uid()}`)).catch(() => null))?.val() || {}).filter((x) => (x.ts || 0) > prevSeen && !x.read && !x.system && !x.deleted);
+  const count = (t) => notifs.filter((x) => x.type === t).length;
+  const lines = [];
+  if (ims.length) lines.push(`💬 ${ims.length} unread IM${ims.length === 1 ? "" : "s"} from ${[...new Set(ims.map((i) => userName(i.with)))].slice(0, 5).join(", ")}`);
+  if (mail.length) lines.push(`📬 ${mail.length} new letter${mail.length === 1 ? "" : "s"} from ${[...new Set(mail.map((x) => x.fromName))].slice(0, 5).join(", ")}`);
+  if (count("homie")) lines.push(`➕ ${count("homie")} ${count("homie") === 1 ? "person" : "people"} added you to their Homies List`);
+  if (count("like")) lines.push(`❤️ ${count("like")} like${count("like") === 1 ? "" : "s"} on your posts`);
+  if (count("comment")) lines.push(`💬 ${count("comment")} new comment${count("comment") === 1 ? "" : "s"}`);
+  if (count("wall")) lines.push(`📝 ${count("wall")} new note${count("wall") === 1 ? "" : "s"} on your Wall`);
+  if (count("mention")) lines.push(`📣 ${count("mention")} mention${count("mention") === 1 ? "" : "s"}`);
+  if (!lines.length) return;
+  const days = Math.max(1, Math.round((Date.now() - prevSeen) / 86400000));
+  letter("📬 While you were away", `Welcome back, ${me()?.screenName || "there"}! You were away ${days === 1 ? "about a day" : `${days} days`}. Here's what you missed:
+
+${lines.join("\n")}
+
+Check 🔔 Alerts and your Homies List for the details.
+— DialedUp`);
+}
+
+/** Safety net: letters when your email is confirmed or your password changes. */
+async function securityLetters() {
+  const fb = await import("./firebase.js");
+  const flags = (await get(ref(db, `users/${uid()}/sec`)).catch(() => null))?.val() || {};
+  const save = (k, v) => update(ref(db, `users/${uid()}/sec`), { [k]: v }).catch(() => {});
+  if (fb.emailConfirmed() && !flags.emailOk) {
+    save("emailOk", Date.now());
+    letter("✅ Your email is confirmed", `Your email address is now confirmed on your DialedUp account.
+
+If you ever forget your password, tap "Forgot password?" on the sign-on screen and we'll email you a reset link.
+
+Didn't do this? Change your password right away (My Profile) and contact the owner.
+— DialedUp`);
+  }
+  // Firebase reports when the password last changed
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const r = await fetch("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyCXoMzDT9DxB6fEer3F-UuOQlChRhkUFYY", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken: token }) });
+    const at = Number((await r.json()).users?.[0]?.passwordUpdatedAt) || 0;
+    if (at && flags.pwAt && at !== flags.pwAt) letter("🔐 Your password was changed", `The password on your DialedUp account was changed on ${new Date(at).toLocaleString()}.
+
+If that was you, you're all set. If it wasn't, use "Forgot password?" on the sign-on screen right away to take your account back, and contact the owner.
+— DialedUp`);
+    if (at && at !== flags.pwAt) save("pwAt", at);
+  } catch {}
+}
+
+/** Called after your screen name changes. */
+export function screenNameLetter(oldName, newName) {
+  letter("🆔 Your screen name changed", `Your screen name changed from ${oldName} to ${newName}.
+
+You can sign on with either name, and your homies, messages and mail all came with you.
+
+Didn't do this? Change your password right away (My Profile) and contact the owner.
+— DialedUp`);
+}
+
+// ---------- Owner announcements: one letter that reaches every member's Mailbox ----------
+async function announcementLetters() {
+  const seenRef = ref(db, `users/${uid()}/annSeen`);
+  const seen = (await get(seenRef).catch(() => null))?.val() || 0;
+  const all = Object.entries((await get(query(ref(db, "announcements"), orderByKey(), limitToLast(10))).catch(() => null))?.val() || {});
+  const joined = me()?.since || Date.now();   // new members only get announcements from their first week on
+  const fresh = all.filter(([, a]) => (a.ts || 0) > seen && (a.ts || 0) > joined - 7 * 86400000).sort((a, b) => a[1].ts - b[1].ts);
+  if (!all.length) return;
+  await set(seenRef, Math.max(seen, ...all.map(([, a]) => a.ts || 0))).catch(() => {});
+  fresh.forEach(([, a]) => letter(`📣 ${a.subject}`, `${a.body}\n\n— ${a.byName || "DialedUp"}`, { about: OWNER_UID }));
+}
+
+/** Owner only: send a letter to every member. */
+export async function sendAnnouncement(subject, body) {
+  await push(ref(db, "announcements"), { subject: String(subject).slice(0, 120), body: String(body).slice(0, 4000), by: uid(), byName: me()?.screenName || "DialedUp", ts: serverTimestamp() });
+}
+
+// ---------- Moderation notices (sent by the owner into the member's own Mailbox) ----------
+export async function moderationLetter(to, subject, body) {
+  await push(ref(db, `mail/${to}`), { system: true, from: uid(), fromName: "DialedUp", subject: String(subject).slice(0, 200), body: String(body).slice(0, 4000), ts: serverTimestamp(), read: false });
+}

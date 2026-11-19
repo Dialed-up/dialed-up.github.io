@@ -598,6 +598,13 @@
         ".validate": "!newData.exists() || (newData.child('until').isNumber() && (!newData.child('reason').exists() || newData.child('reason').val().length <= 200))"
       }
     },
+    "announcements": {
+      ".read": "auth != null",
+      "$id": {
+        ".write": "auth != null && auth.uid === 'Dh35JEPVTiWIB96X03RGeiVmQN03'",
+        ".validate": "!newData.exists() || (newData.child('subject').isString() && newData.child('subject').val().length <= 120 && newData.child('body').isString() && newData.child('body').val().length <= 4000)"
+      }
+    },
     "reports": {
       ".read": "auth != null && auth.uid === 'Dh35JEPVTiWIB96X03RGeiVmQN03'",
       "$rid": {

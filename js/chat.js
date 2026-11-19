@@ -127,7 +127,8 @@ export async function startChat() {
   });
   import("./engage.js").then((m) => {
     m.onSignOn();
-    if (sessionStorage.getItem("du.justSignedUp")) { sessionStorage.removeItem("du.justSignedUp"); m.handleInviteAfterSignup(addBuddyByUid); }
+    if (sessionStorage.getItem("du.justSignedUp")) { sessionStorage.removeItem("du.justSignedUp"); m.handleInviteAfterSignup(addBuddyByUid); m.welcomeLetter(); }
+    else m.signOnLetters(state.prevSeen);
   });
   setTimeout(() => { state.loadedUsers = true; }, 4000);
   import("./notifs.js").then((m) => m.watchNotifs());
@@ -1128,6 +1129,8 @@ async function acceptFile(el, conv, tid, meta) {
 
 // ---------- IMs that came in while you were away ----------
 /** Conversations where the last message is from them and you haven't read it (optionally: only since a time). */
+/** Unread IMs (optionally only since a time), for the "While you were away" letter too. */
+export function unreadIMsSince(since = 0) { return unreadIMs(since); }
 function unreadIMs(since = 0) {
   const twoWeeks = Date.now() - 14 * 86400000;
   return Object.entries(state.inbox || {})

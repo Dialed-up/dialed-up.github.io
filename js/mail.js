@@ -17,7 +17,7 @@ let findText = "";
 const uid = () => auth.currentUser.uid;
 const badge = () => document.querySelector('#toolbar [data-open="mail"] .badge');
 const buddiesOnly = () => localStorage.getItem("du.mailBuddiesOnly") === "1";
-const isSpam = (m) => !m.deleted && (m.spam || (buddiesOnly() && m.from && !buddyList().includes(m.from)));
+const isSpam = (m) => !m.deleted && !m.system && (m.spam || (buddiesOnly() && m.from && !buddyList().includes(m.from)));
 const isNew = (m) => !m.read && !m.deleted && !isSpam(m);
 const unreadCount = () => Object.values(mail).filter(isNew).length;
 
