@@ -164,7 +164,7 @@ async function enterDesktop(fresh) {
   if (started) return;
   started = true;
   show("app");
-  try { await startChat(); } catch { return; }   // suspended accounts are signed off
+  try { await startChat(); } catch (err) { signOnFailed(err); return; }   // suspended accounts are signed off
   if (await startSync(auth.currentUser.uid)) { applyPrefs(); applyKidMode(); }   // settings saved to the account come back here
   rememberName(me().screenName);
   import("./stats-track.js").then((m) => m.trackVisit(auth.currentUser.uid, me().screenName, "dialedup"));
@@ -236,3 +236,15 @@ setInterval(tick, 15000);
 
 // Background helper: keeps DialedUp's files fresh and handles notifications.
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+/** If signing on can't finish, say why (instead of a blank desktop) and offer to try again. */
+function signOnFailed(err) {
+  if (String(err?.message) === "suspended") return;
+  const code = String(err?.code || err?.message || err || "unknown error");
+  const box = document.createElement("div");
+  box.className = "diag-bar";
+  box.innerHTML = `<b>⚠️ Couldn't finish signing on.</b><br><span class="small"></span><br><button type="button" class="btn small-btn" style="float:none;margin-top:6px;background:#fff;color:#b00020">🔄 Try Again</button>`;
+  box.querySelector(".small").textContent = /permission/i.test(code) ? "The database refused a request (permission denied): " + code : code;
+  box.querySelector("button").onclick = () => location.reload();
+  document.body.appendChild(box);
+}
