@@ -15,6 +15,7 @@ Every request carries the sender's Firebase ID token. The Worker reads the relev
 | --- | --- |
 | `VAPID_PUBLIC` | `wrangler.toml` (public; also used in `js/notify.js`) |
 | `VAPID_PRIVATE` | Cloudflare secret: `npx wrangler secret put VAPID_PRIVATE` (never committed) |
+| `MAIL_KEY` | Cloudflare secret: encryption key for members' private emails (sign on by screen name, password reset) |
 | `SUBS` | Workers KV namespace for push subscriptions, rate-limit counters and temporary files |
 
 ## Deploy

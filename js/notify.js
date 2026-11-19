@@ -25,7 +25,7 @@ async function post(path, data) {
   const user = auth.currentUser;
   if (!user) return null;
   const token = await user.getIdToken();
-  const r = await fetch(PUSH + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...data, token }) });
+  const r = await fetch(PUSH + path, { method: "POST", headers: { "content-type": "application/json", "x-du-appcheck": await (await import("./firebase.js")).appCheckToken() }, body: JSON.stringify({ ...data, token }) });
   return r.json().catch(() => null);
 }
 

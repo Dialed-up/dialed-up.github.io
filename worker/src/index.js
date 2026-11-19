@@ -12,12 +12,15 @@ const ORIGINS = ["https://dialedup.lol", "https://www.dialedup.lol", "https://di
 const INLINE_TYPES = /^(image\/(jpeg|png|gif|webp|heic|heif)|video\/(mp4|webm|quicktime)|audio\/[a-z0-9.+-]+)$/;
 const DAILY_FILES = 60, DAILY_BYTES = 300 * 1024 * 1024;   // per person, to stop storage abuse
 
+// The website's anti-bot pass (App Check) for a request, forwarded on that request's calls to Firebase
+const fbHeaders = (ac, extra = {}) => (ac ? { ...extra, "X-Firebase-AppCheck": ac } : extra);
+
 const cors = (req) => {
   const o = req.headers.get("origin") || "";
   return {
     "access-control-allow-origin": ORIGINS.includes(o) ? o : ORIGINS[0],
     "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type, x-du-token, x-du-name, x-du-conv, range",
+    "access-control-allow-headers": "content-type, x-du-token, x-du-name, x-du-conv, x-du-appcheck, range",
     "access-control-expose-headers": "content-length, content-range, accept-ranges",
     "access-control-max-age": "86400",
   };
@@ -31,9 +34,9 @@ function uidOf(token) {
     return typeof p.user_id === "string" && /^[A-Za-z0-9]{10,40}$/.test(p.user_id) ? p.user_id : null;
   } catch { return null; }
 }
-async function dbGet(path, token, query = "") {
+async function dbGet(path, token, query = "", ac = "") {
   try {
-    const r = await fetch(`${DB}/${path}.json?${query}${query ? "&" : ""}auth=${encodeURIComponent(token)}`);
+    const r = await fetch(`${DB}/${path}.json?${query}${query ? "&" : ""}auth=${encodeURIComponent(token)}`, { headers: fbHeaders(ac) });
     if (!r.ok) return { ok: false, status: r.status };
     return { ok: true, val: await r.json() };
   } catch { return { ok: false, status: 502 }; }
@@ -79,16 +82,16 @@ async function unseal(env, blob) {
     return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(iv) }, await mailKey(env), unb64(ct)));
   } catch { return null; }
 }
-async function emailForLogin(env, login) {
+async function emailForLogin(env, login, ac = "") {
   if (!LOGIN_RE.test(login)) return null;
   try {
-    const r = await fetch(`${DB}/loginmail/${login}.json`);
+    const r = await fetch(`${DB}/loginmail/${login}.json`, { headers: fbHeaders(ac) });
     const v = r.ok ? await r.json() : null;
     return typeof v === "string" ? await unseal(env, v) : null;
   } catch { return null; }
 }
-const identity = (method, body) => fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${method}?key=${API_KEY}`, {
-  method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const identity = (method, body, ac = "") => fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${method}?key=${API_KEY}`, {
+  method: "POST", headers: fbHeaders(ac, { "content-type": "application/json" }), body: JSON.stringify(body) });
 /** Per-key limit (e.g. per screen name or per network address). */
 async function tooMany(env, key, max, seconds) {
   const k = `lim:${key}:${Math.floor(Date.now() / (seconds * 1000))}`;
@@ -110,6 +113,7 @@ async function overLimit(env, uid) {
 export default {
   async fetch(req, env, ctx) {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors(req) });
+    const ac = (req.headers.get("x-du-appcheck") || "").slice(0, 2000);
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/") return json(req, { ok: true, service: "DialedUp push" });
 
@@ -142,7 +146,7 @@ export default {
       if (!me || !okConv) return json(req, { error: "not allowed" }, 403);
       const len = Number(req.headers.get("content-length") || 0);
       if (len > 25 * 1024 * 1024) return json(req, { error: "too big" }, 413);
-      const check = await dbGet(`users/${me}/screenName`, token);
+      const check = await dbGet(`users/${me}/screenName`, token, "", ac);
       if (!check.ok) return json(req, { error: "not signed in" }, 401);
       // daily allowance per person
       const qKey = `quota:${me}:${new Date().toISOString().slice(0, 10)}`;
@@ -166,9 +170,9 @@ export default {
       const login = String(body.login || ""), password = String(body.password || "");
       const ip = req.headers.get("cf-connecting-ip") || "?";
       if (await tooMany(env, "si:" + login, 10, 600) || await tooMany(env, "sip:" + ip, 30, 600)) return json(req, { error: "slow down" }, 429);
-      const email = await emailForLogin(env, login);
+      const email = await emailForLogin(env, login, ac);
       if (!email || !password) return json(req, { error: "no" }, 401);
-      const r = await identity("signInWithPassword", { email, password, returnSecureToken: false });
+      const r = await identity("signInWithPassword", { email, password, returnSecureToken: false }, ac);
       return r.ok ? json(req, { email }) : json(req, { error: "no" }, 401);
     }
     // ----- "Forgot password?": Firebase emails a reset link to the member's confirmed email -----
@@ -176,8 +180,8 @@ export default {
       const login = String(body.login || "");
       const ip = req.headers.get("cf-connecting-ip") || "?";
       if (await tooMany(env, "rs:" + login, 3, 3600) || await tooMany(env, "rsp:" + ip, 10, 3600)) return json(req, { ok: true });
-      const email = await emailForLogin(env, login);
-      if (email) await identity("sendOobCode", { requestType: "PASSWORD_RESET", email }).catch(() => {});
+      const email = await emailForLogin(env, login, ac);
+      if (email) await identity("sendOobCode", { requestType: "PASSWORD_RESET", email }, ac).catch(() => {});
       return json(req, { ok: true });   // same answer either way, so nobody can tell which names have emails
     }
 
@@ -189,7 +193,7 @@ export default {
     if (url.pathname === "/subscribe" || url.pathname === "/unsubscribe") {
       const sub = body.sub;
       if (!sub?.endpoint || !/^https:\/\//.test(sub.endpoint) || !sub.keys?.p256dh || !sub.keys?.auth) return json(req, { error: "bad subscription" }, 400);
-      const check = await dbGet(`users/${me}/screenName`, token);   // proves the token is real and theirs
+      const check = await dbGet(`users/${me}/screenName`, token, "", ac);   // proves the token is real and theirs
       if (!check.ok) return json(req, { error: "not signed in" }, 401);
       const key = `sub:${me}:${await hash(sub.endpoint)}`;
       if (url.pathname === "/unsubscribe") { await env.SUBS.delete(key); return json(req, { ok: true }); }
@@ -208,15 +212,15 @@ export default {
       const login = String(body.login || "");
       if (!/^[^\s@]{1,64}@[^\s@]+\.[a-z]{2,}$/.test(email) || email.length > 100 || !LOGIN_RE.test(login)) return json(req, { error: "bad email" }, 400);
       if (await overLimit(env, me)) return json(req, { error: "slow down" }, 429);
-      const owner = await dbGet(`screennames/${login}`, token);
+      const owner = await dbGet(`screennames/${login}`, token, "", ac);
       if (!owner.ok || owner.val !== me) return json(req, { error: "not yours" }, 403);
-      const r = await fetch(`${DB}/loginmail/${login}.json?auth=${encodeURIComponent(token)}`, { method: "PUT", body: JSON.stringify(await seal(env, email)) });
+      const r = await fetch(`${DB}/loginmail/${login}.json?auth=${encodeURIComponent(token)}`, { method: "PUT", headers: fbHeaders(ac), body: JSON.stringify(await seal(env, email)) });
       return r.ok ? json(req, { ok: true }) : json(req, { error: "couldn't save" }, 502);
     }
 
     // ----- "Send me a test alert" (arrives 10 seconds later so there's time to close the app) -----
     if (url.pathname === "/test") {
-      const check = await dbGet(`users/${me}/screenName`, token);
+      const check = await dbGet(`users/${me}/screenName`, token, "", ac);
       if (!check.ok) return json(req, { error: "not signed in" }, 401);
       if (await overLimit(env, me)) return json(req, { error: "slow down" }, 429);
       const phones = (await env.SUBS.list({ prefix: `sub:${me}:` })).keys.length;
@@ -238,23 +242,23 @@ export default {
         // Check the real conversation: the newest message must be from the sender and brand new.
         // (Writing there already passes the database's block check, so blocked people can't send alerts.)
         const conv = [me, to].sort().join("_");
-        const last = await dbGet(`messages/${conv}`, token, 'orderBy=%22%24key%22&limitToLast=1');
+        const last = await dbGet(`messages/${conv}`, token, 'orderBy=%22%24key%22&limitToLast=1', ac);
         const msg = last.ok && last.val ? Object.values(last.val)[0] : null;
         if (!msg || msg.from !== me || !fresh(msg.ts)) return json(req, { error: "no such message" }, 403);
-        const name = (await dbGet(`names/${me}`, token)).val || "A homie";
+        const name = (await dbGet(`names/${me}`, token, "", ac)).val || "A homie";
         const preview = msg.media ? { photo: "📷 Photo", video: "🎬 Video", audio: "🎵 Audio" }[msg.media.kind] || "📎 File" : msg.text;
         note = { title: `💬 ${clip(name, 24)}`, body: clip(preview, 120) || "New Instant Message", tag: `im-${me}`, url: "./" };
       } else if (body.kind === "mail") {
         const sentId = String(body.sentId || "");
         if (!/^[-_A-Za-z0-9]{10,40}$/.test(sentId)) return json(req, { error: "bad mail" }, 400);
-        const item = await dbGet(`mailsent/${me}/${sentId}`, token);
+        const item = await dbGet(`mailsent/${me}/${sentId}`, token, "", ac);
         if (!item.ok || !item.val || item.val.to !== to || !fresh(item.val.ts)) return json(req, { error: "no such mail" }, 403);
-        const name = (await dbGet(`names/${me}`, token)).val || "Someone";
+        const name = (await dbGet(`names/${me}`, token, "", ac)).val || "Someone";
         note = { title: "📬 You have mail!", body: `From ${clip(name, 24)}: ${clip(item.val.subject, 80) || "(no subject)"}`, tag: "mail", url: "./" };
       } else return json(req, { error: "bad kind" }, 400);
 
       // Don't buzz the one device that has DialedUp open on screen right now; every other device still gets it.
-      const them = await dbGet(`users/${to}`, token);
+      const them = await dbGet(`users/${to}`, token, "", ac);
       const v = them.ok && them.val ? them.val : {};
       const openDevice = v.fg === true && typeof v.fgDev === "string" && /^[0-9a-f]{24}$/.test(v.fgDev) && Date.now() - (v.fgAt || 0) < 150000 ? v.fgDev : null;
       const log = (o) => env.SUBS.put(`last:${to}`, JSON.stringify({ at: new Date().toISOString(), kind: body.kind, from: me.slice(0, 5), ...o }), { expirationTtl: 86400 * 3 });

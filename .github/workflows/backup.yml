@@ -1,0 +1,39 @@
+name: Nightly database backup
+
+# Downloads the whole Firebase database once a night, compresses it, locks it with a password
+# (AES-256) and keeps it for 30 days as a download on the Actions page.
+# Needs two repository secrets: FIREBASE_DB_SECRET and BACKUP_PASSWORD. Skips quietly until both are set.
+on:
+  schedule:
+    - cron: "17 7 * * *"   # about 2–3 AM New York time
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download, compress and lock the database
+        env:
+          DB_SECRET: ${{ secrets.FIREBASE_DB_SECRET }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          if [ -z "$DB_SECRET" ] || [ -z "$BACKUP_PASSWORD" ]; then
+            echo "Backup secrets aren't set up yet, so there's nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          curl -sSf --retry 3 -o db.json "https://buddychat-48c0b-default-rtdb.firebaseio.com/.json?format=export&auth=${DB_SECRET}"
+          size=$(stat -c %s db.json)
+          gzip -9 db.json
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in db.json.gz -out dialedup-backup.json.gz.enc -pass env:BACKUP_PASSWORD
+          rm -f db.json.gz
+          echo "✅ Backed up $((size / 1024)) KB of data ($(( $(stat -c %s dialedup-backup.json.gz.enc) / 1024 )) KB compressed)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep it for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: dialedup-backup-${{ github.run_number }}
+          path: dialedup-backup.json.gz.enc
+          retention-days: 30
+          if-no-files-found: ignore

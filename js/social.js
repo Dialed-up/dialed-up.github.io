@@ -4,6 +4,7 @@ import { auth, db, ref, get, set, push, remove, update, onValue, off, query, ord
 import { openWindow, closeWindow, getWindow, esc, img64, contextMenu } from "./wm.js";
 import { me, userName, iconHTML, buddyList, openInfo, openIM } from "./chat.js";
 import { pickEmoji } from "./emoji.js";
+import { gifHTML } from "./gif.js";
 import * as sfx from "./sounds.js";
 
 export const OWNER = "Dh35JEPVTiWIB96X03RGeiVmQN03";
@@ -81,7 +82,7 @@ function postCard(el, owner, pid, p, label = null) {
     ${p.img ? `<div class="post-img"><span class="small muted">📷 Loading photo…</span></div>` : ""}
     <div class="post-bar"><button class="like">🤍 <span>0</span></button><button class="cmt">💬 <span>0</span></button></div>
     <div class="post-comments" hidden><ul class="clist"></ul>
-      <form class="cform"><input placeholder="Write a comment…" maxlength="300"><button class="btn small-btn">Post</button></form></div>`;
+      <form class="cform"><input placeholder="Write a comment…" maxlength="300"><button type="button" class="btn small-btn cgif" hidden title="Add a GIF"><b style="font-size:10px">GIF</b></button><button class="btn small-btn">Post</button></form></div>`;
   el.querySelector(".post-who").onclick = () => openInfo(p.by);
   if (p.img) get(ref(db, `postimgs/${owner}/${pid}`)).then((s) => {
     const box = el.querySelector(".post-img");
@@ -113,7 +114,7 @@ function postCard(el, owner, pid, p, label = null) {
     const list = [];
     s.forEach((c) => { list.push([c.key, c.val()]); });
     el.querySelector(".cmt span").textContent = list.length;
-    el.querySelector(".clist").innerHTML = list.map(([cid, c]) => `<li><b data-u="${esc(c.by)}">${esc(c.n || userName(c.by))}</b> ${linkify(c.text)}
+    el.querySelector(".clist").innerHTML = list.map(([cid, c]) => `<li><b data-u="${esc(c.by)}">${esc(c.n || userName(c.by))}</b> ${c.gif ? gifHTML(c.gif) : linkify(c.text)}
       <span class="small muted">${c.ts ? ago(c.ts) : ""}</span>${c.by === uid() || myWall || uid() === OWNER ? ` <a href="#" class="small" data-delc="${esc(cid)}">delete</a>` : ` <a href="#" class="small" data-repc="${esc(cid)}">report</a>`}</li>`).join("");
     el.querySelectorAll("[data-delc]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); remove(ref(db, `postcomments/${owner}/${pid}/${a.dataset.delc}`)).catch(() => {}); }));
     el.querySelectorAll("[data-repc]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); const c = list.find(([k]) => k === a.dataset.repc)?.[1]; report("comment", `postcomments/${owner}/${pid}/${a.dataset.repc}`, owner, c?.text); }));
@@ -121,6 +122,13 @@ function postCard(el, owner, pid, p, label = null) {
   }, () => {});
   refs.push(cr);
   el.querySelector(".cmt").onclick = () => { const c = el.querySelector(".post-comments"); c.hidden = !c.hidden; if (!c.hidden) c.querySelector("input").focus(); };
+  import("./gif.js").then((g) => {
+    const b = el.querySelector(".cgif");
+    if (!b || !g.gifsOn()) return;
+    b.hidden = false;
+    b.onclick = () => g.pickGif(b, (gif) => push(ref(db, `postcomments/${owner}/${pid}`), { by: uid(), n: me().screenName, text: "🎞 GIF", gif, ts: serverTimestamp() })
+      .then(() => import("./notifs.js").then((m) => m.notify(p.by, "comment", { owner, pid, text: "sent a GIF" }))).catch(() => alert("Couldn't post the GIF.")));
+  });
   el.querySelector(".cform").onsubmit = (e) => {
     e.preventDefault();
     const inp = e.target.querySelector("input"), t = inp.value.trim();
@@ -328,7 +336,7 @@ export function newStory() {
             const blob = file.type.startsWith("image/") ? await (await fetch("data:image/jpeg;base64," + await shrink(file, 1280, 0.8))).blob() : file;
             msg.textContent = "Uploading…";
             const token = await auth.currentUser.getIdToken();
-            const r = await fetch(FILES + "/upload", { method: "POST", body: blob, headers: { "x-du-token": token, "x-du-conv": "story", "x-du-name": encodeURIComponent(file.name), "content-type": blob.type || file.type } });
+            const r = await fetch(FILES + "/upload", { method: "POST", body: blob, headers: { "x-du-token": token, "x-du-appcheck": await (await import("./firebase.js")).appCheckToken(), "x-du-conv": "story", "x-du-name": encodeURIComponent(file.name), "content-type": blob.type || file.type } });
             const j = await r.json();
             if (!j.ok) throw new Error("Upload failed.");
             story.url = j.url; story.kind = file.type.startsWith("video/") ? "video" : "photo";

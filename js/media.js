@@ -15,10 +15,12 @@ export const isMedia = (file) => /^(image|video|audio)\//.test(file.type || "");
 /** Sends a file to the Cloudflare file storage, with progress. Returns its web address. */
 async function uploadToStorage(conv, blob, name, onProgress) {
   const token = await auth.currentUser.getIdToken();
+  const appToken = await (await import("./firebase.js")).appCheckToken();
   return new Promise((ok, bad) => {
     const x = new XMLHttpRequest();
     x.open("POST", FILES + "/upload");
     x.setRequestHeader("x-du-token", token);
+    if (appToken) x.setRequestHeader("x-du-appcheck", appToken);
     x.setRequestHeader("x-du-conv", conv);
     x.setRequestHeader("x-du-name", encodeURIComponent(name || "file"));
     x.setRequestHeader("content-type", blob.type || "application/octet-stream");

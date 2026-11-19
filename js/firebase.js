@@ -16,6 +16,22 @@ const app = initializeApp({
   projectId: "buddychat-48c0b",
 });
 
+// Anti-bot protection (Firebase App Check with reCAPTCHA v3). Off until a site key is set here and App Check is set up in the Firebase console.
+const APP_CHECK_SITE_KEY = "";
+let appCheck = null, appCheckGetToken = null;
+if (APP_CHECK_SITE_KEY && location.hostname !== "localhost") {
+  try {
+    const m = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check.js");
+    appCheck = m.initializeAppCheck(app, { provider: new m.ReCaptchaV3Provider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
+    appCheckGetToken = m.getToken;
+  } catch {}
+}
+/** The anti-bot pass to hand to DialedUp's own server, so it can talk to Firebase too ("" when App Check is off). */
+export async function appCheckToken() {
+  if (!appCheck) return "";
+  try { return (await appCheckGetToken(appCheck)).token || ""; } catch { return ""; }
+}
+
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 export {
@@ -36,7 +52,7 @@ export function validScreenName(name) {
 
 const emailFor = (name) => `${normalize(name)}@users.buddychat.app`;
 const ACCOUNTS = "https://dialedup-push.stickyarcadecloud.workers.dev";   // private email lookups for sign-on and password reset
-const post = (path, body) => fetch(ACCOUNTS + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const post = async (path, body) => fetch(ACCOUNTS + path, { method: "POST", headers: { "content-type": "application/json", "x-du-appcheck": await appCheckToken() }, body: JSON.stringify(body) });
 
 /** A renamed account still signs in with its original login name. */
 async function loginFor(screenName) {

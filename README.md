@@ -47,3 +47,14 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 python3 -m http.server 8765
 # then open http://localhost:8765
 ```
+
+## Backups
+
+A GitHub Action (`.github/workflows/backup.yml`) backs up the whole database every night. Each backup is compressed, locked with AES-256 using the `BACKUP_PASSWORD` secret, and kept for 30 days under **Actions → Nightly database backup**.
+
+To open a backup:
+
+```sh
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in dialedup-backup.json.gz.enc -out backup.json.gz
+gunzip backup.json.gz
+```

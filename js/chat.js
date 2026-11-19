@@ -10,6 +10,7 @@ import { imBackgroundFor } from "./prefs.js";
 import { openPeoplePlaza, openRoom as openPlazaRoom } from "./people.js";
 import { pickEmoji, QUICK_REACTIONS } from "./emoji.js";
 import { uploadMedia, paintMedia, isMedia, startRecording } from "./media.js";
+import { gifHTML } from "./gif.js";
 
 const state = {
   uid: null, me: { screenName: "" }, users: {}, groups: [], inbox: {}, blocked: new Set(), notices: {},
@@ -787,6 +788,7 @@ export function openIM(uid, { quiet = false } = {}) {
           <button data-f="smiley" title="Emojis">😀</button>
           <button data-f="mic" title="Record a voice note">🎙</button>
           <button data-f="search" title="Search this conversation">🔍</button>
+          <button data-f="gif" title="Send a GIF" hidden><b style="font-size:10px">GIF</b></button>
           <label class="btn small-btn" style="margin:0;font-weight:normal" title="Send a photo, video or file (up to 25 MB)">📎<input type="file" data-f="file" hidden></label>
         </div>
         <div class="compose"><textarea placeholder="Type a message…"></textarea><button class="btn primary">Send</button></div>
@@ -822,6 +824,12 @@ export function openIM(uid, { quiet = false } = {}) {
       let rec = null;
       const endRec = () => { rec = null; recbar.hidden = true; compose.hidden = false; };
       body.querySelector("[data-f=search]").onclick = () => searchConversation(conv, uid);
+      import("./gif.js").then((g) => {
+        const b = body.querySelector("[data-f=gif]");
+        if (!b || !g.gifsOn()) return;
+        b.hidden = false;
+        b.onclick = () => g.pickGif(b, (gif) => sendIM(uid, "🎞 GIF", myStyle, { gif }).catch(() => alert("Couldn't send the GIF.")));
+      });
       body.querySelector("[data-f=mic]").onclick = async () => {
         if (rec) return;
         try {
@@ -949,6 +957,8 @@ function renderMessage(key, m) {
   let content;
   if (m.unsent) {
     content = `<i class="muted">↩️ Message unsent</i>`;
+  } else if (m.gif?.url && gifHTML(m.gif)) {
+    content = gifHTML(m.gif);
   } else if (m.media?.mid) {
     content = `<div class="im-media" data-media="${esc(JSON.stringify(m.media))}"></div>`;
   } else if (m.file) {
@@ -992,12 +1002,13 @@ function renderIMStatus(uid) {
   setTitle("im." + uid, `${name(uid)} — Instant Message`);
 }
 
-async function sendIM(uid, text, style, { auto = false, file = null, media = null } = {}) {
+async function sendIM(uid, text, style, { auto = false, file = null, media = null, gif = null } = {}) {
   const conv = conversationID(state.uid, uid);
   const msg = { from: state.uid, name: state.me.screenName, text, ts: serverTimestamp(),
     style: { font: style.font, size: style.size, color: style.color, bold: !!style.bold, italic: !!style.italic, underline: !!style.underline } };
   if (auto) msg.auto = true;
   if (file) msg.file = file;
+  if (gif) msg.gif = gif;
   if (media) msg.media = media;
   await push(ref(db, `messages/${conv}`), msg);
   if (!auto) acceptFrom(uid);
