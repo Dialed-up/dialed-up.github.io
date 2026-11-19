@@ -107,8 +107,9 @@ export async function startChat() {
   renameOldGroup();
 
   const created = Date.parse(auth.currentUser.metadata?.creationTime || "") || null;
+  // Going online: if the database refuses this, keep signing on anyway (just without the status update)
   await update(meRef, { signedOn: true, fg: document.visibilityState === "visible", lastSeen: serverTimestamp(), idleSince: null, onlineSince: serverTimestamp(),
-    ...(created && state.me.since !== created ? { since: created } : {}) });
+    ...(created && state.me.since !== created ? { since: created } : {}) }).catch((err) => console.warn("Couldn't update online status:", err?.code || err));
   onDisconnect(meRef).update({ signedOn: false, fg: false, lastSeen: serverTimestamp() });
   // "fg" = DialedUp is on screen right now. Push alerts are skipped only while it is.
   window.addEventListener("pagehide", () => state.uid && update(ref(db, `users/${state.uid}`), { fg: false }).catch(() => {}));
