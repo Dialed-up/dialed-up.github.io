@@ -1,5 +1,5 @@
 // Notifications bell: likes, comments, Wall posts, new homies and @mentions, in one list.
-import { auth, db, ref, get, push, remove, update, onValue, off, query, orderByKey, limitToLast, serverTimestamp, normalize } from "./firebase.js";
+import { auth, db, ref, get, set, push, remove, update, onValue, off, query, orderByKey, limitToLast, serverTimestamp, normalize } from "./firebase.js";
 import { openWindow, closeWindow, getWindow, esc } from "./wm.js";
 import { me, userName, iconHTML, openInfo } from "./chat.js";
 import * as sfx from "./sounds.js";
@@ -21,6 +21,8 @@ const ICON = { like: "❤️", comment: "💬", wall: "📝", homie: "➕", ment
 export function notify(to, type, extra = {}) {
   if (!to || !uid() || to === uid() || !TEXT[type]) return;
   const data = { type, from: uid(), n: me()?.screenName || "", ts: serverTimestamp() };
+  // "added you as a homie" has one fixed spot per person, so it never shows up twice
+  if (type === "homie") { set(ref(db, `notifs/${to}/h_${uid()}`), data).catch(() => {}); return; }
   if (extra.text) data.text = String(extra.text).slice(0, 120);
   if (extra.owner) data.owner = extra.owner;
   if (extra.pid) data.pid = extra.pid;
@@ -58,6 +60,7 @@ export function watchNotifs() {
     const before = list.length ? list[list.length - 1][0] : null;
     list = [];
     s.forEach((c) => { list.push([c.key, c.val()]); });
+    list.sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
     const newest = list[list.length - 1];
     if (!first && newest && newest[0] !== before && newest[1].from !== uid()) sfx.alertBlip();
     first = false;
@@ -66,8 +69,29 @@ export function watchNotifs() {
   }, () => {});
   // tidy up: notifications older than 30 days
   setTimeout(() => list.forEach(([k, x]) => Date.now() - (x.ts || 0) > KEEP_DAYS * 86400000 && remove(ref(db, `notifs/${uid()}/${k}`)).catch(() => {})), 8000);
+  watchAddedMe();
 }
-export function stopNotifs() { if (watchRef) off(watchRef); watchRef = null; list = []; }
+export function stopNotifs() { if (watchRef) off(watchRef); watchRef = null; list = []; if (addedRef) off(addedRef); addedRef = null; }
+
+// Anyone who adds you (from DialedUp, Instantly or the BuddyChat iPhone app) shows up in Alerts.
+// buddyof/{you} lists everyone who has you on their Homies List.
+let addedRef = null;
+function watchAddedMe() {
+  const me_ = uid(), key = "du.addedMe." + me_;
+  addedRef = ref(db, `buddyof/${me_}`);
+  onValue(addedRef, async (s) => {
+    const now = Object.keys(s.val() || {});
+    let known = null;
+    try { known = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+    localStorage.setItem(key, JSON.stringify(now));
+    if (!known) return;   // first time on this device: just remember who's there
+    for (const u of now.filter((x) => !known.includes(x) && x !== me_)) {
+      const n = (await get(ref(db, `names/${u}`)).catch(() => null))?.val() || "Someone";
+      const spot = ref(db, `notifs/${me_}/h_${u}`);
+      if ((await get(spot).catch(() => null))?.val() == null) set(spot, { type: "homie", from: u, n: String(n).slice(0, 20), ts: serverTimestamp() }).catch(() => {});
+    }
+  }, () => {});
+}
 
 const ago = (ts) => {
   const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
