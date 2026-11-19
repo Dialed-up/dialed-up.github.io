@@ -318,7 +318,9 @@ function roomParty(body, key, say, getMod) {
       const title = prompt("Give it a name (optional):", "") || "";
       data = { url: url.trim().slice(0, 500), title: clip(title) || (kind === "watch" ? "Now showing" : "Now playing") };
     }
-    set(pr, { kind, ...data, host: uid, hostName: me().screenName, at: Date.now() }).then(() => {
+    // Someone else's party is on (you're the moderator): end it first, then start yours
+    const clearOld = party && party.host !== uid ? remove(pr) : Promise.resolve();
+    clearOld.then(() => set(pr, { kind, ...data, host: uid, hostName: me().screenName, at: Date.now() })).then(() => {
       say(`🎉 ${me().screenName} started a ${PARTY[kind][1]}: ${data.title}. Hit ▶ Tune In at the top!`, "enter");
       import("./engage.js").then((m) => m.awardBadge("host"));
       tuneIn();
