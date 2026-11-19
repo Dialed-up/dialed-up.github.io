@@ -58,12 +58,7 @@ if (window.visualViewport) {
   window.addEventListener(ev, stopPinch, { passive: false, capture: true });
   document.addEventListener(ev, stopPinch, { passive: false, capture: true });
 });
-let lastTouchEnd = 0;
-document.addEventListener("touchend", (e) => {
-  const now = Date.now();
-  if (now - lastTouchEnd < 300 && !e.target.closest("input, textarea, select")) e.preventDefault();
-  lastTouchEnd = now;
-}, { passive: false });
+// (Double-tap zoom is turned off with CSS "touch-action: manipulation", so quick taps are never swallowed.)
 
 let connectingNow = false;   // true while the dial-up show is running for a fresh sign-on
 let started = false;

@@ -22,12 +22,7 @@ let started = false;
 // ---------- No zooming (same as DialedUp) ----------
 ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false, capture: true }));
 ["touchstart", "touchmove"].forEach((ev) => document.addEventListener(ev, (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false, capture: true }));
-let lastTouchEnd = 0;
-document.addEventListener("touchend", (e) => {
-  const now = Date.now();
-  if (now - lastTouchEnd < 300 && !e.target.closest("input, textarea, select")) e.preventDefault();
-  lastTouchEnd = now;
-}, { passive: false });
+// (Double-tap zoom is turned off with CSS "touch-action: manipulation", so quick taps are never swallowed.)
 
 // ---------- Backdrop ----------
 const BACKDROP = "img/dim-backdrop-2.jpg";

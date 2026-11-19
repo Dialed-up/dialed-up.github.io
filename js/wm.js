@@ -304,13 +304,32 @@ export function refit() {
   });
 }
 // iPhone: after the keyboard closes, the page can stay pushed up (blank space under the taskbar,
-// windows out of reach). Put it back whenever nothing is being typed into.
+// windows out of reach). Put it back, but only once the keyboard is fully gone and nothing is
+// being typed or tapped, so it never moves things out from under a finger.
 const typing = () => /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable;
-const settle = () => { if (!typing() && (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop)) { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } };
-document.addEventListener("focusout", () => setTimeout(() => { settle(); refit(); }, 120));
-window.visualViewport?.addEventListener("resize", () => setTimeout(() => { settle(); refit(); }, 120));
-window.addEventListener("scroll", () => { if (!typing()) settle(); }, { passive: true });
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(() => { settle(); refit(); }, 200); });
+const keyboardOpen = () => !!window.visualViewport && window.visualViewport.height < window.innerHeight - 80;
+let lastTouch = 0, settleTimer = null;
+document.addEventListener("pointerdown", () => (lastTouch = Date.now()), true);
+const settle = () => {
+  clearTimeout(settleTimer);
+  settleTimer = setTimeout(() => {
+    if (typing() || keyboardOpen() || Date.now() - lastTouch < 500) return;
+    if (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
+      window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+    }
+    refit();
+  }, 450);
+};
+window.visualViewport?.addEventListener("resize", settle);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") settle(); });
+
+// Buttons next to a text box (Send, Post, aLt CaPs…) keep the keyboard open when tapped, like iMessage,
+// so the screen doesn't shift while your finger is on the button.
+document.addEventListener("pointerdown", (e) => {
+  if (!typing()) return;
+  const b = e.target.closest?.(".compose button, .compose .btn, button.altcaps, .cform button, .fmt button, .composer .btn");
+  if (b) e.preventDefault();
+}, true);
 
 let refitTimer = null;
 window.addEventListener("resize", () => { clearTimeout(refitTimer); refitTimer = setTimeout(refit, 120); });
