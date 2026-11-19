@@ -248,7 +248,7 @@ export function openPYMK() {
       const nameOf = async (u) => (userName(u) !== "…" && userName(u)) || (await get(ref(db, `names/${u}`)).catch(() => null))?.val() || "Someone";
       const addedRows = await Promise.all(added.slice(0, 15).map(async (u) => ({ u, n: await nameOf(u) })));
       body.innerHTML = `
-        <div class="panel"><h3>➕ Added you as a homie</h3>${addedRows.length ? `<ul class="list">${addedRows.map((x) => `<li class="row"><a href="#" data-info="${esc(x.u)}">${esc(x.n)}</a><button class="btn primary small-btn" data-add="${esc(x.n)}">Add Back</button></li>`).join("")}</ul>` : `<p class="small muted">Nobody new.</p>`}</div>
+        <div class="panel"><h3>➕ Added you to their Homies List</h3>${addedRows.length ? `<ul class="list">${addedRows.map((x) => `<li class="row"><a href="#" data-info="${esc(x.u)}">${esc(x.n)}</a><button class="btn primary small-btn" data-add="${esc(x.n)}">Add Back</button></li>`).join("")}</ul>` : `<p class="small muted">Nobody new.</p>`}</div>
         <div class="panel"><h3>❤️ Likes what you like</h3>${alike.length ? `<ul class="list">${alike.map((x) => `<li class="row"><span><a href="#" data-info="${esc(x.u)}">${esc(x.d.screenName)}</a><br><span class="small muted">${esc(x.shared.join(", "))}</span></span><button class="btn small-btn" data-add="${esc(x.d.screenName)}">Add</button></li>`).join("")}</ul>`
           : `<p class="small muted">${myInterests.length ? "No matches yet." : "Add Interests to your profile (My Profile → Member Info) to find people who like the same things."}</p>`}</div>
         <button class="btn small-btn" data-invite>🎟 Invite Friends to DialedUp</button>`;

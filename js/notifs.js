@@ -12,7 +12,7 @@ const TEXT = {
   like: (n) => `<b>${n}</b> liked your post`,
   comment: (n) => `<b>${n}</b> commented on your post`,
   wall: (n) => `<b>${n}</b> wrote on your Wall`,
-  homie: (n) => `<b>${n}</b> added you as a homie`,
+  homie: (n) => `<b>${n}</b> added you to their Homies List`,
   mention: (n, x) => `<b>${n}</b> mentioned you${x.room ? ` in <b>${esc(x.room)}</b>` : x.pid ? " in a comment" : ""}`,
 };
 const ICON = { like: "❤️", comment: "💬", wall: "📝", homie: "➕", mention: "📣" };
@@ -21,7 +21,7 @@ const ICON = { like: "❤️", comment: "💬", wall: "📝", homie: "➕", ment
 export function notify(to, type, extra = {}) {
   if (!to || !uid() || to === uid() || !TEXT[type]) return;
   const data = { type, from: uid(), n: me()?.screenName || "", ts: serverTimestamp() };
-  // "added you as a homie" has one fixed spot per person, so it never shows up twice
+  // "added you to their Homies List" has one fixed spot per person, so it never shows up twice
   if (type === "homie") { set(ref(db, `notifs/${to}/h_${uid()}`), data).catch(() => {}); return; }
   if (extra.text) data.text = String(extra.text).slice(0, 120);
   if (extra.owner) data.owner = extra.owner;
@@ -108,7 +108,7 @@ function paintList() {
       <span class="notif-txt">${(TEXT[x.type] || TEXT.mention)(esc(x.n || userName(x.from)), x)}${x.text ? `<br><span class="small muted">“${esc(String(x.text).slice(0, 80))}”</span>` : ""}
       <br><span class="small muted">${x.ts ? ago(x.ts) : ""}</span></span></li>`).join("")}</ul>
       <div class="row" style="margin-top:6px"><span></span><button class="btn small-btn" data-clear>Clear all</button></div>`
-    : `<p class="muted" style="text-align:center;margin-top:30px">🔔 No notifications yet.<br><span class="small">Likes, comments, Wall posts, new homies and @mentions show up here.</span></p>`;
+    : `<p class="muted" style="text-align:center;margin-top:30px">🔔 No notifications yet.<br><span class="small">Likes, comments, Wall posts, @mentions and people who add you to their Homies List show up here.</span></p>`;
   body.querySelectorAll("[data-k]").forEach((li) => (li.onclick = () => {
     const x = list.find(([k]) => k === li.dataset.k)?.[1];
     if (!x) return;
