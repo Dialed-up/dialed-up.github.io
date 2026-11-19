@@ -887,7 +887,15 @@ export function openIM(uid, { quiet = false } = {}) {
         lastSend = Date.now();
         ta.value = "";
         try { await sendIM(uid, text, myStyle); sfx.imOut(); }
-        catch { ta.value = text; tx.insertAdjacentHTML("beforeend", `<div class="error">Couldn't send — they may have blocked you.</div>`); }
+        catch (err) {
+          ta.value = text;
+          const code = String(err?.code || err?.message || err || "unknown");
+          const why = /permission/i.test(code) ? "The database refused it (permission denied). They may have blocked you, or the latest database rules need to be published."
+            : /network|offline|disconnect/i.test(code) ? "You're offline. Check your connection and try again."
+            : `Something went wrong (${code}).`;
+          tx.insertAdjacentHTML("beforeend", `<div class="error">Couldn't send. ${esc(why)}</div>`);
+          tx.scrollTop = tx.scrollHeight;
+        }
       };
       body.querySelector(".compose .btn").onclick = send;
       ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };

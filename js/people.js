@@ -238,7 +238,7 @@ export async function openRoom(displayName, category = "") {
         say(t).then(() => {
           import("./engage.js").then((m) => m.countUp("room"));
           if (t.includes("@")) import("./notifs.js").then((m) => m.notifyMentions(t, { room: displayName }));
-        }).catch(() => alert("Couldn't send to the room."));
+        }).catch((err) => alert("Couldn't send to the room. " + (/permission/i.test(String(err?.code || err?.message)) ? "The database refused it (permission denied)." : String(err?.code || err?.message || ""))));
       };
       body.querySelector(".compose .btn").onclick = send;
       ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
