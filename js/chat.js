@@ -322,7 +322,6 @@ function refreshBuddyList() {
   const scroll = body.querySelector(".bl-scroll")?.scrollTop || 0;
   const fold = (k) => localStorage.getItem("du.fold." + k) === "1";   // Bots / IM Requests / Offline sections
   const foldBtn = (k, label) => `<button data-fold="${k}">${fold(k) ? "▸" : "▾"} ${label}</button>`;
-  const myStatus = state.away ? `<span class="status away one-line" title="${esc(state.away)}">🌙 Away: ${esc(state.away)}</span>` : `<span class="status">Available</span>`;
   const row = (uid) => {
     const u = state.users[uid];
     const p = presence(u);
@@ -358,8 +357,9 @@ function refreshBuddyList() {
         <option value="online" ${show === "online" ? "selected" : ""}>Online Only</option>
         <option value="available" ${show === "available" ? "selected" : ""}>Hide Away & Idle</option>
       </select></div>
-    <div class="bl-me" data-me title="Tap to edit your profile">${social?.hasStory(state.uid) ? `<span class="my-story ring" data-mystory title="See your Homie Update">${iconHTML(state.uid, 34)}</span>` : state.icons[state.uid] ? iconHTML(state.uid, 34) : `<img src="${document.body.classList.contains("dim") ? "img/dim-logo.png" : "img/logo.png"}" width="40" height="28" alt="" style="object-fit:contain">`}
-      <div><b>${esc(state.me.screenName)}</b><br>${myStatus}${nowPlayingOf(state.uid) ? `<br><span class="np-me small">🎵 ${esc(nowPlayingOf(state.uid))}</span>` : ""}${social?.hasStory(state.uid) ? `<br><a href="#" class="small" data-mystory>✨ Your Homie Update is live</a>` : ""}${warningLevel(state.uid) ? `<br><span class="small">⚠️ Warning level ${warningLevel(state.uid)}%</span>` : ""}</div></div>
+    <div class="bl-me" data-me title="Tap to edit your profile">${social?.hasStory(state.uid) ? `<span class="my-story ring" data-mystory title="See your Homie Update">${iconHTML(state.uid, 26)}</span>` : iconHTML(state.uid, 26)}
+      <div class="bl-me-txt"><b>${esc(state.me.screenName)}</b>${warningLevel(state.uid) ? ` <span class="small" title="Warning level">⚠️${warningLevel(state.uid)}%</span>` : ""}
+        <span class="bl-me-line">${state.away ? `<span class="status away" title="${esc(state.away)}">🌙 ${esc(state.away)}</span>` : nowPlayingOf(state.uid) ? `<span class="np-me" title="Now playing">🎵 ${esc(nowPlayingOf(state.uid))}</span>` : `<span class="status">Available</span>`}</span></div></div>
     <div class="bl-scroll">
     <div class="group">${foldBtn("bots", "Bots (1/1)")}
       ${fold("bots") ? "" : `<div class="buddy online bot-row" data-bot="1" title="Always online"><span class="dot"></span><span class="bot-ic">🤖</span><span>DialBot</span><span class="small muted">always on</span></div>`}</div>
