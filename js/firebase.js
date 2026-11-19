@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut,
-  setPersistence, browserLocalPersistence, browserSessionPersistence, deleteUser,
+  setPersistence, browserLocalPersistence, browserSessionPersistence, deleteUser, verifyBeforeUpdateEmail,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   getDatabase, ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect,
@@ -35,6 +35,15 @@ export function validScreenName(name) {
 }
 
 const emailFor = (name) => `${normalize(name)}@users.buddychat.app`;
+const ACCOUNTS = "https://dialedup-push.stickyarcadecloud.workers.dev";   // private email lookups for sign-on and password reset
+const post = (path, body) => fetch(ACCOUNTS + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+/** A renamed account still signs in with its original login name. */
+async function loginFor(screenName) {
+  let login = normalize(screenName);
+  try { const l = (await get(ref(db, `loginnames/${login}/login`))).val(); if (typeof l === "string" && l) login = l; } catch {}
+  return login;
+}
 
 function friendly(err) {
   const code = (err && (err.code || err.message)) || "";
@@ -50,11 +59,17 @@ function friendly(err) {
 export async function signOn(screenName, password, remember) {
   try {
     await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
-    // Renamed accounts: the new screen name points to the original login
-    let login = normalize(screenName);
-    try { const l = (await get(ref(db, `loginnames/${login}/login`))).val(); if (typeof l === "string" && l) login = l; } catch {}
-    const cred = await signInWithEmailAndPassword(auth, emailFor(login), password);
-    return cred.user;
+    const login = await loginFor(screenName);
+    try {
+      return (await signInWithEmailAndPassword(auth, emailFor(login), password)).user;
+    } catch (e) {
+      // Accounts with a confirmed email sign in with that email behind the scenes
+      if (!/invalid-credential|wrong-password|user-not-found/.test(String(e?.code))) throw e;
+      const r = await post("/signin-email", { login, password }).catch(() => null);
+      const email = r?.ok ? (await r.json()).email : null;
+      if (!email) throw e;
+      return (await signInWithEmailAndPassword(auth, email, password)).user;
+    }
   } catch (e) {
     throw new Error(friendly(e));
   }
@@ -93,6 +108,37 @@ export async function saveEmail(email) {
   const n = (await get(ref(db, `users/${u.uid}/screenName`)).catch(() => null))?.val() || "";
   await set(ref(db, `emails/${u.uid}`), { email: email.trim().toLowerCase(), n, ts: serverTimestamp() });
 }
+/**
+ * Turns on password reset: saves the email (encrypted) for screen-name sign-on, then Firebase emails a link
+ * to confirm it. Returns "sent", "relogin" (needs a fresh sign-on first) or "error".
+ */
+export async function linkEmail(email) {
+  const u = auth.currentUser;
+  if (!u || !validEmail(email)) return "error";
+  try {
+    const login = await loginFor((await get(ref(db, `users/${u.uid}/screenName`))).val() || "");
+    const token = await u.getIdToken();
+    const r = await post("/link-email", { token, login, email: email.trim().toLowerCase() });
+    if (!r.ok) return "error";
+    if ((u.email || "").toLowerCase() === email.trim().toLowerCase()) return "done";
+    await verifyBeforeUpdateEmail(u, email.trim().toLowerCase());
+    await update(ref(db, `users/${u.uid}`), { emailLinkSent: serverTimestamp() }).catch(() => {});
+    return "sent";
+  } catch (e) {
+    return /recent-login/.test(String(e?.code)) ? "relogin" : "error";
+  }
+}
+/** True once the account's sign-in email is the member's real, confirmed email. */
+export const emailConfirmed = () => !!auth.currentUser?.email && !auth.currentUser.email.endsWith("@users.buddychat.app");
+
+/** "Forgot password?": Firebase emails a reset link if this screen name has a confirmed email. */
+export async function sendPasswordReset(screenName) {
+  if (!validScreenName(screenName)) throw new Error("Type your screen name first.");
+  const login = await loginFor(screenName);
+  const r = await post("/reset", { login }).catch(() => null);
+  if (!r) throw new Error("Couldn't connect. Check your internet connection.");
+}
+
 export async function getMyEmail() {
   try { return (await get(ref(db, `emails/${auth.currentUser.uid}/email`))).val(); } catch { return undefined; }
 }

@@ -245,6 +245,8 @@ const keywords = {
   feed: () => import("./social.js").then((m) => m.openFeed()), buddyfeed: () => import("./social.js").then((m) => m.openFeed()), wall: () => import("./social.js").then((m) => m.openFeed()),
   updates: () => import("./social.js").then((m) => m.newStory()), story: () => import("./social.js").then((m) => m.newStory()), stories: () => import("./social.js").then((m) => m.openFeed()),
   reports: () => import("./social.js").then((m) => m.openReports()),
+  admin: () => import("./admin.js").then((m) => m.openAdmin()),
+  bell: () => import("./notifs.js").then((m) => m.openNotifs()), notifs: () => import("./notifs.js").then((m) => m.openNotifs()),
   myemail: () => import("./engage.js").then((m) => m.openMyEmail()), changeemail: () => import("./engage.js").then((m) => m.openMyEmail()),
   groups: () => import("./engage.js").then((m) => m.openGroups()), clubs: () => import("./engage.js").then((m) => m.openGroups()), communities: () => import("./engage.js").then((m) => m.openGroups()),
   leaderboards: () => import("./engage.js").then((m) => m.openLeaderboards()), leaderboard: () => import("./engage.js").then((m) => m.openLeaderboards()), scores: () => import("./engage.js").then((m) => m.openLeaderboards()), trivianight: () => import("./engage.js").then((m) => m.openLeaderboards()),
@@ -304,7 +306,7 @@ function openAbout() {
       body.innerHTML = `<div style="text-align:center"><img src="img/wordmark.png" width="170" alt="DialedUp">
         <h2 class="brand" style="font-size:26px">Dialed<span>Up</span></h2>
         <p class="tagline">The online service that never logged off.</p>
-        <p class="small">Version 26.0 (build 1119.0030) · Still connecting since '96.</p>
+        <p class="small">Version 26.0 (build 1119.0038) · Still connecting since '96.</p>
         <p class="small muted">DialedUp is an independent, fan-made throwback. Not affiliated with, endorsed by, or connected to AOL, AIM, Yahoo or Bending Spoons. All trademarks belong to their owners.</p></div>`;
     },
   });

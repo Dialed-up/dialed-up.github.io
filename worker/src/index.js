@@ -5,6 +5,8 @@
 import { buildPushPayload } from "@block65/webcrypto-web-push";
 
 const DB = "https://buddychat-48c0b-default-rtdb.firebaseio.com";
+const API_KEY = "AIzaSyCXoMzDT9DxB6fEer3F-UuOQlChRhkUFYY";   // public Firebase web key (same as the website)
+const LOGIN_RE = /^[a-z0-9]{3,16}$/;
 const ORIGINS = ["https://dialedup.lol", "https://www.dialedup.lol", "https://dialed-up.github.io"];
 // File types that may be shown directly in the browser. Everything else downloads as a plain file.
 const INLINE_TYPES = /^(image\/(jpeg|png|gif|webp|heic|heif)|video\/(mp4|webm|quicktime)|audio\/[a-z0-9.+-]+)$/;
@@ -57,6 +59,43 @@ async function sendTo(env, uid, note, skipDevice = null) {
     } catch (e) { results.push("error:" + String(e?.message || e).slice(0, 60)); }
   }));
   return { sent, phones: list.keys.length, results };
+}
+
+// ----- Private member emails: stored encrypted so a screen name can still be used to sign on and reset a password -----
+async function mailKey(env) {
+  const raw = Uint8Array.from(atob(env.MAIL_KEY), (c) => c.charCodeAt(0));
+  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+const b64 = (u8) => btoa(String.fromCharCode(...u8));
+const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function seal(env, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await mailKey(env), new TextEncoder().encode(text)));
+  return b64(iv) + "." + b64(ct);
+}
+async function unseal(env, blob) {
+  try {
+    const [iv, ct] = String(blob).split(".");
+    return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(iv) }, await mailKey(env), unb64(ct)));
+  } catch { return null; }
+}
+async function emailForLogin(env, login) {
+  if (!LOGIN_RE.test(login)) return null;
+  try {
+    const r = await fetch(`${DB}/loginmail/${login}.json`);
+    const v = r.ok ? await r.json() : null;
+    return typeof v === "string" ? await unseal(env, v) : null;
+  } catch { return null; }
+}
+const identity = (method, body) => fetch(`https://identitytoolkit.googleapis.com/v1/accounts:${method}?key=${API_KEY}`, {
+  method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+/** Per-key limit (e.g. per screen name or per network address). */
+async function tooMany(env, key, max, seconds) {
+  const k = `lim:${key}:${Math.floor(Date.now() / (seconds * 1000))}`;
+  const n = Number((await env.SUBS.get(k)) || 0);
+  if (n >= max) return true;
+  await env.SUBS.put(k, String(n + 1), { expirationTtl: Math.max(60, seconds * 2) });
+  return false;
 }
 
 /** Simple per-sender limit: 30 alerts a minute. */
@@ -121,6 +160,27 @@ export default {
     if (req.method !== "POST") return json(req, { error: "not found" }, 404);
     let body;
     try { body = await req.json(); } catch { return json(req, { error: "bad request" }, 400); }
+
+    // ----- Sign on with a screen name after the account moved to a real email -----
+    if (url.pathname === "/signin-email") {
+      const login = String(body.login || ""), password = String(body.password || "");
+      const ip = req.headers.get("cf-connecting-ip") || "?";
+      if (await tooMany(env, "si:" + login, 10, 600) || await tooMany(env, "sip:" + ip, 30, 600)) return json(req, { error: "slow down" }, 429);
+      const email = await emailForLogin(env, login);
+      if (!email || !password) return json(req, { error: "no" }, 401);
+      const r = await identity("signInWithPassword", { email, password, returnSecureToken: false });
+      return r.ok ? json(req, { email }) : json(req, { error: "no" }, 401);
+    }
+    // ----- "Forgot password?": Firebase emails a reset link to the member's confirmed email -----
+    if (url.pathname === "/reset") {
+      const login = String(body.login || "");
+      const ip = req.headers.get("cf-connecting-ip") || "?";
+      if (await tooMany(env, "rs:" + login, 3, 3600) || await tooMany(env, "rsp:" + ip, 10, 3600)) return json(req, { ok: true });
+      const email = await emailForLogin(env, login);
+      if (email) await identity("sendOobCode", { requestType: "PASSWORD_RESET", email }).catch(() => {});
+      return json(req, { ok: true });   // same answer either way, so nobody can tell which names have emails
+    }
+
     const token = String(body.token || "");
     const me = uidOf(token);
     if (!me) return json(req, { error: "sign in first" }, 401);
@@ -140,6 +200,18 @@ export default {
       await env.SUBS.put(key, JSON.stringify({ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }),
         { expirationTtl: 60 * 60 * 24 * 90, metadata: { site, device: String(body.device || "").slice(0, 40), at: Date.now() } });
       return json(req, { ok: true });
+    }
+
+    // ----- Save your private email (encrypted) under your login name -----
+    if (url.pathname === "/link-email") {
+      const email = String(body.email || "").trim().toLowerCase();
+      const login = String(body.login || "");
+      if (!/^[^\s@]{1,64}@[^\s@]+\.[a-z]{2,}$/.test(email) || email.length > 100 || !LOGIN_RE.test(login)) return json(req, { error: "bad email" }, 400);
+      if (await overLimit(env, me)) return json(req, { error: "slow down" }, 429);
+      const owner = await dbGet(`screennames/${login}`, token);
+      if (!owner.ok || owner.val !== me) return json(req, { error: "not yours" }, 403);
+      const r = await fetch(`${DB}/loginmail/${login}.json?auth=${encodeURIComponent(token)}`, { method: "PUT", body: JSON.stringify(await seal(env, email)) });
+      return r.ok ? json(req, { ok: true }) : json(req, { error: "couldn't save" }, 502);
     }
 
     // ----- "Send me a test alert" (arrives 10 seconds later so there's time to close the app) -----

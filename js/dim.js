@@ -76,6 +76,8 @@ onAuthStateChanged(auth, (user) => {
   if (!user) { if (started) leave(); toMainSignOn(); }
 });
 
+document.querySelector(".dim-bell")?.addEventListener("click", () => import("./notifs.js").then((m) => m.openNotifs()));
+
 async function enter(fresh) {
   if (started) return;
   started = true;
@@ -83,7 +85,7 @@ async function enter(fresh) {
   $("app").hidden = false;
   sessionStorage.removeItem("du.freshSignOn");
   applyBackdrop();
-  await startChat();
+  try { await startChat(); } catch { return; }   // suspended accounts are signed off
   if (await startSync(auth.currentUser.uid)) applyBackdrop();
   document.title = `Instantly — ${me().screenName}`;
   import("./stats-track.js").then((m) => m.trackVisit(auth.currentUser.uid, me().screenName, "dim"));
@@ -114,6 +116,7 @@ $("start").onclick = () => {
   contextMenu(r.left, r.top - 4, [
     { label: "👥 Homies List", action: openBuddyList },
     { label: "📰 Homie Feed", action: () => import("./social.js").then((m) => m.openFeed()) },
+    { label: "🔔 Notifications", action: () => import("./notifs.js").then((m) => m.openNotifs()) },
     { label: "🔥 Trending", action: () => import("./engage.js").then((m) => m.openTrending()) },
     { label: "🌍 Groups", action: () => import("./engage.js").then((m) => m.openGroups()) },
     { label: "👋 People You May Know", action: () => import("./engage.js").then((m) => m.openPYMK()) },

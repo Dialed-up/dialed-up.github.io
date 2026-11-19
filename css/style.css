@@ -842,3 +842,12 @@ ol.lb li.me { background: #fff6c8; font-weight: bold; }
 }
 /* long party names: two lines max */
 .party-head > span:first-child { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+/* Notifications */
+.notif-list li.notif { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px; border-bottom: 1px dotted var(--line); cursor: pointer; border-radius: 6px; }
+.notif-list li.notif:hover { background: #f3eeff; }
+.notif-list li.notif.new { background: #fff6d6; }
+.notif-ic { position: relative; flex-shrink: 0; }
+.notif-ic i { position: absolute; right: -4px; bottom: -4px; font-style: normal; font-size: 13px; }
+.notif-txt { font-size: 13px; line-height: 1.35; }
+.dim-bell { position: relative; }
+.dim-bell .badge { position: absolute; top: -6px; right: -6px; }

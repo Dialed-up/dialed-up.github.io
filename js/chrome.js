@@ -56,7 +56,7 @@ export function setupChrome({ runKeyword, screenName, signOff, actions, switchSc
     Window: null,   // built when opened
     Keyword: [["Go to Keyword…", () => $("keyword").focus()], ["Keyword List", () => go("help")]],
     "Sign Off": [["Switch Screen Name…", switchScreenName], ["Sign Off", signOff]],
-    Help: [...(auth.currentUser?.uid === "Dh35JEPVTiWIB96X03RGeiVmQN03" ? [["📊 Site Stats (owner)", () => window.open("stats.html", "_blank")], ["🛡 Reports (owner)", () => go("reports")]] : []), ["Preferences (Themes)", () => go("preferences")], ["🔊 Sounds", () => go("sounds")], ["Kid-Safe Mode", () => go("kids")], ["Keyword Help", () => go("help")], ["Online Clock", openClock], ["About DialedUp", () => go("about")]],
+    Help: [...(auth.currentUser?.uid === "Dh35JEPVTiWIB96X03RGeiVmQN03" ? [["📊 Site Stats (owner)", () => window.open("stats.html", "_blank")], ["🛡 Reports (owner)", () => go("reports")], ["🛠 Admin Panel (owner)", () => go("admin")]] : []), ["Preferences (Themes)", () => go("preferences")], ["🔊 Sounds", () => go("sounds")], ["Kid-Safe Mode", () => go("kids")], ["Keyword Help", () => go("help")], ["Online Clock", openClock], ["About DialedUp", () => go("about")]],
   };
   const holder = $("menus");
   holder.innerHTML = Object.keys(menus).map((m) => `<button class="menu-item" data-menu="${m}">${m}</button>`).join("");

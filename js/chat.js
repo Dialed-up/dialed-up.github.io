@@ -1,7 +1,7 @@
 // Homies, IMs, chat rooms, away messages and profiles — shared with the BuddyChat iPhone app.
 import {
   auth, db, ref, get, set, update, push, remove, onValue, off, serverTimestamp, onDisconnect,
-  query, orderByKey, limitToLast, normalize, conversationID,
+  query, orderByKey, limitToLast, normalize, conversationID, signOff,
 } from "./firebase.js";
 import { openWindow, closeWindow, getWindow, setTitle, flash, esc, img64, contextMenu, onMenu } from "./wm.js";
 import * as sfx from "./sounds.js";
@@ -91,6 +91,8 @@ const renameOldGroup = () => state.groups.forEach((g) => { if (g.name === "Buddi
 
 export async function startChat() {
   const uid = auth.currentUser.uid;
+  // Suspended or banned? Explain and sign off.
+  if (await (await import("./admin.js")).checkBan(uid)) { await signOff().catch(() => {}); throw new Error("suspended"); }
   state.uid = uid;
   const meRef = ref(db, `users/${uid}`);
   state.me = (await get(meRef)).val() || { screenName: "Me" };
@@ -127,6 +129,7 @@ export async function startChat() {
     if (sessionStorage.getItem("du.justSignedUp")) { sessionStorage.removeItem("du.justSignedUp"); m.handleInviteAfterSignup(addBuddyByUid); }
   });
   setTimeout(() => { state.loadedUsers = true; }, 4000);
+  import("./notifs.js").then((m) => m.watchNotifs());
   listen(".info/connected", (v) => {
     const was = state.connected;
     state.connected = v === true;
@@ -197,6 +200,7 @@ function syncWatches() {
 }
 
 export function stopChat() {
+  import("./notifs.js").then((m) => m.stopNotifs());
   watches.forEach((refs) => refs.forEach((r) => off(r)));
   watches.clear();
   state.listeners.forEach((r) => off(r));
@@ -697,6 +701,7 @@ export async function addBuddyByUid(u) {
   if (!u || u === state.uid || buddyList().includes(u)) return;
   (state.groups[0] || state.groups.find(() => true))?.members.push(u);
   await saveGroups();
+  import("./notifs.js").then((m) => m.notify(u, "homie"));
 }
 
 export function openAddBuddy(prefill = "") {
@@ -718,6 +723,7 @@ export function openAddBuddy(prefill = "") {
         state.groups.forEach((g) => (g.members = g.members.filter((m) => m !== uid)));
         state.groups.find((g) => g.id === body.querySelector("#ab-g").value)?.members.push(uid);
         await saveGroups();
+        import("./notifs.js").then((m) => m.notify(uid, "homie"));
         err.style.color = "green";
         err.textContent = `Added ${name(uid)}!`;
         body.querySelector("#ab-sn").value = "";

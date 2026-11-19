@@ -88,6 +88,16 @@ export async function onSignOn() {
   if (Number(localStorage.getItem("du.trivia.best") || 0) >= 8) award("trivia");
   try { if (Object.keys((await get(ref(db, `invited/${uid()}`))).val() || {}).length) award("recruiter"); } catch {}
   setTimeout(birthdays, 6000);
+  // Email saved but not confirmed: after a fresh password sign-on, send the confirmation (at most weekly)
+  if (sessionStorage.getItem("du.pwSignOn")) {
+    sessionStorage.removeItem("du.pwSignOn");
+    import("./firebase.js").then(async (fb) => {
+      if (fb.emailConfirmed()) return;
+      const email = await fb.getMyEmail();
+      const sent = (await get(ref(db, `users/${uid()}/emailLinkSent`)).catch(() => null))?.val() || 0;
+      if (email && Date.now() - sent > 7 * 86400000 && (await fb.linkEmail(email)) === "sent") toast("📧 We sent a link to confirm your email. It lets you reset your password if you ever forget it.");
+    });
+  }
   // Members who joined before emails were required: ask once a day until they add one
   if (localStorage.getItem("du.emailAsk") !== dayKey() && !sessionStorage.getItem("du.justSignedUp")) {
     localStorage.setItem("du.emailAsk", dayKey());
@@ -372,14 +382,16 @@ export async function openGroup(gid) {
 
 // =================== Your email (private; for important DialedUp news) ===================
 export async function openMyEmail({ nag = false } = {}) {
-  const { getMyEmail, saveEmail, validEmail } = await import("./firebase.js");
+  const { getMyEmail, saveEmail, validEmail, linkEmail, emailConfirmed } = await import("./firebase.js");
   const current = await getMyEmail();
   if (nag && (current || current === undefined)) return;   // already have it (or couldn't check)
   openWindow("myemail", {
-    title: current ? "My Email" : "Add Your Email", icon: "📧", width: 320, height: 290, keyword: "myemail",
+    title: current ? "My Email" : "Add Your Email", icon: "📧", width: 330, height: 330, keyword: "myemail",
     render(body) {
       body.innerHTML = `<form id="em-f">${current ? "" : `<p style="margin-top:0"><b>DialedUp now asks every member for an email.</b> It stays private and is never shown to other members. We'll only use it for important news about your account.</p>`}
         <label>Email <input id="em-i" type="email" autocomplete="email" inputmode="email" maxlength="100" required value="${esc(current || "")}" placeholder="you@example.com" data-no-altcaps></label>
+        ${current ? `<p class="small" style="margin:4px 0">${emailConfirmed() ? "✅ Confirmed. You can reset your password with \"Forgot password?\" on the sign-on screen."
+          : "⏳ Not confirmed yet. Check your inbox (and spam) for the link from DialedUp, or press Save to send it again."}</p>` : ""}
         <p class="error" id="em-e"></p>
         <div class="row">${nag ? `<button type="button" class="btn" id="em-later">Later</button>` : "<span></span>"}<button class="btn primary">💾 Save</button></div></form>`;
       body.querySelector("#em-later")?.addEventListener("click", () => closeWindow("myemail"));
@@ -387,7 +399,14 @@ export async function openMyEmail({ nag = false } = {}) {
         e.preventDefault();
         const v = body.querySelector("#em-i").value.trim();
         if (!validEmail(v)) { body.querySelector("#em-e").textContent = "Please enter a real email address."; return; }
-        try { await saveEmail(v); closeWindow("myemail"); toast("📧 Email saved. Thanks!"); }
+        try {
+          await saveEmail(v);
+          const res = await linkEmail(v);
+          closeWindow("myemail");
+          toast(res === "sent" ? "📧 Saved! Check your email for a link to confirm it."
+            : res === "relogin" ? "📧 Saved! Sign off and back on, then save again to get the confirmation email."
+            : res === "done" ? "📧 Email saved. Thanks!" : "📧 Saved. We couldn't send the confirmation right now; try again later.");
+        }
         catch { body.querySelector("#em-e").textContent = "Couldn't save it right now. Try again in a minute."; }
       };
     },

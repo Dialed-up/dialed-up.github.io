@@ -43,9 +43,14 @@ async function shrink(file, max = 960, q = 0.72) {
 // =================== Posts ===================
 /** Write a post on someone's Wall (your own Wall = a normal post). */
 export async function createPost(owner, text, file) {
+  const notifyAfter = (pid) => import("./notifs.js").then((m) => {
+    if (owner !== uid() && !owner.startsWith("g_")) m.notify(owner, "wall", { owner, pid, text });
+    m.notifyMentions(text, { owner, pid });
+  });
   const pid = push(ref(db, `posts/${owner}`)).key;
   if (file) await set(ref(db, `postimgs/${owner}/${pid}`), await shrink(file));
   await set(ref(db, `posts/${owner}/${pid}`), { by: uid(), n: me().screenName, text: String(text || "").slice(0, 1000), img: !!file, ts: serverTimestamp() });
+  notifyAfter(pid);
   return pid;
 }
 
@@ -99,7 +104,7 @@ function postCard(el, owner, pid, p, label = null) {
     if (liked && only) return;
     const r = ref(db, `postlikes/${owner}/${pid}/${uid()}`);
     (liked ? remove(r) : set(r, true)).catch(() => {});
-    if (!liked) sfx.alertBlip?.();
+    if (!liked) { sfx.alertBlip?.(); import("./notifs.js").then((m) => m.notify(p.by, "like", { owner, pid, text: p.text })); }
   };
   el.querySelector(".like").onclick = () => toggleLike();
   // comments
@@ -121,7 +126,11 @@ function postCard(el, owner, pid, p, label = null) {
     const inp = e.target.querySelector("input"), t = inp.value.trim();
     if (!t) return;
     inp.value = "";
-    push(ref(db, `postcomments/${owner}/${pid}`), { by: uid(), n: me().screenName, text: t, ts: serverTimestamp() }).catch(() => alert("Couldn't post your comment."));
+    push(ref(db, `postcomments/${owner}/${pid}`), { by: uid(), n: me().screenName, text: t, ts: serverTimestamp() }).then(() => import("./notifs.js").then((m) => {
+      m.notify(p.by, "comment", { owner, pid, text: t });
+      if (owner !== p.by && !owner.startsWith("g_")) m.notify(owner, "comment", { owner, pid, text: t });
+      m.notifyMentions(t, { owner, pid });
+    })).catch(() => alert("Couldn't post your comment."));
   };
   el.querySelector(".post-more").onclick = (e) => {
     const r = e.target.getBoundingClientRect();

@@ -1,5 +1,5 @@
 import "./guard.js";
-import { auth, onAuthStateChanged, signOn, signUp, signOff, saveEmail, validEmail } from "./firebase.js";
+import { auth, onAuthStateChanged, signOn, signUp, signOff, saveEmail, validEmail, linkEmail, sendPasswordReset } from "./firebase.js";
 import * as sfx from "./sounds.js";
 import { closeAll } from "./wm.js";
 import { openWelcome, openChannels, runKeyword } from "./portal.js";
@@ -73,6 +73,15 @@ $("mute").onchange = (e) => sfx.setMuted(e.target.checked);
 $("new-user").onclick = () => { $("signon-form").hidden = true; $("signup-form").hidden = false; $("su-sn").focus(); };
 // Came from a friend's invite link: show "Get a Screen Name" right away
 if (/[?&]invite=/.test(location.search)) setTimeout(() => { if ($("signup-form").hidden && !$("signon-form").hidden) $("new-user").click(); }, 0);
+$("forgot").onclick = async (e) => {
+  e.preventDefault();
+  const name = prompt("Forgot your password? Type your screen name:", $("sn").value.trim());
+  if (!name) return;
+  try {
+    await sendPasswordReset(name);
+    alert("If that screen name has a confirmed email, a password reset link is on its way. Check your inbox (and spam folder) in a few minutes.");
+  } catch (err) { alert(err.message); }
+};
 $("back-signon").onclick = () => { $("signup-form").hidden = true; $("signon-form").hidden = false; };
 
 /** Plays the dial-up show while `work` runs; resolves when both are done. */
@@ -106,6 +115,7 @@ $("signon-form").onsubmit = async (e) => {
   $("signon-error").textContent = "";
   try {
     await dialUpWhile(() => signOn($("sn").value, $("pw").value, $("remember").checked));
+    sessionStorage.setItem("du.pwSignOn", "1");   // a fresh sign-on: OK to send an email confirmation
     enterDesktop(true);
   } catch (err) {
     $("signon-error").textContent = err.message;
@@ -121,7 +131,7 @@ $("signup-form").onsubmit = async (e) => {
   try {
     await dialUpWhile(() => signUp($("su-sn").value, $("su-pw").value));
     sessionStorage.setItem("du.justSignedUp", "1");
-    saveEmail(email).catch(() => {});
+    saveEmail(email).then(() => linkEmail(email)).catch(() => {});
     enterDesktop("signup");
   } catch (err) {
     $("signup-form").hidden = false;
@@ -158,7 +168,7 @@ async function enterDesktop(fresh) {
   if (started) return;
   started = true;
   show("app");
-  await startChat();
+  try { await startChat(); } catch { return; }   // suspended accounts are signed off
   if (await startSync(auth.currentUser.uid)) { applyPrefs(); applyKidMode(); }   // settings saved to the account come back here
   rememberName(me().screenName);
   import("./stats-track.js").then((m) => m.trackVisit(auth.currentUser.uid, me().screenName, "dialedup"));

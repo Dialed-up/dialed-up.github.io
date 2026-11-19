@@ -235,7 +235,10 @@ export async function openRoom(displayName, category = "") {
         const t = ta.value.trim();
         if (!t) return;
         ta.value = "";
-        say(t).then(() => import("./engage.js").then((m) => m.countUp("room"))).catch(() => alert("Couldn't send to the room."));
+        say(t).then(() => {
+          import("./engage.js").then((m) => m.countUp("room"));
+          if (t.includes("@")) import("./notifs.js").then((m) => m.notifyMentions(t, { room: displayName }));
+        }).catch(() => alert("Couldn't send to the room."));
       };
       body.querySelector(".compose .btn").onclick = send;
       ta.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
