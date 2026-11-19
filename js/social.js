@@ -57,6 +57,17 @@ export async function createPost(owner, text, file, { pub = false } = {}) {
   return pid;
 }
 
+// Your own posts can be edited for 2 minutes after posting
+const EDIT_POST_MS = 2 * 60000;
+async function editPost(owner, pid, p) {
+  if (Date.now() - (p.ts || 0) > EDIT_POST_MS) { alert("Posts can only be edited for 2 minutes after posting."); return; }
+  const t = prompt("Edit your post:", p.text || "");
+  if (t === null || t.trim() === (p.text || "")) return;
+  if (!t.trim() && !p.img) { alert("A post needs some words or a photo."); return; }
+  update(ref(db, `posts/${owner}/${pid}`), { text: t.trim().slice(0, 1000), edited: true })
+    .catch(() => alert("Couldn't edit it. The 2 minutes may be up."));
+}
+
 async function deletePost(owner, pid) {
   await remove(ref(db, `pubfeed/${owner}_${pid}`)).catch(() => {});
   await remove(ref(db, `postcomments/${owner}/${pid}`)).catch(() => {});
@@ -82,7 +93,7 @@ function postCard(el, owner, pid, p, label = null) {
       ${p.pub ? `<span class="aud-tag" title="Public: anyone on DialedUp can see this">🌍</span>` : p.by === owner && owner === uid() ? `<span class="aud-tag" title="Homies only">👥</span>` : ""}
       ${p.by !== owner && !label ? `<span class="small muted"> ▸ ${esc(userName(owner))}'s Wall</span>` : ""}<br><span class="small muted">${p.ts ? ago(p.ts) : ""}</span></div>
       <button class="post-more" title="More">⋯</button></div>
-    ${p.text ? `<div class="post-text">${linkify(p.text)}</div>` : ""}
+    ${p.text ? `<div class="post-text">${linkify(p.text)}${p.edited ? ` <span class="small muted">(edited)</span>` : ""}</div>` : ""}
     ${p.img ? `<div class="post-img"><span class="small muted">📷 Loading photo…</span></div>` : ""}
     <div class="post-bar"><button class="like">🤍 <span>0</span></button><button class="cmt">💬 <span>0</span></button></div>
     <div class="post-comments" hidden><ul class="clist"></ul>
@@ -149,6 +160,7 @@ function postCard(el, owner, pid, p, label = null) {
     contextMenu(r.left - 120, r.bottom, [
       { label: "🪪 View " + (p.n || "profile"), action: () => openInfo(p.by) },
       ...(mine ? [] : [{ label: "💬 Send IM", action: () => openIM(p.by) }]),
+      ...(mine && p.ts && Date.now() - p.ts < EDIT_POST_MS ? [{ label: "✏️ Edit Post", action: () => editPost(owner, pid, p) }] : []),
       "-",
       ...(mine || myWall || uid() === OWNER ? [{ label: "🗑 Delete Post", danger: true, action: () => { if (confirm("Delete this post?")) deletePost(owner, pid).catch(() => alert("Couldn't delete it.")); } }]
         : [{ label: "🚩 Report Post", danger: true, action: () => report("post", `posts/${owner}/${pid}`, owner, p.text) }]),
