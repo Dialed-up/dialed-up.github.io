@@ -164,7 +164,10 @@ async function enterDesktop(fresh) {
   if (started) return;
   started = true;
   show("app");
-  try { await startChat(); } catch (err) { signOnFailed(err); return; }   // suspended accounts are signed off
+  // If the database can't be reached, say so instead of sitting on a blank screen
+  const slow = setTimeout(() => signOnFailed({ message: "Can't reach the DialedUp database. Check your internet connection. (Owner: if App Check is set to Enforce for the Realtime Database in the Firebase console, switch it back to Unenforced.)" }), 15000);
+  try { await startChat(); } catch (err) { clearTimeout(slow); signOnFailed(err); return; }   // suspended accounts are signed off
+  clearTimeout(slow);
   if (await startSync(auth.currentUser.uid)) { applyPrefs(); applyKidMode(); }   // settings saved to the account come back here
   rememberName(me().screenName);
   import("./stats-track.js").then((m) => m.trackVisit(auth.currentUser.uid, me().screenName, "dialedup"));
