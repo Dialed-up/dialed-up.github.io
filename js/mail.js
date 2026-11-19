@@ -254,13 +254,16 @@ function readMail(id) {
           `<div class="row"><span>📄 ${esc(f.name)} <span class="muted">(${sizeLabel(f.size)})</span></span><button class="btn small-btn" data-dl="${esc(i)}">⬇ Download</button></div>`).join("")}</div>` : ""}
         <div class="row">
           <span><button class="btn small-btn" data-x="save">💾 Save</button> <button class="btn danger small-btn" data-x="del">Delete</button></span>
-          <span><button class="btn small-btn" data-x="fwd">Forward</button> <button class="btn primary small-btn" data-x="reply">Reply</button></span>
+          ${m.system ? `<span>${m.about ? `<button class="btn small-btn" data-x="profile">🪪 View Profile</button>${buddyList().includes(m.about) ? "" : ` <button class="btn primary small-btn" data-x="addback">➕ Add Back</button>`}` : ""}</span>`
+            : `<span><button class="btn small-btn" data-x="fwd">Forward</button> <button class="btn primary small-btn" data-x="reply">Reply</button></span>`}
         </div>`;
       if (m.card) renderCard(body.querySelector(".mail-card"), { ...m.card, fromName: m.fromName });
       body.querySelectorAll("[data-dl]").forEach((b) => (b.onclick = () => downloadFile(m.files[b.dataset.dl], b)));
       const quoted = "\n\n----- " + m.fromName + " wrote -----\n" + m.body;
-      body.querySelector("[data-x=reply]").onclick = () => writeMail(m.fromName, "Re: " + (m.subject || "").replace(/^Re: /, ""), quoted);
-      body.querySelector("[data-x=fwd]").onclick = () => writeMail("", "Fwd: " + (m.subject || ""), quoted);
+      body.querySelector("[data-x=reply]")?.addEventListener("click", () => writeMail(m.fromName, "Re: " + (m.subject || "").replace(/^Re: /, ""), quoted));
+      body.querySelector("[data-x=fwd]")?.addEventListener("click", () => writeMail("", "Fwd: " + (m.subject || ""), quoted));
+      body.querySelector("[data-x=profile]")?.addEventListener("click", () => import("./chat.js").then((c) => c.openInfo(m.about)));
+      body.querySelector("[data-x=addback]")?.addEventListener("click", () => import("./chat.js").then(async (c) => { await c.addBuddyByUid(m.about); body.querySelector("[data-x=addback]")?.remove(); }));
       body.querySelector("[data-x=save]").onclick = () => update(ref(db, `mail/${uid()}/${id}`), { saved: true });
       body.querySelector("[data-x=del]").onclick = async () => { await update(ref(db, `mail/${uid()}/${id}`), { deleted: true }); closeWindow("mail." + id); };
     },

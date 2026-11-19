@@ -73,6 +73,14 @@ export function watchNotifs() {
 }
 export function stopNotifs() { if (watchRef) off(watchRef); watchRef = null; list = []; if (addedRef) off(addedRef); addedRef = null; }
 
+/** A letter from DialedUp in your own Mailbox (no reply button; can link to a member). */
+export function systemMail(subject, body, { about = null } = {}) {
+  if (!uid()) return;
+  const item = { system: true, fromName: "DialedUp", subject: String(subject).slice(0, 200), body: String(body).slice(0, 5000), ts: serverTimestamp(), read: false };
+  if (about) item.about = about;
+  push(ref(db, `mail/${uid()}`), item).catch(() => {});
+}
+
 // Anyone who adds you (from DialedUp, Instantly or the BuddyChat iPhone app) shows up in Alerts.
 // buddyof/{you} lists everyone who has you on their Homies List.
 let addedRef = null;
@@ -88,7 +96,11 @@ function watchAddedMe() {
     for (const u of now.filter((x) => !known.includes(x) && x !== me_)) {
       const n = (await get(ref(db, `names/${u}`)).catch(() => null))?.val() || "Someone";
       const spot = ref(db, `notifs/${me_}/h_${u}`);
-      if ((await get(spot).catch(() => null))?.val() == null) set(spot, { type: "homie", from: u, n: String(n).slice(0, 20), ts: serverTimestamp() }).catch(() => {});
+      if ((await get(spot).catch(() => null))?.val() != null) continue;   // already told you about this person
+      set(spot, { type: "homie", from: u, n: String(n).slice(0, 20), ts: serverTimestamp() }).catch(() => {});
+      systemMail(`👋 ${n} added you to their Homies List`,
+        `Hi ${me()?.screenName || "there"},\n\n${n} just added you to their Homies List on DialedUp.\n\nWant to add them back? Tap "➕ Add Back" below, or open their profile to say hi.\n\n— DialedUp`,
+        { about: u });
     }
   }, () => {});
 }
