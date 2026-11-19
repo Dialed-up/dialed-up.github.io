@@ -296,25 +296,29 @@ function roomParty(body, key, say, getMod) {
       { label: "📻 Listening Party: my Radio station", action: async () => {
         const st = (await import("./radio.js")).getNowPlaying();
         if (!st) { alert("Open DialedUp Radio and start a station first, then come back here."); import("./radio.js").then((m) => m.openRadio()); return; }
-        start("listen", { station: { name: st.name, url: st.url }, title: "📻 " + st.name });
+        start("listen", { station: { name: String(st.name).slice(0, 100), url: st.url }, title: "📻 " + st.name });
       } },
       { label: "🎬 Watch Party: YouTube / Twitch / Vimeo link…", action: () => start("watch") },
     ]);
   };
   const start = (kind, extra = null) => {
     let data = extra;
+    const clip = (t) => { t = String(t || "").replace(/\s+/g, " ").trim(); return t.length > 70 ? t.slice(0, 68).trim() + "…" : t; };
+    if (data) data = { ...data, title: clip(data.title) };
     if (!data) {
       const url = prompt(kind === "watch" ? "Paste a YouTube, Twitch or Vimeo link to watch together:" : "Paste a Spotify, SoundCloud or YouTube link to listen to together:");
       if (!url) return;
       if (!/^https:\/\//i.test(url.trim())) { alert("That needs to be a full link starting with https://"); return; }
       const title = prompt("Give it a name (optional):", "") || "";
-      data = { url: url.trim().slice(0, 500), title: title.slice(0, 80) || (kind === "watch" ? "Now showing" : "Now playing") };
+      data = { url: url.trim().slice(0, 500), title: clip(title) || (kind === "watch" ? "Now showing" : "Now playing") };
     }
     set(pr, { kind, ...data, host: uid, hostName: me().screenName, at: Date.now() }).then(() => {
       say(`🎉 ${me().screenName} started a ${PARTY[kind][1]}: ${data.title}. Hit ▶ Tune In at the top!`, "enter");
       import("./engage.js").then((m) => m.awardBadge("host"));
       tuneIn();
-    }).catch(() => alert("Couldn't start the party right now."));
+    }).catch((err) => alert(/permission/i.test(String(err?.code || err?.message))
+      ? "Couldn't start the party. Make sure you're still in the room, or ask the current host to end their party first."
+      : "Couldn't start the party right now. Try again in a moment."));
   };
   const origOff = pr;
   return origOff;

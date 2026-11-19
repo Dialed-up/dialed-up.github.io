@@ -840,3 +840,5 @@ ol.lb li.me { background: #fff6c8; font-weight: bold; }
   #toolbar, #menus, #taskbar-windows, .stories-bar { scrollbar-width: thin !important; }
   #toolbar::-webkit-scrollbar, #menus::-webkit-scrollbar, #taskbar-windows::-webkit-scrollbar, .stories-bar::-webkit-scrollbar { height: 6px; display: block; }
 }
+/* long party names: two lines max */
+.party-head > span:first-child { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
