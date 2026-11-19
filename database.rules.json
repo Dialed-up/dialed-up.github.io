@@ -87,7 +87,7 @@
         },
         "party": {
           ".write": "auth != null && !(root.child('bans/' + auth.uid + '/until').val() > now) && root.child('rooms/' + $room + '/members/' + auth.uid).exists() && !(root.child('rooms/' + $room + '/kicks/' + auth.uid + '/until').val() > now) && (!newData.exists() || !data.exists() || data.child('host').val() === auth.uid)",
-          ".validate": "!newData.exists() || (newData.child('host').val() === auth.uid && newData.child('kind').isString() && newData.child('at').isNumber() && (!newData.child('url').exists() || (newData.child('url').val().beginsWith('https://') && newData.child('url').val().length <= 500)) && (!newData.child('title').exists() || newData.child('title').val().length <= 90))"
+          ".validate": "!newData.exists() || (newData.child('host').val() === auth.uid && newData.child('kind').isString() && newData.child('at').isNumber() && (!newData.child('url').exists() || (newData.child('url').val().beginsWith('https:') && newData.child('url').val().length <= 500)) && (!newData.child('title').exists() || newData.child('title').val().length <= 90))"
         },
         "kicks": {
           "$uid": {
