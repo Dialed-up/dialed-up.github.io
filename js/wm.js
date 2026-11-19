@@ -223,6 +223,8 @@ export function safeTop() {
 export function focus(id) {
   const w = wins.get(id);
   if (!w) return;
+  // Already in front: change nothing (on iPhone, changing the page during a tap can cancel the tap)
+  if (w.el.classList.contains("front") && !w.el.classList.contains("minimized") && Number(w.el.style.zIndex) === z) return;
   wins.forEach((o) => { o.el.classList.remove("front"); o.tb.classList.remove("active"); });
   w.el.style.zIndex = ++z;
   w.el.classList.add("front");

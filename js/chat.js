@@ -940,7 +940,8 @@ export function openIM(uid, { quiet = false } = {}) {
       const markSeen = () => {
         if (!imOnScreen(uid)) return;
         markConvRead(conv, lastMsgs[lastMsgs.length - 1]?.[1]?.ts || 0);
-        refreshBuddyList();
+        clearTimeout(markSeen.t);
+        markSeen.t = setTimeout(refreshBuddyList, 600);   // redraw the list after the tap is done, not during it
         const newest = [...lastMsgs].reverse().find(([, m]) => m.from !== state.uid);
         if (!newest || (newest[1].ts || 0) <= seenWritten) return;
         seenWritten = newest[1].ts || Date.now();
